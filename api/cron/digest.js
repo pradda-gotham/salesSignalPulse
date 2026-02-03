@@ -2,50 +2,56 @@
 // Runs daily at 7 AM UTC to send signal digests to users
 
 import { createClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
 
+// Use Node.js runtime instead of Edge (Resend requires Node.js modules)
 export const config = {
-    runtime: 'edge',
+  runtime: 'nodejs',
+  maxDuration: 60,
 };
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const resendApiKey = process.env.RESEND_API_KEY;
 
-export default async function handler(request) {
-    // Verify cron request
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-        if (process.env.NODE_ENV === 'production' && !request.headers.get('x-vercel-cron')) {
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-                status: 401,
-                headers: { 'Content-Type': 'application/json' },
-            });
-        }
+export default async function handler(req, res) {
+  // Only allow GET/POST for cron
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Verify cron request
+  const authHeader = req.headers.authorization;
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    if (process.env.NODE_ENV === 'production' && !req.headers['x-vercel-cron']) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
+  }
 
-    console.log('[DIGEST] Starting daily email digest...');
+  console.log('[DIGEST] Starting daily email digest...');
 
-    if (!supabaseUrl || !supabaseServiceKey) {
-        console.error('[DIGEST] Missing Supabase credentials');
-        return new Response(JSON.stringify({ error: 'Missing Supabase credentials' }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' },
-        });
-    }
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error('[DIGEST] Missing Supabase credentials');
+    return res.status(500).json({ error: 'Missing Supabase credentials' });
+  }
 
-    if (!resendApiKey) {
-        console.warn('[DIGEST] Missing Resend API key, skipping email delivery');
-    }
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const resend = resendApiKey ? new Resend(resendApiKey) : null;
-
+  // Dynamically import Resend only if API key is present
+  let resend = null;
+  if (resendApiKey) {
     try {
-        // Get all organizations with their users who want digests
-        const { data: orgs, error: orgsError } = await supabase
-            .from('organizations')
-            .select(`
+      const { Resend } = await import('resend');
+      resend = new Resend(resendApiKey);
+    } catch (e) {
+      console.warn('[DIGEST] Could not load Resend:', e.message);
+    }
+  }
+
+  try {
+    // Get all organizations with their users who want digests
+    const { data: orgs, error: orgsError } = await supabase
+      .from('organizations')
+      .select(`
         id,
         name,
         users!inner (
@@ -55,120 +61,114 @@ export default async function handler(request) {
           receives_digest
         )
       `)
-            .eq('is_active', true);
+      .eq('is_active', true);
 
-        if (orgsError) {
-            throw orgsError;
-        }
-
-        console.log(`[DIGEST] Processing ${orgs?.length || 0} organizations`);
-
-        const results = [];
-
-        for (const org of orgs || []) {
-            try {
-                // Get new signals from last 24 hours
-                const yesterday = new Date();
-                yesterday.setDate(yesterday.getDate() - 1);
-
-                const { data: signals, error: signalsError } = await supabase
-                    .from('signals')
-                    .select('*')
-                    .eq('org_id', org.id)
-                    .eq('status', 'new')
-                    .gte('found_at', yesterday.toISOString())
-                    .order('score', { ascending: false })
-                    .limit(10);
-
-                if (signalsError) {
-                    console.error(`[DIGEST] Error fetching signals for ${org.name}:`, signalsError);
-                    continue;
-                }
-
-                if (!signals || signals.length === 0) {
-                    console.log(`[DIGEST] No new signals for ${org.name}, skipping`);
-                    continue;
-                }
-
-                // Get users who want digest emails
-                const digestRecipients = org.users.filter(u => u.receives_digest);
-
-                if (digestRecipients.length === 0) {
-                    console.log(`[DIGEST] No digest recipients for ${org.name}`);
-                    continue;
-                }
-
-                // Build email content
-                const emailHtml = buildDigestEmail(org.name, signals);
-
-                // Send to each recipient
-                for (const user of digestRecipients) {
-                    if (resend) {
-                        try {
-                            await resend.emails.send({
-                                from: 'SalesPulse <noreply@salespulse.dev>',
-                                to: user.email,
-                                subject: `🔥 ${signals.length} New Opportunity Signals - ${org.name}`,
-                                html: emailHtml,
-                            });
-                            console.log(`[DIGEST] Sent email to ${user.email}`);
-                        } catch (emailError) {
-                            console.error(`[DIGEST] Failed to send to ${user.email}:`, emailError);
-                        }
-                    } else {
-                        console.log(`[DIGEST] Would send to ${user.email} (Resend not configured)`);
-                    }
-                }
-
-                // Mark signals as emailed
-                const signalIds = signals.map(s => s.id);
-                await supabase
-                    .from('signals')
-                    .update({ last_emailed_at: new Date().toISOString() })
-                    .in('id', signalIds);
-
-                results.push({
-                    org: org.name,
-                    signals: signals.length,
-                    recipients: digestRecipients.length,
-                    status: 'sent',
-                });
-
-            } catch (orgError) {
-                console.error(`[DIGEST] Error processing ${org.name}:`, orgError);
-                results.push({
-                    org: org.name,
-                    status: 'failed',
-                    error: orgError.message,
-                });
-            }
-        }
-
-        console.log('[DIGEST] Completed');
-
-        return new Response(JSON.stringify({
-            success: true,
-            processed: results.length,
-            results,
-        }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-        });
-
-    } catch (error) {
-        console.error('[DIGEST] Failed:', error);
-        return new Response(JSON.stringify({
-            error: 'Digest failed',
-            details: error.message,
-        }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' },
-        });
+    if (orgsError) {
+      throw orgsError;
     }
+
+    console.log(`[DIGEST] Processing ${orgs?.length || 0} organizations`);
+
+    const results = [];
+
+    for (const org of orgs || []) {
+      try {
+        // Get new signals from last 24 hours
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        const { data: signals, error: signalsError } = await supabase
+          .from('signals')
+          .select('*')
+          .eq('org_id', org.id)
+          .eq('status', 'new')
+          .gte('found_at', yesterday.toISOString())
+          .order('score', { ascending: false })
+          .limit(10);
+
+        if (signalsError) {
+          console.error(`[DIGEST] Error fetching signals for ${org.name}:`, signalsError);
+          continue;
+        }
+
+        if (!signals || signals.length === 0) {
+          console.log(`[DIGEST] No new signals for ${org.name}, skipping`);
+          continue;
+        }
+
+        // Get users who want digest emails
+        const digestRecipients = org.users.filter(u => u.receives_digest);
+
+        if (digestRecipients.length === 0) {
+          console.log(`[DIGEST] No digest recipients for ${org.name}`);
+          continue;
+        }
+
+        // Build email content
+        const emailHtml = buildDigestEmail(org.name, signals);
+
+        // Send to each recipient
+        for (const user of digestRecipients) {
+          if (resend) {
+            try {
+              await resend.emails.send({
+                from: 'SalesPulse <noreply@salespulse.dev>',
+                to: user.email,
+                subject: `🔥 ${signals.length} New Opportunity Signals - ${org.name}`,
+                html: emailHtml,
+              });
+              console.log(`[DIGEST] Sent email to ${user.email}`);
+            } catch (emailError) {
+              console.error(`[DIGEST] Failed to send to ${user.email}:`, emailError);
+            }
+          } else {
+            console.log(`[DIGEST] Would send to ${user.email} (Resend not configured)`);
+          }
+        }
+
+        // Mark signals as emailed
+        const signalIds = signals.map(s => s.id);
+        await supabase
+          .from('signals')
+          .update({ last_emailed_at: new Date().toISOString() })
+          .in('id', signalIds);
+
+        results.push({
+          org: org.name,
+          signals: signals.length,
+          recipients: digestRecipients.length,
+          status: 'sent',
+        });
+
+      } catch (orgError) {
+        console.error(`[DIGEST] Error processing ${org.name}:`, orgError);
+        results.push({
+          org: org.name,
+          status: 'failed',
+          error: orgError.message,
+        });
+      }
+    }
+
+    console.log('[DIGEST] Completed');
+
+    return res.status(200).json({
+      success: true,
+      processed: results.length,
+      results,
+    });
+
+  } catch (error) {
+    console.error('[DIGEST] Failed:', error);
+    return res.status(500).json({
+      error: 'Digest failed',
+      details: error.message,
+    });
+  }
 }
 
 function buildDigestEmail(orgName, signals) {
-    const signalRows = signals.map(s => `
+  const signalRows = signals.map(s => `
     <tr>
       <td style="padding: 16px; border-bottom: 1px solid #333;">
         <div style="font-weight: 600; color: #fff; margin-bottom: 4px;">${escapeHtml(s.headline)}</div>
@@ -187,7 +187,7 @@ function buildDigestEmail(orgName, signals) {
     </tr>
   `).join('');
 
-    return `
+  return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -245,25 +245,25 @@ function buildDigestEmail(orgName, signals) {
 }
 
 function escapeHtml(str) {
-    if (!str) return '';
-    return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function getScoreColor(score) {
-    if (score >= 80) return '#22c55e';
-    if (score >= 60) return '#f97316';
-    return '#6b7280';
+  if (score >= 80) return '#22c55e';
+  if (score >= 60) return '#f97316';
+  return '#6b7280';
 }
 
 function getUrgencyColor(urgency) {
-    switch (urgency) {
-        case 'emergency': return '#ef4444';
-        case 'high': return '#f97316';
-        case 'medium': return '#eab308';
-        default: return '#6b7280';
-    }
+  switch (urgency) {
+    case 'emergency': return '#ef4444';
+    case 'high': return '#f97316';
+    case 'medium': return '#eab308';
+    default: return '#6b7280';
+  }
 }

@@ -3,23 +3,26 @@
 
 import { createClient } from '@supabase/supabase-js';
 
+// Use Node.js runtime for consistency
 export const config = {
-    runtime: 'edge',
+    runtime: 'nodejs',
+    maxDuration: 60,
 };
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-export default async function handler(request) {
+export default async function handler(req, res) {
+    // Only allow GET/POST for cron
+    if (req.method !== 'GET' && req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
     // Verify this is a cron request (Vercel sets this header)
-    const authHeader = request.headers.get('authorization');
+    const authHeader = req.headers.authorization;
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-        // In development, allow without auth
-        if (process.env.NODE_ENV === 'production' && !request.headers.get('x-vercel-cron')) {
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-                status: 401,
-                headers: { 'Content-Type': 'application/json' },
-            });
+        if (process.env.NODE_ENV === 'production' && !req.headers['x-vercel-cron']) {
+            return res.status(401).json({ error: 'Unauthorized' });
         }
     }
 
@@ -27,10 +30,7 @@ export default async function handler(request) {
 
     if (!supabaseUrl || !supabaseServiceKey) {
         console.error('[CRON] Missing Supabase credentials');
-        return new Response(JSON.stringify({ error: 'Missing credentials' }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' },
-        });
+        return res.status(500).json({ error: 'Missing credentials' });
     }
 
     // Use service role key for admin access (bypasses RLS)
@@ -95,7 +95,7 @@ export default async function handler(request) {
                         .from('hunt_logs')
                         .update({
                             completed_at: new Date().toISOString(),
-                            signals_found: 0, // Will be updated when Gemini integration is added
+                            signals_found: 0,
                             new_signals: 0,
                             status: 'success',
                         })
@@ -120,23 +120,17 @@ export default async function handler(request) {
 
         console.log('[CRON] Daily hunt completed');
 
-        return new Response(JSON.stringify({
+        return res.status(200).json({
             success: true,
             processed: results.length,
             results,
-        }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
         });
 
     } catch (error) {
         console.error('[CRON] Hunt failed:', error);
-        return new Response(JSON.stringify({
+        return res.status(500).json({
             error: 'Hunt failed',
             details: error.message,
-        }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' },
         });
     }
 }
