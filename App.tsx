@@ -12,6 +12,7 @@ import { AuthCallback } from './views/AuthCallback';
 import { SetupOrgView } from './views/SetupOrgView';
 import AuthTestPage from './views/AuthTestPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { useOrgData } from './hooks/useOrgData';
 import { geminiService } from './services/geminiService';
 import { AlertTriangle, Key, ExternalLink, LogOut, Loader2 } from 'lucide-react';
 
@@ -37,6 +38,16 @@ const App: React.FC = () => {
 // Inner component that uses auth context
 const AppContent: React.FC = () => {
   const { user, userProfile, organization, loading, signOut } = useAuth();
+
+  // Use org data hook for Supabase persistence
+  const {
+    triggers: dbTriggers,
+    signals: dbSignals,
+    addTrigger,
+    saveSignal,
+    updateSignalStatus,
+    loading: orgDataLoading
+  } = useOrgData();
 
   const [activeTab, setActiveTab] = useState('signals');
   const [selectedSignal, setSelectedSignal] = useState<MarketSignal | null>(null);
@@ -164,7 +175,25 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const handleTriggersUpdated = (triggers: SalesTrigger[]) => {
+  const handleTriggersUpdated = async (triggers: SalesTrigger[]) => {
+    // Find new triggers that don't exist in current state
+    const existingIds = new Set(activeTriggers.map(t => t.id));
+    const newTriggers = triggers.filter(t => !existingIds.has(t.id));
+
+    // Save new triggers to Supabase
+    if (newTriggers.length > 0) {
+      console.log('[APP] Saving', newTriggers.length, 'new triggers to Supabase...');
+      for (const trigger of newTriggers) {
+        await addTrigger({
+          product: trigger.product,
+          event: trigger.event,
+          source: trigger.source,
+          logic: trigger.logic
+        });
+      }
+      console.log('[APP] Triggers saved to Supabase');
+    }
+
     setActiveTriggers(triggers);
   };
 
@@ -174,6 +203,13 @@ const AppContent: React.FC = () => {
     try {
       const discovered = await geminiService.huntSignals(profile, triggers, region);
       setSignals(discovered);
+
+      // Save discovered signals to Supabase
+      console.log("[APP] Saving", discovered.length, "signals to Supabase...");
+      for (const signal of discovered) {
+        await saveSignal(signal);
+      }
+      console.log("[APP] Signals saved to Supabase");
 
       if (discovered.length > 0) {
         const topSignals = [...discovered].sort((a, b) => b.score - a.score).slice(0, 2);
