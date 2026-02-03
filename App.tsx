@@ -16,7 +16,7 @@ import { geminiService } from './services/geminiService';
 import { AlertTriangle, Key, ExternalLink, LogOut, Loader2 } from 'lucide-react';
 
 // Set to true to use the simplified auth test page
-const AUTH_TEST_MODE = true;
+const AUTH_TEST_MODE = false;
 
 declare global {
   var aistudio: {
@@ -296,9 +296,6 @@ const AppContent: React.FC = () => {
                   </p>
                   <p className="text-zinc-600 dark:text-zinc-400">
                     <span className="font-medium">Organization:</span> {organization?.name}
-                  </p>
-                  <p className="text-zinc-600 dark:text-zinc-400">
-                    <span className="font-medium">Role:</span> {userProfile?.role}
                   </p>
                 </div>
                 <button
