@@ -1,28 +1,24 @@
-
 import { createClient } from '@supabase/supabase-js';
-import { Database } from './database.types';
 
-// Supabase configuration
-const supabaseUrl = 'https://gkjdulfxxnzmwlrfpnrx.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdramR1bGZ4eG56bXdscmZwbnJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxMDE3MzYsImV4cCI6MjA4NTY3NzczNn0._NiN0lQYO0V319bUps6VaDyvBcO50GC2LDEtGe0vYRc';
+// New Supabase project credentials
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://euwzzzpdvsknmcgwbprs.supabase.co';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1d3p6enBkdnNrbm1jZ3dicHJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxMzA0NDEsImV4cCI6MjA4NTcwNjQ0MX0.BT9Sd43-TIZITxxWuHhFrDBzctU8Dh4uhhNiofAayck';
 
-// Flag to check if Supabase is properly configured
-export const isSupabaseConfigured = true;
+// Simple database types
+export interface Organization {
+    id: string;
+    name: string;
+    created_at: string;
+}
 
-// Create client with proper configuration
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-    auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-        flowType: 'pkce',
-    },
-    global: {
-        headers: {
-            'X-Client-Info': 'pulsesignal',
-        },
-    },
-});
+export interface UserProfile {
+    id: string;
+    email: string;
+    org_id: string | null;
+    created_at: string;
+}
 
-console.log('[Supabase] Client initialized with URL:', supabaseUrl);
+// Create Supabase client
+export const supabase = createClient(supabaseUrl, supabaseKey);
+
+console.log('[Supabase] Client initialized');

@@ -10,9 +10,13 @@ import OnboardingView from './views/OnboardingView';
 import { LoginView } from './views/LoginView';
 import { AuthCallback } from './views/AuthCallback';
 import { SetupOrgView } from './views/SetupOrgView';
+import AuthTestPage from './views/AuthTestPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { geminiService } from './services/geminiService';
 import { AlertTriangle, Key, ExternalLink, LogOut, Loader2 } from 'lucide-react';
+
+// Set to true to use the simplified auth test page
+const AUTH_TEST_MODE = true;
 
 declare global {
   var aistudio: {
@@ -25,7 +29,7 @@ declare global {
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <AppContent />
+      {AUTH_TEST_MODE ? <AuthTestPage /> : <AppContent />}
     </AuthProvider>
   );
 };
