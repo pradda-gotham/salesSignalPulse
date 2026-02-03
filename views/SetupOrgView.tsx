@@ -55,23 +55,25 @@ export const SetupOrgView: React.FC<SetupOrgViewProps> = ({ onComplete }) => {
 
             console.log('[SetupOrg] Organization created:', orgId);
 
-            // Step 2: Create the user profile linked to this org
+            // Step 2: Update the user profile with org_id (user was auto-created on signup)
             const { error: userError } = await supabase
                 .from('users')
-                .insert({
+                .upsert({
                     id: user.id,
                     org_id: orgId,
                     email: user.email!,
                     name: userName || null,
                     role: 'admin', // First user is admin
+                }, {
+                    onConflict: 'id'
                 });
 
             if (userError) {
-                console.error('[SetupOrg] User insert error:', userError);
+                console.error('[SetupOrg] User update error:', userError);
                 throw new Error(`User profile: ${userError.message}`);
             }
 
-            console.log('[SetupOrg] User profile created');
+            console.log('[SetupOrg] User profile updated with org_id');
 
             // Refresh the profile to load the new data
             await refreshProfile();
