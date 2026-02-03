@@ -35,31 +35,43 @@ export const SetupOrgView: React.FC<SetupOrgViewProps> = ({ onComplete }) => {
         setError(null);
 
         try {
+            // Generate UUID for the org client-side
+            const orgId = crypto.randomUUID();
+
             // Step 1: Create the organization
-            const { data: org, error: orgError } = await supabase
+            const { error: orgError } = await supabase
                 .from('organizations')
                 .insert({
+                    id: orgId,
                     name: orgName.trim(),
-                    industry: industry || null,
+                    industry: industry?.toLowerCase() || null,
                     website: website || null,
-                })
-                .select()
-                .single();
+                });
 
-            if (orgError) throw orgError;
+            if (orgError) {
+                console.error('[SetupOrg] Org insert error:', orgError);
+                throw new Error(`Organization: ${orgError.message}`);
+            }
+
+            console.log('[SetupOrg] Organization created:', orgId);
 
             // Step 2: Create the user profile linked to this org
             const { error: userError } = await supabase
                 .from('users')
                 .insert({
                     id: user.id,
-                    org_id: org.id,
+                    org_id: orgId,
                     email: user.email!,
                     name: userName || null,
                     role: 'admin', // First user is admin
                 });
 
-            if (userError) throw userError;
+            if (userError) {
+                console.error('[SetupOrg] User insert error:', userError);
+                throw new Error(`User profile: ${userError.message}`);
+            }
+
+            console.log('[SetupOrg] User profile created');
 
             // Refresh the profile to load the new data
             await refreshProfile();
