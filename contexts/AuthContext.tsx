@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '../src/lib/supabase';
+import { supabase, isSupabaseConfigured } from '../src/lib/supabase';
 import { Database } from '../src/lib/database.types';
 
 type UserProfile = Database['public']['Tables']['users']['Row'];
@@ -66,13 +66,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     useEffect(() => {
-        // Get initial session
+        // Skip auth if Supabase is not configured
+        if (!isSupabaseConfigured) {
+            console.warn('[Auth] Supabase not configured, skipping auth');
+            setLoading(false);
+            return;
+        }
+
+        // Get initial session with error handling
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
             setUser(session?.user ?? null);
             if (session?.user) {
                 fetchProfile(session.user.id);
             }
+            setLoading(false);
+        }).catch((error) => {
+            console.error('[Auth] Failed to get session:', error);
             setLoading(false);
         });
 
