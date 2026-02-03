@@ -46,6 +46,9 @@ const AppContent: React.FC = () => {
     addTrigger,
     saveSignal,
     updateSignalStatus,
+    createHuntLog,
+    completeHuntLog,
+    saveDossier: saveDossierToDb,
     loading: orgDataLoading
   } = useOrgData();
 
@@ -138,6 +141,10 @@ const AppContent: React.FC = () => {
         const dossier = await geminiService.generateDossier(signal, businessProfile);
         setSelectedDossier(dossier);
         setDossierCache(prev => ({ ...prev, [signal.id]: dossier }));
+
+        // Save dossier to Supabase
+        await saveDossierToDb(signal.id, dossier as unknown as Record<string, unknown>);
+        console.log("[APP] Dossier saved to Supabase for signal:", signal.id);
       } catch (e) {
         handleError(e);
         setDossierError("The AI encountered an issue generating this dossier. This might be due to API rate limits.");
@@ -200,6 +207,11 @@ const AppContent: React.FC = () => {
   const triggerHunting = async (profile: BusinessProfile, triggers: SalesTrigger[], region?: string) => {
     console.log("[APP] Triggering Hunt with:", { profile, triggers, region });
     setIsSearchingSignals(true);
+
+    // Create hunt log
+    const huntId = await createHuntLog();
+    console.log("[APP] Hunt log created:", huntId);
+
     try {
       const discovered = await geminiService.huntSignals(profile, triggers, region);
       setSignals(discovered);
@@ -211,11 +223,22 @@ const AppContent: React.FC = () => {
       }
       console.log("[APP] Signals saved to Supabase");
 
+      // Complete hunt log with success
+      if (huntId) {
+        await completeHuntLog(huntId, discovered.length, 'success');
+        console.log("[APP] Hunt log completed successfully");
+      }
+
       if (discovered.length > 0) {
         const topSignals = [...discovered].sort((a, b) => b.score - a.score).slice(0, 2);
         topSignals.forEach(s => prefetchDossier(s));
       }
     } catch (e) {
+      // Complete hunt log with error
+      if (huntId) {
+        await completeHuntLog(huntId, 0, 'failed', String(e));
+        console.log("[APP] Hunt log completed with error");
+      }
       handleError(e);
     } finally {
       setIsSearchingSignals(false);

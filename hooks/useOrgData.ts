@@ -188,6 +188,28 @@ export function useOrgData() {
         return success;
     }, []);
 
+    // Create a hunt log when starting a hunt
+    const createHuntLog = useCallback(async () => {
+        if (!orgId) return null;
+        return await dataService.createHuntLog(orgId);
+    }, [orgId]);
+
+    // Complete a hunt log
+    const completeHuntLog = useCallback(async (huntId: string, signalsFound: number, status: 'success' | 'failed' = 'success', error?: string) => {
+        return await dataService.updateHuntLog(huntId, {
+            completed_at: new Date().toISOString(),
+            signals_found: signalsFound,
+            status,
+            error,
+        });
+    }, []);
+
+    // Save a dossier for a signal
+    const saveDossier = useCallback(async (signalId: string, content: Record<string, unknown>) => {
+        if (!orgId) return null;
+        return await dataService.saveDossier(orgId, signalId, content);
+    }, [orgId]);
+
     return {
         organization,
         userProfile,
@@ -200,6 +222,9 @@ export function useOrgData() {
         removeTrigger,
         saveSignal,
         updateSignalStatus,
+        createHuntLog,
+        completeHuntLog,
+        saveDossier,
         setSignals,
     };
 }
