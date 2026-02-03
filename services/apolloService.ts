@@ -52,9 +52,9 @@ interface ApolloCompanySearchResponse {
 
 // Use Vite proxy to avoid CORS issues in development
 // In production, this should point to your backend API
-const APOLLO_API_BASE = import.meta.env.DEV
-    ? '/api/apollo'  // Proxied through Vite dev server
-    : 'https://api.apollo.io/v1';  // Direct call (requires backend proxy in production)
+// Use Vite proxy in Dev and Vercel Rewrite+Edge Function in Prod
+// This ensures all requests go through our proxy which handles CORS
+const APOLLO_API_BASE = '/api/apollo';
 
 
 async function makeApolloRequest<T>(endpoint: string, body: any): Promise<T> {
