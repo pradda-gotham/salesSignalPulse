@@ -73,8 +73,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
+        // Set a timeout to prevent infinite loading
+        const timeout = setTimeout(() => {
+            console.warn('[Auth] Auth check timed out after 5s, proceeding without session');
+            setLoading(false);
+        }, 5000);
+
         // Get initial session with error handling
         supabase.auth.getSession().then(({ data: { session } }) => {
+            clearTimeout(timeout);
+            console.log('[Auth] Session check complete:', session ? 'logged in' : 'no session');
             setSession(session);
             setUser(session?.user ?? null);
             if (session?.user) {
@@ -82,6 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
             setLoading(false);
         }).catch((error) => {
+            clearTimeout(timeout);
             console.error('[Auth] Failed to get session:', error);
             setLoading(false);
         });
