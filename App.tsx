@@ -78,6 +78,9 @@ const AppContent: React.FC = () => {
   const [dossierCache, setDossierCache] = useState<Record<string, DealDossier>>({});
   const [fetchingDossierIds, setFetchingDossierIds] = useState<Set<string>>(new Set());
 
+  // Map local signal IDs to database UUIDs
+  const [signalIdMap, setSignalIdMap] = useState<Record<string, string>>({});
+
   useEffect(() => {
     if (businessProfile && businessProfile.geography.length > 0 && !activeHuntingRegion) {
       setActiveHuntingRegion(businessProfile.geography[0]);
@@ -142,9 +145,14 @@ const AppContent: React.FC = () => {
         setSelectedDossier(dossier);
         setDossierCache(prev => ({ ...prev, [signal.id]: dossier }));
 
-        // Save dossier to Supabase
-        await saveDossierToDb(signal.id, dossier as unknown as Record<string, unknown>);
-        console.log("[APP] Dossier saved to Supabase for signal:", signal.id);
+        // Save dossier to Supabase using database UUID
+        const dbSignalId = signalIdMap[signal.id];
+        if (dbSignalId) {
+          await saveDossierToDb(dbSignalId, dossier as unknown as Record<string, unknown>);
+          console.log("[APP] Dossier saved to Supabase for signal:", dbSignalId);
+        } else {
+          console.warn("[APP] No database UUID found for signal:", signal.id);
+        }
       } catch (e) {
         handleError(e);
         setDossierError("The AI encountered an issue generating this dossier. This might be due to API rate limits.");
@@ -216,12 +224,18 @@ const AppContent: React.FC = () => {
       const discovered = await geminiService.huntSignals(profile, triggers, region);
       setSignals(discovered);
 
-      // Save discovered signals to Supabase
+      // Save discovered signals to Supabase and track database IDs
       console.log("[APP] Saving", discovered.length, "signals to Supabase...");
+      const newIdMap: Record<string, string> = {};
       for (const signal of discovered) {
-        await saveSignal(signal);
+        const savedSignal = await saveSignal(signal);
+        if (savedSignal) {
+          // Map local signal ID to database UUID
+          newIdMap[signal.id] = savedSignal.id;
+        }
       }
-      console.log("[APP] Signals saved to Supabase");
+      setSignalIdMap(prev => ({ ...prev, ...newIdMap }));
+      console.log("[APP] Signals saved to Supabase, ID map:", newIdMap);
 
       // Complete hunt log with success
       if (huntId) {
