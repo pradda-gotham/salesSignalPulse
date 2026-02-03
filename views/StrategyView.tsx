@@ -153,8 +153,8 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
           <button
             onClick={() => setShowCustomForm(true)}
             className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold border transition-all ${isDarkMode
-                ? 'bg-white/5 hover:bg-white/10 text-white border-white/10'
-                : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-200 shadow-sm'
+              ? 'bg-white/5 hover:bg-white/10 text-white border-white/10'
+              : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-200 shadow-sm'
               }`}
           >
             <PlusCircle className="w-4 h-4" /> Add Custom Signal
@@ -162,8 +162,8 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
           <button
             onClick={() => setShowWizard(true)}
             className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold border transition-all shadow-[0_0_15px_rgba(34,197,94,0.1)] hover:shadow-[0_0_25px_rgba(34,197,94,0.2)] ${isDarkMode
-                ? 'bg-green-600/10 hover:bg-green-600/20 text-green-400 border-green-500/20'
-                : 'bg-green-50 hover:bg-green-100 text-green-700 border-green-200'
+              ? 'bg-green-600/10 hover:bg-green-600/20 text-green-400 border-green-500/20'
+              : 'bg-green-50 hover:bg-green-100 text-green-700 border-green-200'
               }`}
           >
             <Globe className="w-4 h-4" />
@@ -183,8 +183,8 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
           <div key={i} className={`p-6 rounded-3xl border flex items-center gap-4 group ${isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-gray-200 shadow-sm'
             }`}>
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${isDarkMode
-                ? 'bg-white/5 text-zinc-500 group-hover:text-orange-400'
-                : 'bg-gray-100 text-gray-500 group-hover:text-orange-600'
+              ? 'bg-white/5 text-zinc-500 group-hover:text-orange-400'
+              : 'bg-gray-100 text-gray-500 group-hover:text-orange-600'
               }`}>
               <stat.icon className="w-6 h-6" />
             </div>
@@ -268,8 +268,8 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
                     type="text"
                     placeholder="e.g. tenders.nsw.gov.au"
                     className={`w-full border-2 rounded-2xl px-6 py-4 text-lg font-mono focus:outline-none focus:border-green-500 transition-all ${isDarkMode
-                        ? 'bg-black/40 border-green-500/30 text-white'
-                        : 'bg-white/60 border-green-500/20 text-gray-900'
+                      ? 'bg-black/40 border-green-500/30 text-white'
+                      : 'bg-white/60 border-green-500/20 text-gray-900'
                       }`}
                     value={wizardWebsite}
                     onChange={e => setWizardWebsite(e.target.value)}
@@ -348,8 +348,8 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
                   type="text"
                   placeholder="e.g. Regional Manager hired by Competitor"
                   className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-all ${isDarkMode
-                      ? 'bg-black/40 border-white/5 text-white'
-                      : 'bg-white/60 border-gray-200 text-gray-900'
+                    ? 'bg-black/40 border-white/5 text-white'
+                    : 'bg-white/60 border-gray-200 text-gray-900'
                     }`}
                   value={customSignal.event}
                   onChange={e => setCustomSignal({ ...customSignal, event: e.target.value })}
@@ -359,8 +359,8 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Relevant Product</label>
                 <select
                   className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-all ${isDarkMode
-                      ? 'bg-black/40 border-white/5 text-white'
-                      : 'bg-white/60 border-gray-200 text-gray-900'
+                    ? 'bg-black/40 border-white/5 text-white'
+                    : 'bg-white/60 border-gray-200 text-gray-900'
                     }`}
                   value={customSignal.product}
                   onChange={e => setCustomSignal({ ...customSignal, product: e.target.value })}
@@ -377,8 +377,8 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
                   type="text"
                   placeholder="e.g. tenders.nsw.gov.au (Leave empty to search entire web)"
                   className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-all font-mono text-sm ${isDarkMode
-                      ? 'bg-black/40 border-white/5 text-white placeholder:text-zinc-600'
-                      : 'bg-white/60 border-gray-200 text-gray-900 placeholder:text-gray-400'
+                    ? 'bg-black/40 border-white/5 text-white placeholder:text-zinc-600'
+                    : 'bg-white/60 border-gray-200 text-gray-900 placeholder:text-gray-400'
                     }`}
                   value={customSignal.limitToSite || ''}
                   onChange={e => setCustomSignal({ ...customSignal, limitToSite: e.target.value })}
@@ -391,8 +391,8 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
                   rows={2}
                   placeholder="Identify accounts currently using competitor solutions that might be open to replacement following personnel shift..."
                   className={`w-full border rounded-2xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-all resize-none ${isDarkMode
-                      ? 'bg-black/40 border-white/5 text-white'
-                      : 'bg-white/60 border-gray-200 text-gray-900'
+                    ? 'bg-black/40 border-white/5 text-white'
+                    : 'bg-white/60 border-gray-200 text-gray-900'
                     }`}
                   value={customSignal.logic}
                   onChange={e => setCustomSignal({ ...customSignal, logic: e.target.value })}
@@ -422,7 +422,12 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
               <span className="text-[10px] text-zinc-600 uppercase tracking-wider">Search:</span>
               <div className={`inline-flex items-center rounded-lg p-0.5 border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-gray-100 border-gray-200'}`}>
                 <button
-                  onClick={() => setGlobalSearchMode('web')}
+                  onClick={() => {
+                    setGlobalSearchMode('web');
+                    const nextTriggers = triggers.map(t => ({ ...t, searchMode: 'web' as const }));
+                    setTriggers(nextTriggers);
+                    onTriggersUpdated(nextTriggers);
+                  }}
                   className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${globalSearchMode === 'web'
                     ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30'
                     : 'text-zinc-500 hover:text-zinc-400'
@@ -431,7 +436,12 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
                   Web
                 </button>
                 <button
-                  onClick={() => setGlobalSearchMode('sites')}
+                  onClick={() => {
+                    setGlobalSearchMode('sites');
+                    const nextTriggers = triggers.map(t => ({ ...t, searchMode: 'sites' as const }));
+                    setTriggers(nextTriggers);
+                    onTriggersUpdated(nextTriggers);
+                  }}
                   className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${globalSearchMode === 'sites'
                     ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
                     : 'text-zinc-500 hover:text-zinc-400'
@@ -440,7 +450,12 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
                   Sites
                 </button>
                 <button
-                  onClick={() => setGlobalSearchMode('both')}
+                  onClick={() => {
+                    setGlobalSearchMode('both');
+                    const nextTriggers = triggers.map(t => ({ ...t, searchMode: 'both' as const }));
+                    setTriggers(nextTriggers);
+                    onTriggersUpdated(nextTriggers);
+                  }}
                   className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${globalSearchMode === 'both'
                     ? 'bg-green-600/20 text-green-400 border border-green-500/30'
                     : 'text-zinc-500 hover:text-zinc-400'
@@ -492,12 +507,12 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
                       </td>
                       <td className="px-8 py-6">
                         <span className={`px-3 py-1 rounded-lg text-[10px] font-black border uppercase tracking-wider ${t.status === 'Approved'
-                            ? 'text-green-500 border-green-500/20 bg-green-500/10'
-                            : t.status === 'Rejected'
-                              ? 'text-red-500 border-red-500/20 bg-red-500/10'
-                              : isDarkMode
-                                ? 'text-zinc-500 border-white/5 bg-white/5'
-                                : 'text-gray-500 border-gray-200 bg-gray-100'
+                          ? 'text-green-500 border-green-500/20 bg-green-500/10'
+                          : t.status === 'Rejected'
+                            ? 'text-red-500 border-red-500/20 bg-red-500/10'
+                            : isDarkMode
+                              ? 'text-zinc-500 border-white/5 bg-white/5'
+                              : 'text-gray-500 border-gray-200 bg-gray-100'
                           }`}>
                           {t.status === 'Pending' ? 'Calibrating' : t.status}
                         </span>
@@ -553,8 +568,8 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
                                             onTriggersUpdated(nextTriggers);
                                           }}
                                           className={`flex-1 border rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-blue-500 transition-all ${isDarkMode
-                                              ? 'bg-black/40 border-blue-500/20 text-white placeholder:text-zinc-600'
-                                              : 'bg-white border-blue-200 text-gray-900 placeholder:text-gray-400'
+                                            ? 'bg-black/40 border-blue-500/20 text-white placeholder:text-zinc-600'
+                                            : 'bg-white border-blue-200 text-gray-900 placeholder:text-gray-400'
                                             }`}
                                         />
                                         {sites.length > 1 && (

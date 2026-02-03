@@ -142,6 +142,7 @@ const App: React.FC = () => {
   };
 
   const triggerHunting = async (profile: BusinessProfile, triggers: SalesTrigger[], region?: string) => {
+    console.warn("[APP DEBUG] Triggering Hunt with:", { profile, triggers, region });
     setIsSearchingSignals(true);
     try {
       const discovered = await geminiService.huntSignals(profile, triggers, region);

@@ -57,6 +57,27 @@ export interface MarketSignal {
   relevanceFeedback?: 'Positive' | 'Negative';
 }
 
+export interface EnrichedContact {
+  name: string;
+  title: string;
+  email: string | null;
+  phone: string | null;
+  linkedinUrl: string | null;
+  isPrimary: boolean;
+  confidence: number;
+  source: 'apollo' | 'gemini';
+}
+
+export interface EnrichedCompany {
+  name: string;
+  domain: string;
+  linkedinUrl: string | null;
+  employeeCount: number | null;
+  revenue: string | null;
+  industry: string | null;
+  source: 'apollo';
+}
+
 export interface DealDossier {
   id: string;
   signalId: string;
@@ -84,4 +105,8 @@ export interface DealDossier {
   targetLinkedin?: string;
   keyPersonName?: string;
   keyPersonLinkedin?: string;
+  // Apollo enrichment fields
+  enrichedContacts?: EnrichedContact[];
+  enrichedCompany?: EnrichedCompany;
+  isEnriched?: boolean;
 }
