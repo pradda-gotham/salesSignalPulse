@@ -7,8 +7,12 @@ import OpportunitiesView from './views/OpportunitiesView';
 import StrategyView from './views/StrategyView';
 import InsightsView from './views/InsightsView';
 import OnboardingView from './views/OnboardingView';
+import { LoginView } from './views/LoginView';
+import { AuthCallback } from './views/AuthCallback';
+import { SetupOrgView } from './views/SetupOrgView';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { geminiService } from './services/geminiService';
-import { AlertTriangle, Key, ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
+import { AlertTriangle, Key, ExternalLink, LogOut, Loader2 } from 'lucide-react';
 
 declare global {
   var aistudio: {
@@ -17,7 +21,19 @@ declare global {
   };
 }
 
+// Main App wrapped with AuthProvider
 const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+};
+
+// Inner component that uses auth context
+const AppContent: React.FC = () => {
+  const { user, userProfile, organization, loading, signOut } = useAuth();
+
   const [activeTab, setActiveTab] = useState('signals');
   const [selectedSignal, setSelectedSignal] = useState<MarketSignal | null>(null);
   const [selectedDossier, setSelectedDossier] = useState<DealDossier | null>(null);
@@ -31,7 +47,16 @@ const App: React.FC = () => {
   const [showQuotaOverlay, setShowQuotaOverlay] = useState(false);
   const [activeHuntingRegion, setActiveHuntingRegion] = useState<string>('');
 
-  // Cache for prefetched dossiers to enable instant view
+  // Route handling for auth callback
+  const [currentRoute, setCurrentRoute] = useState(window.location.pathname);
+
+  useEffect(() => {
+    const handleRouteChange = () => setCurrentRoute(window.location.pathname);
+    window.addEventListener('popstate', handleRouteChange);
+    return () => window.removeEventListener('popstate', handleRouteChange);
+  }, []);
+
+  // Cache for prefetched dossiers
   const [dossierCache, setDossierCache] = useState<Record<string, DealDossier>>({});
   const [fetchingDossierIds, setFetchingDossierIds] = useState<Set<string>>(new Set());
 
@@ -86,14 +111,12 @@ const App: React.FC = () => {
     setActiveTab('opportunities');
     setDossierError(null);
 
-    // If already in cache, use it immediately
     if (dossierCache[signal.id]) {
       setSelectedDossier(dossierCache[signal.id]);
       setIsGeneratingDossier(false);
       return;
     }
 
-    // Otherwise, start/wait for generation
     if (businessProfile) {
       setIsGeneratingDossier(true);
       try {
@@ -142,13 +165,12 @@ const App: React.FC = () => {
   };
 
   const triggerHunting = async (profile: BusinessProfile, triggers: SalesTrigger[], region?: string) => {
-    console.warn("[APP DEBUG] Triggering Hunt with:", { profile, triggers, region });
+    console.log("[APP] Triggering Hunt with:", { profile, triggers, region });
     setIsSearchingSignals(true);
     try {
       const discovered = await geminiService.huntSignals(profile, triggers, region);
       setSignals(discovered);
 
-      // BACKGROUND PREFETCH: Automatically start generating intelligence for the top ranked signals
       if (discovered.length > 0) {
         const topSignals = [...discovered].sort((a, b) => b.score - a.score).slice(0, 2);
         topSignals.forEach(s => prefetchDossier(s));
@@ -169,7 +191,46 @@ const App: React.FC = () => {
     }
   };
 
+  const handleAuthComplete = () => {
+    window.history.replaceState(null, '', '/');
+    setCurrentRoute('/');
+  };
 
+  const handleSignOut = async () => {
+    await signOut();
+    setBusinessProfile(null);
+    setSignals([]);
+    setActiveTriggers([]);
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto mb-4" />
+          <p className="text-zinc-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Auth callback route
+  if (currentRoute === '/auth/callback' || window.location.hash.includes('access_token')) {
+    return <AuthCallback onComplete={handleAuthComplete} />;
+  }
+
+  // Not logged in - show login
+  if (!user) {
+    return <LoginView />;
+  }
+
+  // Logged in but no profile - show org setup
+  if (!userProfile) {
+    return <SetupOrgView onComplete={() => setCurrentRoute('/')} />;
+  }
+
+  // Logged in with profile - show main app
   const renderContent = () => {
     if (!businessProfile) {
       return (
@@ -222,6 +283,30 @@ const App: React.FC = () => {
           <div className="max-w-3xl mx-auto py-12 space-y-8 animate-in fade-in duration-500">
             <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">System Settings</h1>
             <div className="space-y-6">
+              {/* User Info */}
+              <section className="p-6 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/5 space-y-4">
+                <h3 className="font-bold text-lg text-zinc-900 dark:text-white">Account</h3>
+                <div className="space-y-2 text-sm">
+                  <p className="text-zinc-600 dark:text-zinc-400">
+                    <span className="font-medium">Email:</span> {userProfile?.email}
+                  </p>
+                  <p className="text-zinc-600 dark:text-zinc-400">
+                    <span className="font-medium">Organization:</span> {organization?.name}
+                  </p>
+                  <p className="text-zinc-600 dark:text-zinc-400">
+                    <span className="font-medium">Role:</span> {userProfile?.role}
+                  </p>
+                </div>
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-500 hover:text-red-400 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
+                </button>
+              </section>
+
+              {/* Signal Delivery */}
               <section className="p-6 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/5 space-y-4">
                 <h3 className="font-bold text-lg text-zinc-900 dark:text-white">Signal Delivery Cadence</h3>
                 <div className="grid gap-3">
