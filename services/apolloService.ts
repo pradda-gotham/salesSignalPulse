@@ -65,23 +65,36 @@ async function makeApolloRequest<T>(endpoint: string, body: any): Promise<T> {
         throw new Error('Apollo API key not configured');
     }
 
-    const response = await fetch(`${APOLLO_API_BASE}${endpoint}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache',
-            'X-Api-Key': apiKey
-        },
-        body: JSON.stringify(body)
-    });
+    console.log(`[Apollo] Requesting: ${endpoint}`);
+    console.log(`[Apollo] Base URL: ${APOLLO_API_BASE}`);
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Apollo API Error:', response.status, errorText);
-        throw new Error(`Apollo API error: ${response.status}`);
+    try {
+        const response = await fetch(`${APOLLO_API_BASE}${endpoint}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache',
+                'X-Api-Key': apiKey
+            },
+            body: JSON.stringify(body)
+        });
+
+        console.log(`[Apollo] Response Status: ${response.status} ${response.statusText}`);
+        console.log(`[Apollo] Response Headers:`, JSON.stringify([...response.headers.entries()]));
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Apollo API Error:', response.status, errorText);
+            throw new Error(`Apollo API error: ${response.status} - ${errorText.substring(0, 100)}`);
+        }
+
+        const data = await response.json();
+        // console.log(`[Apollo] Success Response from ${endpoint}`);
+        return data;
+    } catch (error) {
+        console.error(`[Apollo] Network/Fetch Error for ${endpoint}:`, error);
+        throw error;
     }
-
-    return response.json();
 }
 
 export const apolloService = {
