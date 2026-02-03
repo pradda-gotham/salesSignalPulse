@@ -9,12 +9,14 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 if (!isSupabaseConfigured) {
-    console.warn('[Supabase] Missing environment variables. Auth features will be disabled.');
-    console.warn('[Supabase] Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
+    console.error('[Supabase] CRITICAL: Missing environment variables!');
+    console.error('[Supabase] VITE_SUPABASE_URL:', supabaseUrl ? 'SET' : 'MISSING');
+    console.error('[Supabase] VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'SET' : 'MISSING');
+    console.error('[Supabase] Please check your .env.local file');
 }
 
-// Create client with fallback empty strings (will fail gracefully)
+// Create client - will throw proper errors if credentials are wrong
 export const supabase = createClient<Database>(
-    supabaseUrl || 'https://placeholder.supabase.co',
-    supabaseAnonKey || 'placeholder-key'
+    supabaseUrl || '',
+    supabaseAnonKey || ''
 );
