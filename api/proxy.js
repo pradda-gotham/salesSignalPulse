@@ -1,5 +1,4 @@
 
-import { URL } from 'url';
 
 export const config = {
   runtime: 'edge',
