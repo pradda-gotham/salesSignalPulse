@@ -23,24 +23,6 @@ export async function getOrganization(orgId: string): Promise<Organization | nul
     return data;
 }
 
-export async function updateOrganization(
-    orgId: string,
-    updates: Partial<Organization>
-): Promise<Organization | null> {
-    const { data, error } = await supabase
-        .from('organizations')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', orgId)
-        .select()
-        .single();
-
-    if (error) {
-        console.error('[DataService] Error updating organization:', error);
-        return null;
-    }
-    return data;
-}
-
 // ============ TRIGGERS ============
 
 export async function getTriggers(orgId: string): Promise<Trigger[]> {
@@ -48,7 +30,7 @@ export async function getTriggers(orgId: string): Promise<Trigger[]> {
         .from('triggers')
         .select('*')
         .eq('org_id', orgId)
-        .eq('status', 'active')
+        .eq('is_active', true)
         .order('created_at', { ascending: false });
 
     if (error) {
@@ -84,7 +66,7 @@ export async function createTrigger(
 export async function deleteTrigger(triggerId: string): Promise<boolean> {
     const { error } = await supabase
         .from('triggers')
-        .update({ status: 'deleted' })
+        .update({ is_active: false })
         .eq('id', triggerId);
 
     if (error) {
@@ -120,11 +102,7 @@ export async function upsertSignal(
         summary?: string;
         source_url?: string;
         source_title?: string;
-        prospect_company?: string;
-        prospect_website?: string;
-        prospect_linkedin?: string;
         decision_maker?: string;
-        estimated_value?: number;
         confidence?: 'low' | 'medium' | 'high';
         urgency?: 'emergency' | 'high' | 'medium' | 'low';
         score?: number;
@@ -142,11 +120,7 @@ export async function upsertSignal(
                 summary: signal.summary || null,
                 source_url: signal.source_url || null,
                 source_title: signal.source_title || null,
-                prospect_company: signal.prospect_company || null,
-                prospect_website: signal.prospect_website || null,
-                prospect_linkedin: signal.prospect_linkedin || null,
                 decision_maker: signal.decision_maker || null,
-                estimated_value: signal.estimated_value || null,
                 confidence: signal.confidence || 'medium',
                 urgency: signal.urgency || 'medium',
                 score: signal.score || 50,
@@ -171,7 +145,7 @@ export async function updateSignalStatus(
 ): Promise<boolean> {
     const { error } = await supabase
         .from('signals')
-        .update({ status, updated_at: new Date().toISOString() })
+        .update({ status })
         .eq('id', signalId);
 
     if (error) {
@@ -199,20 +173,7 @@ export async function getDossier(signalId: string): Promise<Dossier | null> {
 export async function saveDossier(
     orgId: string,
     signalId: string,
-    dossier: {
-        account_name?: string;
-        executive_summary?: string;
-        commercial_opportunity?: string;
-        recommended_bundle?: any;
-        pricing_strategy?: any;
-        battlecard?: any;
-        call_script?: string;
-        confidence?: 'low' | 'medium' | 'high';
-        assumptions?: string[];
-        enriched_contacts?: any[];
-        enriched_company?: any;
-        is_enriched?: boolean;
-    }
+    content: Record<string, unknown>
 ): Promise<Dossier | null> {
     const { data, error } = await supabase
         .from('dossiers')
@@ -220,7 +181,7 @@ export async function saveDossier(
             {
                 org_id: orgId,
                 signal_id: signalId,
-                ...dossier,
+                content,
             },
             { onConflict: 'signal_id' }
         )
@@ -236,9 +197,7 @@ export async function saveDossier(
 
 // ============ HUNT LOGS ============
 
-export async function createHuntLog(
-    orgId: string
-): Promise<string | null> {
+export async function createHuntLog(orgId: string): Promise<string | null> {
     const { data, error } = await supabase
         .from('hunt_logs')
         .insert({ org_id: orgId })
@@ -256,10 +215,8 @@ export async function updateHuntLog(
     huntId: string,
     updates: {
         completed_at?: string;
-        triggers_processed?: number;
         signals_found?: number;
-        new_signals?: number;
-        status?: 'success' | 'partial' | 'failed';
+        status?: 'running' | 'success' | 'failed';
         error?: string;
     }
 ): Promise<boolean> {
@@ -278,7 +235,6 @@ export async function updateHuntLog(
 // Export all functions as a service object
 export const dataService = {
     getOrganization,
-    updateOrganization,
     getTriggers,
     createTrigger,
     deleteTrigger,
