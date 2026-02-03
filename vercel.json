@@ -2,7 +2,7 @@
     "rewrites": [
         {
             "source": "/api/apollo/:path*",
-            "destination": "https://api.apollo.io/v1/:path*"
+            "destination": "/api/proxy"
         }
     ]
 }
