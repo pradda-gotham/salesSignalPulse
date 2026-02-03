@@ -6,32 +6,52 @@ interface LoginViewProps {
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
-    const { signInWithMagicLink } = useAuth();
+    const { signIn, signUp } = useAuth();
+    const [isSignUp, setIsSignUp] = useState(false);
     const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!email.trim()) {
-            setMessage({ type: 'error', text: 'Please enter your email address' });
+        if (!email.trim() || !password.trim()) {
+            setMessage({ type: 'error', text: 'Please fill in all fields' });
+            return;
+        }
+
+        if (isSignUp && password !== confirmPassword) {
+            setMessage({ type: 'error', text: 'Passwords do not match' });
+            return;
+        }
+
+        if (password.length < 6) {
+            setMessage({ type: 'error', text: 'Password must be at least 6 characters' });
             return;
         }
 
         setLoading(true);
         setMessage(null);
 
-        const { error } = await signInWithMagicLink(email);
-
-        if (error) {
-            setMessage({ type: 'error', text: error.message });
+        if (isSignUp) {
+            const { error } = await signUp(email, password);
+            if (error) {
+                setMessage({ type: 'error', text: error.message });
+            } else {
+                setMessage({
+                    type: 'success',
+                    text: '✨ Account created! Please check your email to verify.'
+                });
+            }
         } else {
-            setMessage({
-                type: 'success',
-                text: '✨ Magic link sent! Check your email inbox.'
-            });
-            if (onSuccess) onSuccess();
+            const { error } = await signIn(email, password);
+            if (error) {
+                setMessage({ type: 'error', text: error.message });
+            } else {
+                if (onSuccess) onSuccess();
+            }
         }
 
         setLoading(false);
@@ -46,7 +66,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                 </div>
 
                 <p style={styles.subtitle}>
-                    Sign in to your opportunity detection platform
+                    {isSignUp ? 'Create your account' : 'Sign in to your opportunity detection platform'}
                 </p>
 
                 <form onSubmit={handleSubmit} style={styles.form}>
@@ -61,6 +81,32 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                             disabled={loading}
                         />
                     </div>
+
+                    <div style={styles.inputGroup}>
+                        <label style={styles.label}>Password</label>
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="••••••••"
+                            style={styles.input}
+                            disabled={loading}
+                        />
+                    </div>
+
+                    {isSignUp && (
+                        <div style={styles.inputGroup}>
+                            <label style={styles.label}>Confirm Password</label>
+                            <input
+                                type="password"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                placeholder="••••••••"
+                                style={styles.input}
+                                disabled={loading}
+                            />
+                        </div>
+                    )}
 
                     {message && (
                         <div style={{
@@ -80,13 +126,27 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                         }}
                         disabled={loading}
                     >
-                        {loading ? 'Sending...' : 'Send Magic Link'}
+                        {loading ? 'Please wait...' : (isSignUp ? 'Create Account' : 'Sign In')}
                     </button>
                 </form>
 
-                <p style={styles.footer}>
-                    No password needed. We'll send you a secure link.
-                </p>
+                <div style={styles.footer}>
+                    <span style={styles.footerText}>
+                        {isSignUp ? 'Already have an account?' : "Don't have an account?"}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setIsSignUp(!isSignUp);
+                            setMessage(null);
+                            setPassword('');
+                            setConfirmPassword('');
+                        }}
+                        style={styles.switchButton}
+                    >
+                        {isSignUp ? 'Sign In' : 'Sign Up'}
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -175,9 +235,23 @@ const styles: { [key: string]: React.CSSProperties } = {
         transition: 'transform 0.2s, box-shadow 0.2s',
     },
     footer: {
-        textAlign: 'center',
-        color: 'rgba(255, 255, 255, 0.4)',
-        fontSize: '12px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
         marginTop: '24px',
+    },
+    footerText: {
+        color: 'rgba(255, 255, 255, 0.4)',
+        fontSize: '14px',
+    },
+    switchButton: {
+        background: 'none',
+        border: 'none',
+        color: '#f97316',
+        fontSize: '14px',
+        fontWeight: '600',
+        cursor: 'pointer',
+        padding: 0,
     },
 };

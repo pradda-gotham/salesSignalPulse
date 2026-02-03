@@ -12,7 +12,8 @@ interface AuthContextType {
     userProfile: UserProfile | null;
     organization: Organization | null;
     loading: boolean;
-    signInWithMagicLink: (email: string) => Promise<{ error: Error | null }>;
+    signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+    signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
     signOut: () => Promise<void>;
     refreshProfile: () => Promise<void>;
 }
@@ -29,7 +30,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Fetch user profile and organization
     const fetchProfile = async (userId: string) => {
         try {
-            // Get user profile
             const { data: profile, error: profileError } = await supabase
                 .from('users')
                 .select('*')
@@ -43,7 +43,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             setUserProfile(profile);
 
-            // Get organization
             if (profile?.org_id) {
                 const { data: org, error: orgError } = await supabase
                     .from('organizations')
@@ -98,13 +97,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return () => subscription.unsubscribe();
     }, []);
 
-    const signInWithMagicLink = async (email: string) => {
+    // Email/Password Sign In
+    const signIn = async (email: string, password: string) => {
         try {
-            const { error } = await supabase.auth.signInWithOtp({
+            const { error } = await supabase.auth.signInWithPassword({
                 email,
-                options: {
-                    emailRedirectTo: `${window.location.origin}/auth/callback`,
-                },
+                password,
+            });
+            return { error: error as Error | null };
+        } catch (error) {
+            return { error: error as Error };
+        }
+    };
+
+    // Email/Password Sign Up
+    const signUp = async (email: string, password: string) => {
+        try {
+            const { error } = await supabase.auth.signUp({
+                email,
+                password,
             });
             return { error: error as Error | null };
         } catch (error) {
@@ -126,7 +137,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         userProfile,
         organization,
         loading,
-        signInWithMagicLink,
+        signIn,
+        signUp,
         signOut,
         refreshProfile,
     };
