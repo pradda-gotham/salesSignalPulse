@@ -90,6 +90,18 @@ const AppContent: React.FC = () => {
     }
   }, [businessProfile]);
 
+  // Sync DB data to local state
+  useEffect(() => {
+    if (dbTriggers.length > 0) {
+      console.log('[APP] Syncing triggers from DB:', dbTriggers.length);
+      setActiveTriggers(dbTriggers);
+    }
+    if (dbSignals.length > 0) {
+      console.log('[APP] Syncing signals from DB:', dbSignals.length);
+      setSignals(dbSignals);
+    }
+  }, [dbTriggers, dbSignals]);
+
   // Load business profile from Supabase when organization is available
   useEffect(() => {
     const loadProfile = async () => {
