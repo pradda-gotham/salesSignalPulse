@@ -210,6 +210,20 @@ export function useOrgData() {
         return await dataService.saveDossier(orgId, signalId, content);
     }, [orgId]);
 
+    // Load business profile from Supabase
+    const loadBusinessProfile = useCallback(async () => {
+        if (!orgId) return null;
+        const profile = await dataService.getBusinessProfile(orgId);
+        console.log('[OrgData] Loaded business profile:', profile ? 'found' : 'not found');
+        return profile;
+    }, [orgId]);
+
+    // Save business profile to Supabase
+    const saveBusinessProfile = useCallback(async (profile: Record<string, unknown>) => {
+        if (!orgId) return false;
+        return await dataService.saveBusinessProfile(orgId, profile);
+    }, [orgId]);
+
     return {
         organization,
         userProfile,
@@ -225,6 +239,8 @@ export function useOrgData() {
         createHuntLog,
         completeHuntLog,
         saveDossier,
+        loadBusinessProfile,
+        saveBusinessProfile,
         setSignals,
     };
 }

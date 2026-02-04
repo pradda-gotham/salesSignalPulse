@@ -49,6 +49,8 @@ const AppContent: React.FC = () => {
     createHuntLog,
     completeHuntLog,
     saveDossier: saveDossierToDb,
+    loadBusinessProfile,
+    saveBusinessProfile,
     loading: orgDataLoading
   } = useOrgData();
 
@@ -86,6 +88,23 @@ const AppContent: React.FC = () => {
       setActiveHuntingRegion(businessProfile.geography[0]);
     }
   }, [businessProfile]);
+
+  // Load business profile from Supabase when organization is available
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (organization && !businessProfile) {
+        console.log('[APP] Loading business profile from Supabase...');
+        const savedProfile = await loadBusinessProfile();
+        if (savedProfile) {
+          console.log('[APP] Business profile loaded:', savedProfile);
+          setBusinessProfile(savedProfile as unknown as BusinessProfile);
+        } else {
+          console.log('[APP] No business profile found in Supabase');
+        }
+      }
+    };
+    loadProfile();
+  }, [organization, loadBusinessProfile]);
 
   const handleError = (e: any) => {
     console.error("API Error", e);
@@ -177,9 +196,17 @@ const AppContent: React.FC = () => {
     setActiveTab('signals');
   };
 
-  const handleProfileVerified = (profile: BusinessProfile) => {
+  const handleProfileVerified = async (profile: BusinessProfile) => {
     setBusinessProfile(profile);
     setActiveTab('strategy');
+
+    // Save profile to Supabase
+    const saved = await saveBusinessProfile(profile as unknown as Record<string, unknown>);
+    if (saved) {
+      console.log('[APP] Business profile saved to Supabase');
+    } else {
+      console.warn('[APP] Failed to save business profile to Supabase');
+    }
   };
 
   const handleStartHunting = () => {

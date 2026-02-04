@@ -232,6 +232,39 @@ export async function updateHuntLog(
     return true;
 }
 
+// ============ BUSINESS PROFILE ============
+
+export async function getBusinessProfile(orgId: string): Promise<Record<string, unknown> | null> {
+    const { data, error } = await supabase
+        .from('organizations')
+        .select('business_profile')
+        .eq('id', orgId)
+        .single();
+
+    if (error) {
+        console.error('[DataService] Error fetching business profile:', error);
+        return null;
+    }
+    return data?.business_profile || null;
+}
+
+export async function saveBusinessProfile(
+    orgId: string,
+    profile: Record<string, unknown>
+): Promise<boolean> {
+    const { error } = await supabase
+        .from('organizations')
+        .update({ business_profile: profile })
+        .eq('id', orgId);
+
+    if (error) {
+        console.error('[DataService] Error saving business profile:', error);
+        return false;
+    }
+    console.log('[DataService] Business profile saved');
+    return true;
+}
+
 // Export all functions as a service object
 export const dataService = {
     getOrganization,
@@ -245,4 +278,6 @@ export const dataService = {
     saveDossier,
     createHuntLog,
     updateHuntLog,
+    getBusinessProfile,
+    saveBusinessProfile,
 };
