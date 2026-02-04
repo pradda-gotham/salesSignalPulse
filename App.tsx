@@ -66,6 +66,7 @@ const AppContent: React.FC = () => {
   const [dossierError, setDossierError] = useState<string | null>(null);
   const [showQuotaOverlay, setShowQuotaOverlay] = useState(false);
   const [activeHuntingRegion, setActiveHuntingRegion] = useState<string>('');
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true); // Prevent flash
 
   // Route handling for auth callback
   const [currentRoute, setCurrentRoute] = useState(window.location.pathname);
@@ -92,30 +93,36 @@ const AppContent: React.FC = () => {
   // Load business profile from Supabase when organization is available
   useEffect(() => {
     const loadProfile = async () => {
-      // Only load if we have organization and don't already have a profile
+      // Only load if we have organization
       if (!organization?.id) {
         console.log('[APP] No organization ID yet, skipping profile load');
+        setIsLoadingProfile(false);
         return;
       }
 
       if (businessProfile) {
         console.log('[APP] Business profile already loaded, skipping');
+        setIsLoadingProfile(false);
         return;
       }
 
-      console.log('[APP] Loading business profile for org:', organization.id);
-      const savedProfile = await loadBusinessProfile();
-      console.log('[APP] loadBusinessProfile returned:', savedProfile);
+      try {
+        console.log('[APP] Loading business profile for org:', organization.id);
+        const savedProfile = await loadBusinessProfile();
+        console.log('[APP] loadBusinessProfile returned:', savedProfile);
 
-      if (savedProfile) {
-        console.log('[APP] Setting business profile from Supabase');
-        setBusinessProfile(savedProfile as unknown as BusinessProfile);
-      } else {
-        console.log('[APP] No business profile found in Supabase for org:', organization.id);
+        if (savedProfile) {
+          console.log('[APP] Setting business profile from Supabase');
+          setBusinessProfile(savedProfile as unknown as BusinessProfile);
+        } else {
+          console.log('[APP] No business profile found in Supabase for org:', organization.id);
+        }
+      } finally {
+        setIsLoadingProfile(false);
       }
     };
     loadProfile();
-  }, [organization?.id]); // Only depend on organization.id, not the callback
+  }, [organization?.id]);
 
   const handleError = (e: any) => {
     console.error("API Error", e);
@@ -347,6 +354,59 @@ const AppContent: React.FC = () => {
 
   // Logged in with profile - show main app
   const renderContent = () => {
+    // Show loading while profile is being fetched
+    if (isLoadingProfile) {
+      return (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+          <span className="ml-3 text-zinc-400">Loading your workspace...</span>
+        </div>
+      );
+    }
+
+    // Strategy and Settings are always accessible
+    if (activeTab === 'strategy') {
+      return (
+        <StrategyView
+          profile={businessProfile}
+          onTriggersUpdated={handleTriggersUpdated}
+          onStartHunting={handleStartHunting}
+          activeRegion={activeHuntingRegion}
+          onRegionChange={setActiveHuntingRegion}
+        />
+      );
+    }
+
+    if (activeTab === 'settings') {
+      return (
+        <div className="max-w-3xl mx-auto py-12 space-y-8 animate-in fade-in duration-500">
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">System Settings</h1>
+          <div className="space-y-6">
+            {/* User Info */}
+            <section className="p-6 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/5 space-y-4">
+              <h3 className="font-bold text-lg text-zinc-900 dark:text-white">Account</h3>
+              <div className="space-y-2 text-sm">
+                <p className="text-zinc-600 dark:text-zinc-400">
+                  <span className="font-medium">Email:</span> {userProfile?.email}
+                </p>
+                <p className="text-zinc-600 dark:text-zinc-400">
+                  <span className="font-medium">Organization:</span> {organization?.name}
+                </p>
+              </div>
+              <button
+                onClick={handleSignOut}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-500 hover:text-red-400 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign Out
+              </button>
+            </section>
+          </div>
+        </div>
+      );
+    }
+
+    // For other tabs, require business profile
     if (!businessProfile) {
       return (
         <div className="max-w-5xl mx-auto">
@@ -381,58 +441,8 @@ const AppContent: React.FC = () => {
             onBack={handleBackToSignals}
           />
         );
-      case 'strategy':
-        return (
-          <StrategyView
-            profile={businessProfile}
-            onTriggersUpdated={handleTriggersUpdated}
-            onStartHunting={handleStartHunting}
-            activeRegion={activeHuntingRegion}
-            onRegionChange={setActiveHuntingRegion}
-          />
-        );
       case 'insights':
         return <InsightsView profile={businessProfile} />;
-      case 'settings':
-        return (
-          <div className="max-w-3xl mx-auto py-12 space-y-8 animate-in fade-in duration-500">
-            <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">System Settings</h1>
-            <div className="space-y-6">
-              {/* User Info */}
-              <section className="p-6 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/5 space-y-4">
-                <h3 className="font-bold text-lg text-zinc-900 dark:text-white">Account</h3>
-                <div className="space-y-2 text-sm">
-                  <p className="text-zinc-600 dark:text-zinc-400">
-                    <span className="font-medium">Email:</span> {userProfile?.email}
-                  </p>
-                  <p className="text-zinc-600 dark:text-zinc-400">
-                    <span className="font-medium">Organization:</span> {organization?.name}
-                  </p>
-                </div>
-                <button
-                  onClick={handleSignOut}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-500 hover:text-red-400 transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Sign Out
-                </button>
-              </section>
-
-              {/* Signal Delivery */}
-              <section className="p-6 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/5 space-y-4">
-                <h3 className="font-bold text-lg text-zinc-900 dark:text-white">Signal Delivery Cadence</h3>
-                <div className="grid gap-3">
-                  {['Real-Time', 'Daily Digest', 'Weekly Digest'].map(option => (
-                    <label key={option} className="flex items-center justify-between p-4 rounded-xl border border-zinc-200 dark:border-white/5 hover:border-orange-500/30 cursor-pointer transition-all group">
-                      <span className="font-medium text-zinc-600 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">{option}</span>
-                      <input type="radio" name="freq" defaultChecked={option === 'Real-Time'} className="accent-orange-500 w-4 h-4" />
-                    </label>
-                  ))}
-                </div>
-              </section>
-            </div>
-          </div>
-        );
       default:
         return (
           <SignalsView
