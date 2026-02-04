@@ -92,19 +92,30 @@ const AppContent: React.FC = () => {
   // Load business profile from Supabase when organization is available
   useEffect(() => {
     const loadProfile = async () => {
-      if (organization && !businessProfile) {
-        console.log('[APP] Loading business profile from Supabase...');
-        const savedProfile = await loadBusinessProfile();
-        if (savedProfile) {
-          console.log('[APP] Business profile loaded:', savedProfile);
-          setBusinessProfile(savedProfile as unknown as BusinessProfile);
-        } else {
-          console.log('[APP] No business profile found in Supabase');
-        }
+      // Only load if we have organization and don't already have a profile
+      if (!organization?.id) {
+        console.log('[APP] No organization ID yet, skipping profile load');
+        return;
+      }
+
+      if (businessProfile) {
+        console.log('[APP] Business profile already loaded, skipping');
+        return;
+      }
+
+      console.log('[APP] Loading business profile for org:', organization.id);
+      const savedProfile = await loadBusinessProfile();
+      console.log('[APP] loadBusinessProfile returned:', savedProfile);
+
+      if (savedProfile) {
+        console.log('[APP] Setting business profile from Supabase');
+        setBusinessProfile(savedProfile as unknown as BusinessProfile);
+      } else {
+        console.log('[APP] No business profile found in Supabase for org:', organization.id);
       }
     };
     loadProfile();
-  }, [organization, loadBusinessProfile]);
+  }, [organization?.id]); // Only depend on organization.id, not the callback
 
   const handleError = (e: any) => {
     console.error("API Error", e);
