@@ -1,33 +1,33 @@
 import { Resend } from 'resend';
 
 export const config = {
-    runtime: 'edge',
+  runtime: 'nodejs', // Switched to Node.js for Resend compatibility
 };
 
 export default async function handler(req) {
-    if (req.method !== 'POST') {
-        return new Response('Method not allowed', { status: 405 });
+  if (req.method !== 'POST') {
+    return new Response('Method not allowed', { status: 405 });
+  }
+
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return new Response('Missing RESEND_API_KEY', { status: 500 });
+  }
+
+  try {
+    const { dossier, recipients } = await req.json();
+
+    if (!dossier || !recipients || recipients.length === 0) {
+      return new Response('Missing required fields', { status: 400 });
     }
 
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-        return new Response('Missing RESEND_API_KEY', { status: 500 });
-    }
+    const resend = new Resend(apiKey);
 
-    try {
-        const { dossier, recipients } = await req.json();
-
-        if (!dossier || !recipients || recipients.length === 0) {
-            return new Response('Missing required fields', { status: 400 });
-        }
-
-        const resend = new Resend(apiKey);
-
-        const { data, error } = await resend.emails.send({
-            from: 'SalesPulse Intelligence <onboarding@resend.dev>', // Default testing domain
-            to: recipients,
-            subject: `Deal Dossier: ${dossier.accountName}`,
-            html: `
+    const { data, error } = await resend.emails.send({
+      from: 'SalesPulse Intelligence <onboarding@resend.dev>', // Default testing domain
+      to: recipients,
+      subject: `Deal Dossier: ${dossier.accountName}`,
+      html: `
         <!DOCTYPE html>
         <html>
         <head>
@@ -82,17 +82,17 @@ export default async function handler(req) {
         </body>
         </html>
       `
-        });
+    });
 
-        if (error) {
-            console.error('Resend Error:', error);
-            return new Response(JSON.stringify({ error }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-        }
-
-        return new Response(JSON.stringify({ data }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-
-    } catch (e) {
-        console.error('Server Error:', e);
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    if (error) {
+      console.error('Resend Error:', error);
+      return new Response(JSON.stringify({ error }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
+
+    return new Response(JSON.stringify({ data }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  } catch (e) {
+    console.error('Server Error:', e);
+    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+  }
 }
