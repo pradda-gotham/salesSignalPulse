@@ -61,15 +61,6 @@ const AdhocHuntView: React.FC<AdhocHuntViewProps> = ({ onStartHunt }) => {
     // Reuse the existing OnboardingView
     return (
         <div className="max-w-5xl mx-auto">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold flex items-center gap-3">
-                    <Radar className="w-8 h-8 text-[#6C5DD3]" />
-                    Live Hunt
-                </h1>
-                <p className="text-gray-500 mt-2">
-                    Run a manual extraction on any company or product URL. This will generate temporary signals without affecting your main organization configuration.
-                </p>
-            </div>
             <OnboardingView onVerified={handleAdhocCalibration} />
         </div>
     );
