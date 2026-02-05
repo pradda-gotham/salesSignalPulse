@@ -16,6 +16,11 @@ export interface UserProfile {
     email: string;
     org_id: string | null;
     created_at: string;
+    settings?: {
+        emailRecipients?: string;
+        autoSendDossier?: boolean;
+        [key: string]: any;
+    };
 }
 
 // Create Supabase client

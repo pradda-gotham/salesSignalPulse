@@ -11,9 +11,13 @@ import { LoginView } from './views/LoginView';
 import { AuthCallback } from './views/AuthCallback';
 import { SetupOrgView } from './views/SetupOrgView';
 import AuthTestPage from './views/AuthTestPage';
+import AdhocHuntView from './views/AdhocHuntView';
+import SettingsView, { getSettings } from './views/SettingsView';
+import { emailService } from './services/emailService';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useOrgData } from './hooks/useOrgData';
 import { geminiService } from './services/geminiService';
+import { dataService } from './services/dataService';
 import { AlertTriangle, Key, ExternalLink, LogOut, Loader2 } from 'lucide-react';
 
 // Set to true to use the simplified auth test page
@@ -25,6 +29,7 @@ declare global {
     openSelectKey: () => Promise<void>;
   };
 }
+
 
 // Main App wrapped with AuthProvider
 const App: React.FC = () => {
@@ -181,27 +186,61 @@ const AppContent: React.FC = () => {
     setActiveTab('opportunities');
     setDossierError(null);
 
+    // 1. Check local cache first
     if (dossierCache[signal.id]) {
       setSelectedDossier(dossierCache[signal.id]);
       setIsGeneratingDossier(false);
       return;
     }
 
+    // 2. Resolve Database Signal ID (Use map or fallback to signal.id for historical signals)
+    const dbSignalId = signalIdMap[signal.id] || signal.id;
+
     if (businessProfile) {
       setIsGeneratingDossier(true);
       try {
+        // 3. Check Supabase for existing dossier
+        console.log('[APP] Checking DB for dossier:', dbSignalId);
+        const existingDossier = await dataService.getDossier(dbSignalId);
+
+        if (existingDossier) {
+          console.log('[APP] Found existing dossier in DB');
+          // Cast the JSON content to DealDossier type
+          const appDossier = existingDossier.content as unknown as DealDossier;
+
+          setSelectedDossier(appDossier);
+          setDossierCache(prev => ({ ...prev, [signal.id]: appDossier }));
+          setIsGeneratingDossier(false);
+          return;
+        }
+
+        // 4. If not found, generate new dossier
+        console.log('[APP] No dossier found, generating new one...');
         const dossier = await geminiService.generateDossier(signal, businessProfile);
         setSelectedDossier(dossier);
         setDossierCache(prev => ({ ...prev, [signal.id]: dossier }));
 
-        // Save dossier to Supabase using database UUID
-        const dbSignalId = signalIdMap[signal.id];
+        // 5. Save new dossier to Supabase
         if (dbSignalId) {
           await saveDossierToDb(dbSignalId, dossier as unknown as Record<string, unknown>);
           console.log("[APP] Dossier saved to Supabase for signal:", dbSignalId);
         } else {
           console.warn("[APP] No database UUID found for signal:", signal.id);
         }
+
+        // 6. Send Email Notification (MVP)
+        const settings = getSettings();
+        if (settings.autoSendDossier) {
+          const recipients = settings.emailRecipients.split(',').map(e => e.trim()).filter(Boolean);
+          if (recipients.length > 0) {
+            emailService.sendDossierEmail({
+              dossier,
+              recipients
+            }); // Fire and forget
+          }
+        }
+
+
       } catch (e) {
         handleError(e);
         setDossierError("The AI encountered an issue generating this dossier. This might be due to API rate limits.");
@@ -390,32 +429,7 @@ const AppContent: React.FC = () => {
     }
 
     if (activeTab === 'settings') {
-      return (
-        <div className="max-w-3xl mx-auto py-12 space-y-8 animate-in fade-in duration-500">
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">System Settings</h1>
-          <div className="space-y-6">
-            {/* User Info */}
-            <section className="p-6 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/5 space-y-4">
-              <h3 className="font-bold text-lg text-zinc-900 dark:text-white">Account</h3>
-              <div className="space-y-2 text-sm">
-                <p className="text-zinc-600 dark:text-zinc-400">
-                  <span className="font-medium">Email:</span> {userProfile?.email}
-                </p>
-                <p className="text-zinc-600 dark:text-zinc-400">
-                  <span className="font-medium">Organization:</span> {organization?.name}
-                </p>
-              </div>
-              <button
-                onClick={handleSignOut}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-500 hover:text-red-400 transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                Sign Out
-              </button>
-            </section>
-          </div>
-        </div>
-      );
+      return <SettingsView />;
     }
 
     // For other tabs, require business profile
@@ -455,6 +469,15 @@ const AppContent: React.FC = () => {
         );
       case 'insights':
         return <InsightsView profile={businessProfile} />;
+      case 'live-hunt':
+        return (
+          <AdhocHuntView
+            onStartHunt={(profile, triggers, region) => {
+              triggerHunting(profile, triggers, region);
+              setActiveTab('signals');
+            }}
+          />
+        );
       default:
         return (
           <SignalsView
