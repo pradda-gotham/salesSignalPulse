@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     const resend = new Resend(apiKey);
 
     const { data, error } = await resend.emails.send({
-      from: 'SalesPulse Intelligence <onboarding@resend.dev>',
+      from: 'SalesPulse Intelligence <notifications@aireadines.com>',
       to: recipients,
       subject: `Deal Dossier: ${dossier.accountName}`,
       html: `
@@ -86,7 +86,7 @@ export default async function handler(req, res) {
               ` : ''}
 
               <div style="text-align: center;">
-                <a href="${process.env.VITE_APP_URL || 'https://sales-signal-pulse.vercel.app'}" class="btn">View Full Dossier</a>
+                <a href="${process.env.VITE_APP_URL || 'https://aireadines.com'}" class="btn">View Full Dossier</a>
               </div>
             </div>
             <div style="text-align: center; margin-top: 20px; color: #999; font-size: 0.8em;">
