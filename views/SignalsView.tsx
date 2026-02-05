@@ -26,15 +26,16 @@ import { geminiService } from '../services/geminiService';
 import { useTheme } from '../contexts/ThemeContext';
 
 const UrgencyBadge: React.FC<{ urgency: SignalUrgency }> = ({ urgency }) => {
+  // New semantic colors from design system
   const styles = {
-    [SignalUrgency.EMERGENCY]: 'bg-red-500/10 text-red-400 border-red-500/20',
-    [SignalUrgency.HIGH]: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-    [SignalUrgency.MEDIUM]: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    [SignalUrgency.LOW]: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
+    [SignalUrgency.EMERGENCY]: 'bg-[#FF5F5F]/10 text-[#FF5F5F] border-[#FF5F5F]/20',
+    [SignalUrgency.HIGH]: 'bg-[#FFAD33]/10 text-[#FFAD33] border-[#FFAD33]/20',
+    [SignalUrgency.MEDIUM]: 'bg-[#4CE364]/10 text-[#4CE364] border-[#4CE364]/20',
+    [SignalUrgency.LOW]: 'bg-[#808191]/10 text-[#808191] border-[#808191]/20',
   };
 
   return (
-    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${styles[urgency]}`}>
+    <span className={`px-3 py-1 rounded-full text-[10px] font-semibold border uppercase tracking-wider ${styles[urgency]}`}>
       {urgency}
     </span>
   );
@@ -82,19 +83,23 @@ const LeadCard: React.FC<LeadCardProps> = ({ signal, profile, onUpdateStatus, on
   };
 
   return (
-    <div className={`border rounded-3xl overflow-hidden transition-all shadow-lg animate-in slide-in-from-bottom-4 duration-500 ${signal.relevanceFeedback === 'Negative'
-        ? 'opacity-40 grayscale scale-95'
-        : isDarkMode
-          ? 'bg-[#141414] border-white/5 hover:border-orange-500/30'
-          : 'bg-white border-gray-200 hover:border-orange-400'
+    <div className={`rounded-[24px] overflow-hidden transition-all animate-in slide-in-from-bottom-4 duration-500 ${signal.relevanceFeedback === 'Negative'
+      ? 'opacity-40 grayscale scale-95'
+      : isDarkMode
+        ? 'bg-[#141414] border border-white/5 hover:border-[#6C5DD3]/30 shadow-lg'
+        : 'bg-white shadow-[0px_14px_40px_rgba(33,33,33,0.04)] hover:shadow-[0px_20px_50px_rgba(108,93,211,0.08)]'
       }`}>
       <div className="p-8">
         <div className="flex items-start justify-between mb-8">
           <div className="flex items-center gap-5">
-            <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center border ${signal.urgency === SignalUrgency.EMERGENCY ? 'bg-red-500/10 border-red-500/20 text-red-500' : 'bg-orange-500/10 border-orange-500/20 text-orange-500'
+            <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center ${signal.urgency === SignalUrgency.EMERGENCY
+              ? 'bg-[#FF5F5F]/10 text-[#FF5F5F]'
+              : isDarkMode
+                ? 'bg-[#6C5DD3]/10 text-[#6C5DD3]'
+                : 'bg-[#6C5DD3]/10 text-[#6C5DD3]'
               }`}>
-              <span className="text-[10px] font-black uppercase tracking-tighter mb-1">Score</span>
-              <span className="text-2xl font-black">{signal.score}</span>
+              <span className="text-[10px] font-bold uppercase tracking-tight mb-1 opacity-70">Score</span>
+              <span className="text-2xl font-extrabold">{signal.score}</span>
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -139,7 +144,7 @@ const LeadCard: React.FC<LeadCardProps> = ({ signal, profile, onUpdateStatus, on
             </div>
             <div className="flex flex-wrap gap-2">
               {signal.matchedProducts.map(p => (
-                <span key={p} className="px-3 py-1 bg-orange-500/10 text-orange-400 text-xs font-bold rounded-lg border border-orange-500/20 uppercase tracking-tight">
+                <span key={p} className={`px-3 py-1.5 text-xs font-semibold rounded-xl uppercase tracking-tight ${isDarkMode ? 'bg-[#6C5DD3]/10 text-[#6C5DD3] border border-[#6C5DD3]/20' : 'bg-[#6C5DD3]/10 text-[#6C5DD3]'}`}>
                   {p}
                 </span>
               ))}
@@ -149,7 +154,7 @@ const LeadCard: React.FC<LeadCardProps> = ({ signal, profile, onUpdateStatus, on
                 href={signal.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm text-orange-500 hover:text-orange-400 font-bold group/link"
+                className={`inline-flex items-center gap-2 text-sm font-semibold group/link ${isDarkMode ? 'text-[#6C5DD3] hover:text-[#8B7FE0]' : 'text-[#6C5DD3] hover:text-[#5A4DBF]'}`}
               >
                 <ExternalLink className="w-4 h-4" />
                 Source: {signal.sourceTitle}
@@ -170,8 +175,8 @@ const LeadCard: React.FC<LeadCardProps> = ({ signal, profile, onUpdateStatus, on
                       <span>{f.label}</span>
                       <span>{f.val}%</span>
                     </div>
-                    <div className={`h-1 rounded-full overflow-hidden ${isDarkMode ? 'bg-white/5' : 'bg-gray-200'}`}>
-                      <div className="h-full bg-orange-600 rounded-full" style={{ width: `${f.val}%` }} />
+                    <div className={`h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-white/5' : 'bg-gray-100'}`}>
+                      <div className="h-full bg-gradient-to-r from-[#6C5DD3] to-[#8B7FE0] rounded-full" style={{ width: `${f.val}%` }} />
                     </div>
                   </div>
                 ))}
@@ -198,8 +203,8 @@ const LeadCard: React.FC<LeadCardProps> = ({ signal, profile, onUpdateStatus, on
                     key={tab.id}
                     onClick={() => setActiveOutreachTab(tab.id as any)}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeOutreachTab === tab.id
-                        ? 'bg-orange-600 text-white'
-                        : isDarkMode ? 'text-zinc-500 hover:text-white' : 'text-gray-500 hover:text-gray-700'
+                      ? 'bg-orange-600 text-white'
+                      : isDarkMode ? 'text-zinc-500 hover:text-white' : 'text-gray-500 hover:text-gray-700'
                       }`}
                   >
                     <tab.icon className="w-3.5 h-3.5" />
@@ -247,8 +252,8 @@ const LeadCard: React.FC<LeadCardProps> = ({ signal, profile, onUpdateStatus, on
               }`}>
               <MessageSquare className="w-4 h-4" /> {showOutreach ? 'Hide Outreach' : 'Outreach Pack'}
             </button>
-            <button onClick={() => onViewDossier(signal)} className="flex items-center gap-2 px-8 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-sm font-black transition-all">
-              <ShieldCheck className="w-4 h-4" /> Deal Dossier <ArrowRight className="w-4 h-4 ml-1" />
+            <button onClick={() => onViewDossier(signal)} className="flex items-center gap-2 px-8 py-3.5 bg-[#6C5DD3] hover:bg-[#5A4DBF] text-white rounded-xl text-sm font-bold transition-all shadow-[0px_4px_12px_rgba(108,93,211,0.4)] hover:shadow-[0px_6px_16px_rgba(108,93,211,0.5)] hover:-translate-y-0.5">
+              <ShieldCheck className="w-4 h-4" /> View Dossier <ArrowRight className="w-4 h-4 ml-1" />
             </button>
           </div>
         </div>
@@ -266,14 +271,14 @@ const SignalsView: React.FC<{ signals: MarketSignal[], profile: BusinessProfile,
       <div className="flex items-end justify-between">
         <div>
           <h1 className={`text-5xl font-black tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Market Pulse</h1>
-          <p className={`text-xl font-medium ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Real-time opportunities for <span className="text-orange-400">{profile.name}</span></p>
+          <p className={`text-xl font-medium ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Real-time opportunities for <span className="text-[#6C5DD3] font-semibold">{profile.name}</span></p>
         </div>
 
         <div className="flex flex-col items-end gap-3">
           {/* Dynamic Territory Selector */}
           <div className={`flex items-center gap-2 border rounded-2xl p-1 pr-3 ${isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-gray-200'
             }`}>
-            <div className="bg-orange-600/10 text-orange-500 p-2 rounded-xl">
+            <div className={`bg-[#6C5DD3]/10 text-[#6C5DD3] p-2.5 rounded-xl`}>
               <MapPin className="w-4 h-4" />
             </div>
             <select
@@ -289,10 +294,10 @@ const SignalsView: React.FC<{ signals: MarketSignal[], profile: BusinessProfile,
           </div>
 
           <div className={`flex items-center gap-2 text-[10px] font-black px-4 py-2 rounded-full border ${isHunting
-              ? 'bg-green-500/10 text-green-500 border-green-500/20'
-              : isDarkMode
-                ? 'bg-zinc-800 text-zinc-500 border-white/5'
-                : 'bg-gray-100 text-gray-500 border-gray-200'
+            ? 'bg-green-500/10 text-green-500 border-green-500/20'
+            : isDarkMode
+              ? 'bg-zinc-800 text-zinc-500 border-white/5'
+              : 'bg-gray-100 text-gray-500 border-gray-200'
             }`}>
             <Radar className={`w-3 h-3 ${isHunting ? 'animate-spin' : ''}`} />
             {isHunting ? 'SCANNER ACTIVE' : 'ENGINE STANDBY'}

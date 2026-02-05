@@ -36,7 +36,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, onLog
   return (
     <div className={`flex h-screen w-full overflow-hidden transition-colors duration-300 ${isDarkMode
       ? 'bg-[#0a0a0a] text-[#ededed]'
-      : 'bg-gray-50 text-gray-900'
+      : 'bg-[#F7F7F9] text-[#1B1D21]'
       }`}>
       {/* Sidebar */}
       <aside className={`w-64 flex-shrink-0 border-r flex flex-col transition-colors duration-300 ${isDarkMode
@@ -44,38 +44,37 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, onLog
         : 'border-gray-200 bg-white'
         }`}>
         <div className="p-6">
-          {/* Logo / Home Redirect */}
           <div
             onClick={() => onLogoClick ? onLogoClick() : onTabChange('signals')}
-            className="flex items-center gap-2 mb-8 cursor-pointer group hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2.5 mb-8 cursor-pointer group hover:opacity-80 transition-opacity"
             role="button"
             aria-label="Go to Home"
           >
-            <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center shadow-lg shadow-orange-500/20 group-hover:scale-110 transition-transform">
+            <div className="w-9 h-9 bg-[#6C5DD3] rounded-xl flex items-center justify-center shadow-lg shadow-[#6C5DD3]/20 group-hover:scale-110 transition-transform">
               <Zap className="w-5 h-5 text-white" />
             </div>
             <span className="text-xl font-bold tracking-tight">SalesPulse</span>
           </div>
 
-          <nav className="space-y-1">
+          <nav className="space-y-1.5">
             {navItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => onTabChange(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${activeTab === item.id
                   ? isDarkMode
-                    ? 'bg-white/10 text-white'
-                    : 'bg-orange-50 text-orange-600'
+                    ? 'bg-[#6C5DD3]/15 text-white'
+                    : 'bg-[#6C5DD3]/10 text-[#6C5DD3]'
                   : isDarkMode
                     ? 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                    : 'text-[#808191] hover:text-[#1B1D21] hover:bg-gray-100'
                   }`}
               >
                 <item.icon className={`w-5 h-5 ${activeTab === item.id
-                  ? 'text-orange-400'
+                  ? 'text-[#6C5DD3]'
                   : isDarkMode
                     ? 'group-hover:text-zinc-400'
-                    : 'group-hover:text-gray-600'
+                    : 'group-hover:text-[#6C5DD3]'
                   }`} />
                 <span className="font-medium">{item.label}</span>
               </button>
@@ -84,12 +83,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, onLog
         </div>
 
         <div className="mt-auto p-6">
-          <div className={`p-4 rounded-2xl border transition-colors duration-300 ${isDarkMode
-            ? 'bg-gradient-to-br from-orange-600/10 to-red-600/10 border-orange-500/20'
-            : 'bg-gradient-to-br from-orange-50 to-red-50 border-orange-200'
+          <div className={`p-4 rounded-2xl transition-colors duration-300 ${isDarkMode
+            ? 'bg-gradient-to-br from-[#6C5DD3]/10 to-[#00C4FF]/10 border border-[#6C5DD3]/20'
+            : 'bg-gradient-to-br from-[#6C5DD3]/5 to-[#00C4FF]/5'
             }`}>
-            <p className="text-xs text-orange-400 font-bold mb-1 uppercase tracking-wider">Plan: Enterprise</p>
-            <p className={`text-sm ${isDarkMode ? 'text-zinc-300' : 'text-gray-600'}`}>Titan Heavy Rentals</p>
+            <p className="text-xs text-[#6C5DD3] font-semibold mb-1 uppercase tracking-wider">Plan: Enterprise</p>
+            <p className={`text-sm ${isDarkMode ? 'text-zinc-300' : 'text-[#808191]'}`}>Titan Heavy Rentals</p>
           </div>
         </div>
       </aside>
@@ -111,14 +110,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, onLog
 
           <div className="flex items-center gap-4">
             <div className="relative group">
-              <Search className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-zinc-500 group-focus-within:text-orange-400' : 'text-gray-400 group-focus-within:text-orange-500'
+              <Search className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-zinc-500 group-focus-within:text-[#6C5DD3]' : 'text-[#808191] group-focus-within:text-[#6C5DD3]'
                 }`} />
               <input
                 type="text"
                 placeholder="Search signals..."
-                className={`border rounded-full py-1.5 pl-10 pr-4 text-sm focus:outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/50 w-64 transition-all ${isDarkMode
+                className={`border rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-[#6C5DD3]/50 focus:ring-1 focus:ring-[#6C5DD3]/50 w-64 transition-all ${isDarkMode
                   ? 'bg-white/5 border-white/5'
-                  : 'bg-gray-100 border-gray-200'
+                  : 'bg-gray-100 border-transparent'
                   }`}
               />
             </div>

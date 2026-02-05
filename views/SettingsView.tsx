@@ -86,7 +86,7 @@ const SettingsView: React.FC = () => {
                 <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-6 py-2.5 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/20"
+                    className="flex items-center gap-2 bg-[#6C5DD3] hover:bg-[#6C5DD3] text-white px-6 py-2.5 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/20"
                 >
                     {isSaving ? (
                         <>Saving...</>
@@ -144,7 +144,7 @@ const SettingsView: React.FC = () => {
                                         type="email"
                                         id="email-input"
                                         placeholder="Add recipient email..."
-                                        className="w-full bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:border-orange-500 transition-colors"
+                                        className="w-full bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:border-[#6C5DD3] transition-colors"
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter') {
                                                 e.preventDefault();

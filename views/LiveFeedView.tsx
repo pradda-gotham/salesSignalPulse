@@ -77,19 +77,19 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
          <div className={`flex items-center justify-between p-8 rounded-[2rem] border shadow-2xl relative overflow-hidden ${isDarkMode ? 'bg-[#0f0f0f] border-white/5' : 'bg-gray-900 border-gray-800'
             }`}>
             <div className="absolute top-0 right-0 p-4">
-               <div className="flex items-center gap-2 bg-orange-600/10 text-orange-500 px-4 py-1.5 rounded-full border border-orange-500/20 text-xs font-black animate-pulse">
-                  <div className="w-2 h-2 bg-orange-500 rounded-full" />
+               <div className="flex items-center gap-2 bg-[#6C5DD3]/10 text-[#6C5DD3] px-4 py-1.5 rounded-full border border-[#6C5DD3]/20 text-xs font-black animate-pulse">
+                  <div className="w-2 h-2 bg-[#6C5DD3] rounded-full" />
                   LIVE ENGINE STATUS
                </div>
             </div>
 
             <div className="flex items-center gap-8">
-               <div className="w-20 h-20 rounded-[2rem] bg-orange-600 flex items-center justify-center shadow-[0_0_40px_rgba(249,115,22,0.3)]">
+               <div className="w-20 h-20 rounded-[2rem] bg-[#6C5DD3] flex items-center justify-center shadow-[0_0_40px_rgba(249,115,22,0.3)]">
                   <Radio className="w-10 h-10 text-white animate-bounce" />
                </div>
                <div>
                   <h1 className="text-4xl font-black text-white tracking-tight">Opportunity Command Center</h1>
-                  <p className="text-zinc-400 text-lg font-medium">Monitoring <span className="text-orange-400">{profile.name}</span>'s market parameters via Google Search Grounding.</p>
+                  <p className="text-zinc-400 text-lg font-medium">Monitoring <span className="text-[#6C5DD3]">{profile.name}</span>'s market parameters via Google Search Grounding.</p>
                </div>
             </div>
 
@@ -112,7 +112,7 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
             <div className="lg:col-span-8 space-y-6">
                <div className="flex items-center justify-between px-2">
                   <h2 className={`text-xl font-black flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                     <Activity className="w-5 h-5 text-orange-500" />
+                     <Activity className="w-5 h-5 text-[#6C5DD3]" />
                      Opportunity Stream
                   </h2>
                   <div className={`text-xs font-bold ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Showing {signals.length} latest real-world signals</div>
@@ -135,21 +135,21 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
                      signals.map((s, idx) => (
                         <div
                            key={s.id}
-                           className={`group p-6 rounded-[2rem] border transition-all relative overflow-hidden hover:bg-orange-600/[0.02] ${isDarkMode
-                                 ? 'bg-[#0f0f0f] border-white/5 hover:border-orange-500/30'
+                           className={`group p-6 rounded-[2rem] border transition-all relative overflow-hidden hover:bg-[#6C5DD3]/[0.02] ${isDarkMode
+                                 ? 'bg-[#0f0f0f] border-white/5 hover:border-[#6C5DD3]/30'
                                  : 'bg-white border-gray-200 hover:border-orange-400/50'
                               }`}
                            style={{ animationDelay: `${idx * 150}ms` }}
                         >
-                           <div className="absolute top-0 left-0 w-1 h-full bg-orange-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                           <div className="absolute top-0 left-0 w-1 h-full bg-[#6C5DD3] opacity-0 group-hover:opacity-100 transition-opacity" />
                            <div className="flex items-start justify-between">
                               <div className="flex gap-6 items-start">
                                  <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center border transition-colors ${isDarkMode
-                                       ? 'bg-white/5 border-white/10 group-hover:border-orange-500/30'
+                                       ? 'bg-white/5 border-white/10 group-hover:border-[#6C5DD3]/30'
                                        : 'bg-gray-100 border-gray-200 group-hover:border-orange-400/30'
                                     }`}>
                                     <span className="text-[8px] font-black uppercase text-zinc-500">Score</span>
-                                    <span className={`text-lg font-black group-hover:text-orange-500 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{s.score}</span>
+                                    <span className={`text-lg font-black group-hover:text-[#6C5DD3] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{s.score}</span>
                                  </div>
                                  <div className="space-y-1">
                                     <div className="flex items-center gap-3">
@@ -163,7 +163,7 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
                                        <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 font-black uppercase">
                                           <Clock className="w-3 h-3" /> {s.timestamp}
                                        </div>
-                                       <div className="flex items-center gap-1.5 text-[10px] text-orange-400 font-black uppercase">
+                                       <div className="flex items-center gap-1.5 text-[10px] text-[#6C5DD3] font-black uppercase">
                                           <Zap className="w-3 h-3" /> {s.matchedProducts[0]}
                                        </div>
                                        <a
@@ -181,8 +181,8 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
                               <button
                                  onClick={() => onViewDossier(s)}
                                  className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-all border group/btn ${isDarkMode
-                                       ? 'bg-white/5 hover:bg-orange-600 text-zinc-400 hover:text-white border-white/5 hover:border-orange-500'
-                                       : 'bg-gray-100 hover:bg-orange-600 text-gray-500 hover:text-white border-gray-200 hover:border-orange-500'
+                                       ? 'bg-white/5 hover:bg-[#6C5DD3] text-zinc-400 hover:text-white border-white/5 hover:border-[#6C5DD3]'
+                                       : 'bg-gray-100 hover:bg-[#6C5DD3] text-gray-500 hover:text-white border-gray-200 hover:border-[#6C5DD3]'
                                     }`}
                               >
                                  <span className="text-[10px] font-black uppercase whitespace-nowrap">Gather Intel</span>
@@ -220,7 +220,7 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
                   }`}>
                   <div className={`flex items-center gap-2 font-black uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-400' : 'text-gray-500'
                      }`}>
-                     <Target className="w-4 h-4 text-orange-500" />
+                     <Target className="w-4 h-4 text-[#6C5DD3]" />
                      Active Parameters
                   </div>
                   <div className="space-y-3">
@@ -228,7 +228,7 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
                         <div key={trigger.id} className={`p-4 rounded-xl border flex items-center justify-between group ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-200'
                            }`}>
                            <div className="space-y-1">
-                              <div className={`text-xs font-bold transition-colors ${isDarkMode ? 'text-white group-hover:text-orange-400' : 'text-gray-900 group-hover:text-orange-600'
+                              <div className={`text-xs font-bold transition-colors ${isDarkMode ? 'text-white group-hover:text-[#6C5DD3]' : 'text-gray-900 group-hover:text-[#6C5DD3]'
                                  }`}>{trigger.event}</div>
                               <div className="text-[9px] text-zinc-500 font-medium uppercase tracking-tighter">{trigger.product}</div>
                            </div>
@@ -238,9 +238,9 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
                   </div>
                </div>
 
-               <div className={`p-8 rounded-[2rem] border space-y-4 ${isDarkMode ? 'bg-orange-600/5 border-orange-500/10' : 'bg-orange-50 border-orange-200'
+               <div className={`p-8 rounded-[2rem] border space-y-4 ${isDarkMode ? 'bg-[#6C5DD3]/5 border-[#6C5DD3]/10' : 'bg-orange-50 border-orange-200'
                   }`}>
-                  <div className="flex items-center gap-2 text-orange-500 font-black uppercase tracking-widest text-[10px]">
+                  <div className="flex items-center gap-2 text-[#6C5DD3] font-black uppercase tracking-widest text-[10px]">
                      <Search className="w-4 h-4" />
                      Scanner Coverage
                   </div>

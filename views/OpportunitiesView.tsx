@@ -61,7 +61,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
           <button onClick={onBack} className={`px-6 py-3 rounded-xl font-bold transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>
             Back to Signals
           </button>
-          <button onClick={onRetry} className="px-6 py-3 bg-orange-600 hover:bg-orange-50 text-white rounded-xl font-bold flex items-center gap-2 transition-all">
+          <button onClick={onRetry} className="px-6 py-3 bg-[#6C5DD3] hover:bg-[#5A4DBF] text-white rounded-xl font-bold flex items-center gap-2 transition-all">
             <RefreshCw className="w-4 h-4" /> Retry
           </button>
         </div>
@@ -98,7 +98,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
       <div className={`flex items-start justify-between border-b pb-10 ${isDarkMode ? 'border-white/5' : 'border-gray-200'}`}>
         <div className="space-y-4 flex-1">
           <div className="flex items-center gap-3">
-            <span className="px-3 py-1 rounded bg-orange-600/10 text-orange-500 text-[10px] font-black uppercase tracking-widest border border-orange-500/20">
+            <span className="px-3 py-1 rounded bg-[#6C5DD3]/10 text-[#6C5DD3] text-[10px] font-black uppercase tracking-widest border border-[#6C5DD3]/20">
               {isPending ? 'Gathering Intelligence...' : 'Battle-Ready Dossier'}
             </span>
             {dossier ? (
@@ -118,7 +118,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
           <div className="text-[10px] text-zinc-500 font-black uppercase mb-2 tracking-widest">Est. Opportunity</div>
           {dossier ? (
             <div className={`text-4xl font-black flex items-center justify-end animate-in fade-in zoom-in-95 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              <DollarSign className="w-8 h-8 text-orange-500 -mr-1" />
+              <DollarSign className="w-8 h-8 text-[#6C5DD3] -mr-1" />
               {(dossier.pricingStrategy.estimatedValue / 1000).toFixed(0)}k
             </div>
           ) : <SkeletonPulse className="w-32 h-10 ml-auto" />}
@@ -130,14 +130,14 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
           {/* Executive Summary */}
           <section className="space-y-4">
             <div className={`flex items-center gap-2 font-bold uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-400' : 'text-gray-500'}`}>
-              <FileText className="w-4 h-4 text-orange-500" />
+              <FileText className="w-4 h-4 text-[#6C5DD3]" />
               Strategic Briefing
             </div>
             <div className={`p-8 rounded-[2rem] border leading-relaxed italic text-lg shadow-inner relative overflow-hidden ${isDarkMode ? 'bg-white/5 border-white/5 text-zinc-200' : 'bg-gray-50 border-gray-200 text-gray-700'}`}>
               {displaySummary}
               {isPending && (
                 <div className={`absolute inset-0 flex items-end justify-center pb-4 ${isDarkMode ? 'bg-gradient-to-t from-[#0a0a0a]/50 to-transparent' : 'bg-gradient-to-t from-white/50 to-transparent'}`}>
-                  <span className="flex items-center gap-2 text-[10px] font-black text-orange-500 animate-pulse">
+                  <span className="flex items-center gap-2 text-[10px] font-black text-[#6C5DD3] animate-pulse">
                     <Loader2 className="w-3 h-3 animate-spin" /> ENHANCING WITH ACCOUNT INTEL
                   </span>
                 </div>
@@ -148,7 +148,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
           {/* Recommended Bundle */}
           <section className="space-y-6">
             <div className={`flex items-center gap-2 font-bold uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-400' : 'text-gray-500'}`}>
-              <Package className="w-4 h-4 text-orange-500" />
+              <Package className="w-4 h-4 text-[#6C5DD3]" />
               Product Configuration
             </div>
             <div className={`overflow-hidden rounded-[2rem] border ${isDarkMode ? 'border-white/5' : 'border-gray-200'}`}>
@@ -163,7 +163,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
                 <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-200'}`}>
                   {dossier ? dossier.recommendedBundle.map((item, i) => (
                     <tr key={i} className={`animate-in fade-in slide-in-from-left-2 duration-300 ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-gray-50'}`} style={{ animationDelay: `${i * 100}ms` }}>
-                      <td className="px-8 py-5 font-mono text-orange-400 font-bold">{item.sku}</td>
+                      <td className="px-8 py-5 font-mono text-[#6C5DD3] font-bold">{item.sku}</td>
                       <td className={`px-8 py-5 ${isDarkMode ? 'text-zinc-300' : 'text-gray-700'}`}>{item.description}</td>
                       <td className={`px-8 py-5 text-right font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.quantity}</td>
                     </tr>
@@ -182,7 +182,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
           {/* Pricing Strategy - moved to main content for better layout */}
           <section className={`p-6 rounded-2xl border space-y-4 ${isDarkMode ? 'bg-zinc-900 border-white/5' : 'bg-gray-50 border-gray-200'}`}>
             <div className={`flex items-center gap-2 font-bold uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-400' : 'text-gray-500'}`}>
-              <TrendingUp className="w-4 h-4 text-orange-500" />
+              <TrendingUp className="w-4 h-4 text-[#6C5DD3]" />
               Pricing Strategy
             </div>
             {dossier ? (
@@ -193,7 +193,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
                 </div>
                 <div className={`flex-shrink-0 text-right border-l pl-8 ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`}>
                   <div className="text-xs text-zinc-500 mb-1">Flex Allowance</div>
-                  <div className="text-orange-400 text-4xl font-black">{dossier.pricingStrategy.discount}%</div>
+                  <div className="text-[#6C5DD3] text-4xl font-black">{dossier.pricingStrategy.discount}%</div>
                 </div>
               </div>
             ) : (
@@ -209,7 +209,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
           {/* Account Intelligence Module */}
           <section className={`p-5 rounded-2xl border space-y-4 ${isDarkMode ? 'bg-zinc-900 border-white/5' : 'bg-gray-50 border-gray-200'}`}>
             <div className={`flex items-center gap-2 font-bold uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-400' : 'text-gray-500'}`}>
-              <Target className="w-4 h-4 text-orange-500" />
+              <Target className="w-4 h-4 text-[#6C5DD3]" />
               Account Intelligence
               {dossier?.isEnriched && (
                 <span className="ml-auto px-2 py-0.5 rounded bg-green-500/10 text-green-400 text-[9px] border border-green-500/20 flex items-center gap-1">
@@ -235,7 +235,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
                             href={`https://${dossier.enrichedCompany.domain}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={`flex items-center gap-2 text-sm transition-colors animate-in fade-in ${isDarkMode ? 'text-zinc-400 hover:text-orange-400' : 'text-gray-500 hover:text-orange-600'}`}
+                            className={`flex items-center gap-2 text-sm transition-colors animate-in fade-in ${isDarkMode ? 'text-zinc-400 hover:text-[#6C5DD3]' : 'text-gray-500 hover:text-[#6C5DD3]'}`}
                           >
                             <Globe className="w-3.5 h-3.5" />
                             {dossier.enrichedCompany.domain}
@@ -245,7 +245,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
                               href={dossier.enrichedCompany.linkedinUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className={`flex items-center gap-2 text-sm transition-colors animate-in fade-in ${isDarkMode ? 'text-zinc-400 hover:text-orange-400' : 'text-gray-500 hover:text-orange-600'}`}
+                              className={`flex items-center gap-2 text-sm transition-colors animate-in fade-in ${isDarkMode ? 'text-zinc-400 hover:text-[#6C5DD3]' : 'text-gray-500 hover:text-[#6C5DD3]'}`}
                             >
                               <Linkedin className="w-3.5 h-3.5" />
                               Company LinkedIn
@@ -268,7 +268,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
                             href={dossier.targetWebsite?.startsWith('http') ? dossier.targetWebsite : `https://${dossier.targetWebsite}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={`flex items-center gap-2 text-sm transition-colors animate-in fade-in ${isDarkMode ? 'text-zinc-400 hover:text-orange-400' : 'text-gray-500 hover:text-orange-600'}`}
+                            className={`flex items-center gap-2 text-sm transition-colors animate-in fade-in ${isDarkMode ? 'text-zinc-400 hover:text-[#6C5DD3]' : 'text-gray-500 hover:text-[#6C5DD3]'}`}
                           >
                             <Globe className="w-3.5 h-3.5" />
                             {dossier.targetWebsite || 'Website Unavailable'}
@@ -278,7 +278,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
                               href={dossier.targetLinkedin}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className={`flex items-center gap-2 text-sm transition-colors animate-in fade-in ${isDarkMode ? 'text-zinc-400 hover:text-orange-400' : 'text-gray-500 hover:text-orange-600'}`}
+                              className={`flex items-center gap-2 text-sm transition-colors animate-in fade-in ${isDarkMode ? 'text-zinc-400 hover:text-[#6C5DD3]' : 'text-gray-500 hover:text-[#6C5DD3]'}`}
                             >
                               <Linkedin className="w-3.5 h-3.5" />
                               LinkedIn Profile
@@ -298,7 +298,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
                     href={signal.sourceUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-sm text-orange-500 hover:text-orange-400 transition-colors font-bold mt-1"
+                    className="flex items-center gap-2 text-sm text-[#6C5DD3] hover:text-[#6C5DD3] transition-colors font-bold mt-1"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     Source: {signal.sourceTitle || 'View Trigger Article'}
@@ -319,7 +319,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
                       key={idx}
                       className={`p-4 rounded-xl border space-y-2 ${contact.isPrimary
                           ? isDarkMode
-                            ? 'bg-orange-500/5 border-orange-500/20'
+                            ? 'bg-[#6C5DD3]/5 border-[#6C5DD3]/20'
                             : 'bg-orange-50 border-orange-200'
                           : isDarkMode
                             ? 'bg-white/5 border-white/5'
@@ -339,7 +339,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
                           </div>
                         </div>
                         {contact.isPrimary && (
-                          <span className="px-2 py-0.5 rounded text-[9px] font-black bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                          <span className="px-2 py-0.5 rounded text-[9px] font-black bg-[#6C5DD3]/20 text-[#6C5DD3] border border-[#6C5DD3]/30">
                             PRIMARY
                           </span>
                         )}
@@ -350,7 +350,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
                             <span className="text-xs text-green-400">✓</span>
                             <a
                               href={`mailto:${contact.email}`}
-                              className={`text-xs font-mono transition-colors ${isDarkMode ? 'text-zinc-400 hover:text-orange-400' : 'text-gray-600 hover:text-orange-600'}`}
+                              className={`text-xs font-mono transition-colors ${isDarkMode ? 'text-zinc-400 hover:text-[#6C5DD3]' : 'text-gray-600 hover:text-[#6C5DD3]'}`}
                             >
                               {contact.email}
                             </a>
@@ -361,7 +361,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
                             <span className="text-xs text-green-400">✓</span>
                             <a
                               href={`tel:${contact.phone}`}
-                              className={`text-xs font-mono transition-colors ${isDarkMode ? 'text-zinc-400 hover:text-orange-400' : 'text-gray-600 hover:text-orange-600'}`}
+                              className={`text-xs font-mono transition-colors ${isDarkMode ? 'text-zinc-400 hover:text-[#6C5DD3]' : 'text-gray-600 hover:text-[#6C5DD3]'}`}
                             >
                               {contact.phone}
                             </a>
@@ -372,7 +372,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
                             href={contact.linkedinUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={`flex items-center gap-2 text-xs transition-colors ${isDarkMode ? 'text-zinc-400 hover:text-orange-400' : 'text-gray-600 hover:text-orange-600'}`}
+                            className={`flex items-center gap-2 text-xs transition-colors ${isDarkMode ? 'text-zinc-400 hover:text-[#6C5DD3]' : 'text-gray-600 hover:text-[#6C5DD3]'}`}
                           >
                             <Linkedin className="w-3 h-3" />
                             View Profile
@@ -397,7 +397,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
                           href={dossier.keyPersonLinkedin}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className={`flex items-center gap-2 text-sm transition-colors animate-in fade-in ${isDarkMode ? 'text-zinc-400 hover:text-orange-400' : 'text-gray-500 hover:text-orange-600'}`}
+                          className={`flex items-center gap-2 text-sm transition-colors animate-in fade-in ${isDarkMode ? 'text-zinc-400 hover:text-[#6C5DD3]' : 'text-gray-500 hover:text-[#6C5DD3]'}`}
                         >
                           <Linkedin className="w-3.5 h-3.5" />
                           Stakeholder LinkedIn
@@ -417,8 +417,8 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
           </section>
 
           {/* Battlecard */}
-          <section className={`p-6 rounded-2xl border space-y-4 relative overflow-hidden ${isDarkMode ? 'bg-orange-600/10 border-orange-500/20' : 'bg-orange-50 border-orange-200'}`}>
-            <div className="flex items-center gap-2 text-orange-400 font-bold uppercase tracking-widest text-[10px]">
+          <section className={`p-6 rounded-2xl border space-y-4 relative overflow-hidden ${isDarkMode ? 'bg-[#6C5DD3]/10 border-[#6C5DD3]/20' : 'bg-orange-50 border-orange-200'}`}>
+            <div className="flex items-center gap-2 text-[#6C5DD3] font-bold uppercase tracking-widest text-[10px]">
               <Swords className="w-4 h-4" />
               Competitive Battlecard
             </div>
@@ -449,7 +449,7 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-7xl px-8 flex gap-4 z-30 animate-in slide-in-from-bottom-8 duration-700">
         <button
           disabled={!dossier}
-          className="flex-1 py-5 bg-orange-600 hover:bg-orange-500 text-white font-black rounded-2xl transition-all shadow-2xl shadow-orange-500/30 flex items-center justify-center gap-3 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
+          className="flex-1 py-5 bg-[#6C5DD3] hover:bg-[#6C5DD3] text-white font-black rounded-2xl transition-all shadow-2xl shadow-orange-500/30 flex items-center justify-center gap-3 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
         >
           {dossier ? 'Push Opportunity to CRM (Salesforce)' : 'Gathering Deployment Specs...'}
           <ChevronRight className="w-5 h-5" />

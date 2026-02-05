@@ -63,7 +63,7 @@ const AdhocHuntView: React.FC<AdhocHuntViewProps> = ({ onStartHunt }) => {
         <div className="max-w-5xl mx-auto">
             <div className="mb-8">
                 <h1 className="text-3xl font-bold flex items-center gap-3">
-                    <Radar className="w-8 h-8 text-orange-500" />
+                    <Radar className="w-8 h-8 text-[#6C5DD3]" />
                     Live Hunt
                 </h1>
                 <p className="text-gray-500 mt-2">

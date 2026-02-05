@@ -141,12 +141,12 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
       <div className={`flex items-end justify-between border-b pb-10 ${isDarkMode ? 'border-white/5' : 'border-gray-200'}`}>
         <div>
           <div className="flex items-center gap-2 mb-4">
-            <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-orange-600/20 text-orange-500' : 'bg-orange-100 text-orange-600'}`}>
+            <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-[#6C5DD3]/20 text-[#6C5DD3]' : 'bg-orange-100 text-[#6C5DD3]'}`}>
               <Settings2 className="w-5 h-5" />
             </div>
             <span className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">Configuration Hub</span>
           </div>
-          <h1 className={`text-6xl font-black tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Signal Engine <span className="text-orange-500">Setup</span></h1>
+          <h1 className={`text-6xl font-black tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Signal Engine <span className="text-[#6C5DD3]">Setup</span></h1>
           <p className={`text-xl font-medium ${isDarkMode ? 'text-zinc-400' : 'text-gray-500'}`}>Configure the market events that trigger sales opportunities.</p>
         </div>
         <div className="flex gap-4">
@@ -183,8 +183,8 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
           <div key={i} className={`p-6 rounded-3xl border flex items-center gap-4 group ${isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-gray-200 shadow-sm'
             }`}>
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${isDarkMode
-              ? 'bg-white/5 text-zinc-500 group-hover:text-orange-400'
-              : 'bg-gray-100 text-gray-500 group-hover:text-orange-600'
+              ? 'bg-white/5 text-zinc-500 group-hover:text-[#6C5DD3]'
+              : 'bg-gray-100 text-gray-500 group-hover:text-[#6C5DD3]'
               }`}>
               <stat.icon className="w-6 h-6" />
             </div>
@@ -331,13 +331,13 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
 
         {/* Custom Form (kept for advanced users) */}
         {showCustomForm && (
-          <div className="p-8 rounded-[2.5rem] bg-orange-600/10 border-2 border-orange-500/30 animate-in slide-in-from-top-4 duration-500 shadow-2xl space-y-6 custom-backdrop-blur">
+          <div className="p-8 rounded-[2.5rem] bg-[#6C5DD3]/10 border-2 border-[#6C5DD3]/30 animate-in slide-in-from-top-4 duration-500 shadow-2xl space-y-6 custom-backdrop-blur">
             <div className="flex items-center justify-between">
               <h3 className={`text-2xl font-black flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                <Terminal className="w-6 h-6 text-orange-500" />
+                <Terminal className="w-6 h-6 text-[#6C5DD3]" />
                 Define Custom Signal Parameter
               </h3>
-              <button onClick={() => setShowCustomForm(false)} className="text-zinc-500 hover:text-orange-500 transition-colors">
+              <button onClick={() => setShowCustomForm(false)} className="text-zinc-500 hover:text-[#6C5DD3] transition-colors">
                 <XCircle className="w-6 h-6" />
               </button>
             </div>
@@ -347,7 +347,7 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
                 <input
                   type="text"
                   placeholder="e.g. Regional Manager hired by Competitor"
-                  className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-all ${isDarkMode
+                  className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:border-[#6C5DD3] transition-all ${isDarkMode
                     ? 'bg-black/40 border-white/5 text-white'
                     : 'bg-white/60 border-gray-200 text-gray-900'
                     }`}
@@ -358,7 +358,7 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Relevant Product</label>
                 <select
-                  className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-all ${isDarkMode
+                  className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:border-[#6C5DD3] transition-all ${isDarkMode
                     ? 'bg-black/40 border-white/5 text-white'
                     : 'bg-white/60 border-gray-200 text-gray-900'
                     }`}
@@ -371,12 +371,12 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
 
               <div className="md:col-span-2 space-y-2">
                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1 flex items-center gap-2">
-                  Target Specific Site <span className="bg-orange-500/20 text-orange-400 px-1.5 rounded text-[9px]">OPTIONAL</span>
+                  Target Specific Site <span className="bg-[#6C5DD3]/20 text-[#6C5DD3] px-1.5 rounded text-[9px]">OPTIONAL</span>
                 </label>
                 <input
                   type="text"
                   placeholder="e.g. tenders.nsw.gov.au (Leave empty to search entire web)"
-                  className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-all font-mono text-sm ${isDarkMode
+                  className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:border-[#6C5DD3] transition-all font-mono text-sm ${isDarkMode
                     ? 'bg-black/40 border-white/5 text-white placeholder:text-zinc-600'
                     : 'bg-white/60 border-gray-200 text-gray-900 placeholder:text-gray-400'
                     }`}
@@ -390,7 +390,7 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
                 <textarea
                   rows={2}
                   placeholder="Identify accounts currently using competitor solutions that might be open to replacement following personnel shift..."
-                  className={`w-full border rounded-2xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-all resize-none ${isDarkMode
+                  className={`w-full border rounded-2xl px-4 py-3 focus:outline-none focus:border-[#6C5DD3] transition-all resize-none ${isDarkMode
                     ? 'bg-black/40 border-white/5 text-white'
                     : 'bg-white/60 border-gray-200 text-gray-900'
                     }`}
@@ -402,7 +402,7 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
             <div className="flex justify-end pt-2">
               <button
                 onClick={handleAddCustom}
-                className="px-10 py-4 bg-orange-600 hover:bg-orange-500 text-white font-black rounded-2xl transition-all shadow-xl flex items-center gap-2"
+                className="px-10 py-4 bg-[#6C5DD3] hover:bg-[#6C5DD3] text-white font-black rounded-2xl transition-all shadow-xl flex items-center gap-2"
               >
                 <Plus className="w-5 h-5" /> Activate Signal Configuration
               </button>
@@ -484,10 +484,10 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
                   <React.Fragment key={t.id}>
                     <tr className={`group transition-all duration-300 ${t.status === 'Rejected' ? 'opacity-30' : isDarkMode ? 'hover:bg-white/[0.03]' : 'hover:bg-gray-50'}`}>
                       <td className="px-8 py-6">
-                        <div className={`font-black text-lg transition-colors mb-1 ${isDarkMode ? 'text-white group-hover:text-orange-400' : 'text-gray-900 group-hover:text-orange-600'
+                        <div className={`font-black text-lg transition-colors mb-1 ${isDarkMode ? 'text-white group-hover:text-[#6C5DD3]' : 'text-gray-900 group-hover:text-[#6C5DD3]'
                           }`}>{t.event}</div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[10px] font-black text-orange-500 uppercase tracking-tighter bg-orange-500/10 px-1.5 py-0.5 rounded">{t.product}</span>
+                          <span className="text-[10px] font-black text-[#6C5DD3] uppercase tracking-tighter bg-[#6C5DD3]/10 px-1.5 py-0.5 rounded">{t.product}</span>
                           <span className="text-[10px] text-zinc-500 flex items-center gap-1"><Search className="w-2.5 h-2.5" /> {t.source}</span>
 
                           {/* Website badges - only show if sites mode or both */}
@@ -621,7 +621,7 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
       {/* Compact Action Bar */}
       {approvedCount > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4 z-40 animate-in slide-in-from-bottom-4 duration-500">
-          <div className="px-6 py-4 rounded-2xl bg-gradient-to-r from-orange-600 to-red-600 border border-orange-400/20 shadow-[0_20px_40px_rgba(249,115,22,0.3)] flex items-center justify-between backdrop-blur-xl">
+          <div className="px-6 py-4 rounded-2xl bg-gradient-to-r from-[#6C5DD3] to-[#00C4FF] border border-orange-400/20 shadow-[0_20px_40px_rgba(249,115,22,0.3)] flex items-center justify-between backdrop-blur-xl">
             {/* Left Side - Info */}
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
@@ -650,7 +650,7 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
             {/* Right Side - Action Button */}
             <button
               onClick={onStartHunting}
-              className="px-6 py-3 bg-white text-orange-600 hover:bg-orange-50 font-black text-sm rounded-xl transition-all shadow-lg active:scale-95 flex items-center gap-2"
+              className="px-6 py-3 bg-white text-[#6C5DD3] hover:bg-[#5A4DBF] font-black text-sm rounded-xl transition-all shadow-lg active:scale-95 flex items-center gap-2"
             >
               <Activity className="w-4 h-4" /> Sync Market Signals
             </button>
