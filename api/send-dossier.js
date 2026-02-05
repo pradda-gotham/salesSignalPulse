@@ -45,51 +45,149 @@ export default async function handler(req, res) {
         <!DOCTYPE html>
         <html>
         <head>
-          <style>
-            body { font-family: sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #f97316; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
-            .content { border: 1px solid #ddd; padding: 20px; border-top: none; border-radius: 0 0 8px 8px; }
-            .section { margin-bottom: 20px; }
-            .label { font-weight: bold; color: #666; font-size: 0.9em; text-transform: uppercase; }
-            .value { margin-top: 5px; }
-            .contact-card { background: #f5f5f5; padding: 15px; border-radius: 8px; margin-top: 20px; }
-            .btn { display: inline-block; background: #f97316; color: white; text-decoration: none; padding: 10px 20px; border-radius: 5px; margin-top: 20px; }
-          </style>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
         </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h2 style="margin:0">Deal Dossier: ${dossier.accountName}</h2>
+        <body style="margin: 0; padding: 0; background: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: white; padding: 24px; border-radius: 12px 12px 0 0;">
+              <h1 style="margin: 0; font-size: 24px; font-weight: 700;">🎯 Deal Dossier</h1>
+              <p style="margin: 8px 0 0 0; font-size: 18px; opacity: 0.95;">${dossier.accountName}</p>
             </div>
-            <div class="content">
-              <div class="section">
-                <div class="label">Executive Summary</div>
-                <div class="value">${dossier.executiveSummary || 'N/A'}</div>
-              </div>
+            
+            <!-- Main Content -->
+            <div style="background: white; padding: 24px; border: 1px solid #e5e5e5; border-top: none;">
               
-              <div class="section">
-                <div class="label">Commercial Opportunity</div>
-                <div class="value">${dossier.commercialOpportunity || 'N/A'}</div>
-              </div>
-
-              ${dossier.enrichedContacts && dossier.enrichedContacts.length > 0 ? `
-                <div class="contact-card">
-                  <div class="label">Key Contact</div>
-                  <div class="value">
-                    <strong>${dossier.enrichedContacts[0].name}</strong><br>
-                    ${dossier.enrichedContacts[0].title}<br>
-                    <a href="mailto:${dossier.enrichedContacts[0].email}">${dossier.enrichedContacts[0].email}</a><br>
-                    ${dossier.enrichedContacts[0].linkedin ? `<a href="${dossier.enrichedContacts[0].linkedin}">LinkedIn Profile</a>` : ''}
+              <!-- Quick Stats Row -->
+              <div style="display: flex; gap: 12px; margin-bottom: 24px;">
+                <div style="flex: 1; background: #fef3c7; padding: 16px; border-radius: 8px; text-align: center;">
+                  <div style="font-size: 12px; color: #92400e; text-transform: uppercase; font-weight: 600;">Deal Size</div>
+                  <div style="font-size: 24px; font-weight: 700; color: #78350f; margin-top: 4px;">
+                    ${dossier.pricingStrategy?.estimatedValue ? '$' + dossier.pricingStrategy.estimatedValue.toLocaleString() : 'TBD'}
                   </div>
                 </div>
+                <div style="flex: 1; background: #dbeafe; padding: 16px; border-radius: 8px; text-align: center;">
+                  <div style="font-size: 12px; color: #1e40af; text-transform: uppercase; font-weight: 600;">Confidence</div>
+                  <div style="font-size: 24px; font-weight: 700; color: #1e3a8a; margin-top: 4px;">${dossier.confidence || 'Medium'}</div>
+                </div>
+              </div>
+
+              <!-- Executive Summary -->
+              <div style="margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #e5e5e5;">
+                <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 8px;">📋 Executive Summary</div>
+                <p style="margin: 0; color: #374151; line-height: 1.6;">${dossier.executiveSummary || 'N/A'}</p>
+              </div>
+
+              <!-- Commercial Opportunity -->
+              <div style="margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #e5e5e5;">
+                <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 8px;">💰 Commercial Opportunity</div>
+                <p style="margin: 0; color: #374151; line-height: 1.6;">${dossier.commercialOpportunity || 'N/A'}</p>
+              </div>
+
+              <!-- Product Recommendations -->
+              ${dossier.recommendedBundle && dossier.recommendedBundle.length > 0 ? `
+              <div style="margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #e5e5e5;">
+                <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 12px;">📦 Products to Target</div>
+                <table style="width: 100%; border-collapse: collapse;">
+                  <thead>
+                    <tr style="background: #f9fafb;">
+                      <th style="padding: 8px 12px; text-align: left; font-size: 12px; color: #6b7280; font-weight: 600;">Product</th>
+                      <th style="padding: 8px 12px; text-align: left; font-size: 12px; color: #6b7280; font-weight: 600;">Qty</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${dossier.recommendedBundle.map(item => `
+                      <tr style="border-bottom: 1px solid #f3f4f6;">
+                        <td style="padding: 10px 12px;">
+                          <div style="font-weight: 600; color: #111827;">${item.sku}</div>
+                          <div style="font-size: 12px; color: #6b7280;">${item.description || ''}</div>
+                        </td>
+                        <td style="padding: 10px 12px; font-weight: 600; color: #f97316;">${item.quantity}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
               ` : ''}
 
-              <div style="text-align: center;">
-                <a href="${process.env.VITE_APP_URL || 'https://aireadines.com'}" class="btn">View Full Dossier</a>
+              <!-- Company Info -->
+              ${dossier.enrichedCompany ? `
+              <div style="margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #e5e5e5;">
+                <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 12px;">🏢 Company Details</div>
+                <table style="width: 100%;">
+                  <tr>
+                    <td style="padding: 4px 0; color: #6b7280; font-size: 13px; width: 120px;">Website</td>
+                    <td style="padding: 4px 0;"><a href="https://${dossier.enrichedCompany.domain}" style="color: #f97316; text-decoration: none;">${dossier.enrichedCompany.domain}</a></td>
+                  </tr>
+                  ${dossier.enrichedCompany.linkedinUrl ? `
+                  <tr>
+                    <td style="padding: 4px 0; color: #6b7280; font-size: 13px;">LinkedIn</td>
+                    <td style="padding: 4px 0;"><a href="${dossier.enrichedCompany.linkedinUrl}" style="color: #0077b5; text-decoration: none;">🔗 Company Page</a></td>
+                  </tr>
+                  ` : ''}
+                  ${dossier.enrichedCompany.industry ? `
+                  <tr>
+                    <td style="padding: 4px 0; color: #6b7280; font-size: 13px;">Industry</td>
+                    <td style="padding: 4px 0; color: #374151;">${dossier.enrichedCompany.industry}</td>
+                  </tr>
+                  ` : ''}
+                  ${dossier.enrichedCompany.employeeCount ? `
+                  <tr>
+                    <td style="padding: 4px 0; color: #6b7280; font-size: 13px;">Employees</td>
+                    <td style="padding: 4px 0; color: #374151;">${dossier.enrichedCompany.employeeCount.toLocaleString()}</td>
+                  </tr>
+                  ` : ''}
+                </table>
+              </div>
+              ` : ''}
+
+              <!-- All Contacts -->
+              ${dossier.enrichedContacts && dossier.enrichedContacts.length > 0 ? `
+              <div style="margin-bottom: 24px;">
+                <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 12px;">👥 Key Contacts (${dossier.enrichedContacts.length})</div>
+                ${dossier.enrichedContacts.map((contact, index) => `
+                  <div style="background: ${index === 0 ? '#fff7ed' : '#f9fafb'}; border: 1px solid ${index === 0 ? '#fed7aa' : '#e5e7eb'}; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                      <div>
+                        <div style="font-weight: 700; color: #111827; font-size: 15px;">${contact.name}</div>
+                        <div style="color: #6b7280; font-size: 13px; margin-top: 2px;">${contact.title}</div>
+                      </div>
+                      ${index === 0 ? '<span style="background: #f97316; color: white; font-size: 10px; padding: 2px 8px; border-radius: 12px; font-weight: 600;">PRIMARY</span>' : ''}
+                    </div>
+                    <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 12px;">
+                      ${contact.email ? `
+                      <a href="mailto:${contact.email}" style="display: flex; align-items: center; gap: 4px; color: #374151; text-decoration: none; font-size: 13px;">
+                        ✉️ ${contact.email}
+                      </a>
+                      ` : ''}
+                      ${contact.phone ? `
+                      <a href="tel:${contact.phone}" style="display: flex; align-items: center; gap: 4px; color: #374151; text-decoration: none; font-size: 13px;">
+                        📞 ${contact.phone}
+                      </a>
+                      ` : ''}
+                      ${contact.linkedinUrl ? `
+                      <a href="${contact.linkedinUrl}" style="display: flex; align-items: center; gap: 4px; color: #0077b5; text-decoration: none; font-size: 13px;">
+                        🔗 LinkedIn Profile
+                      </a>
+                      ` : ''}
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+              ` : ''}
+
+              <!-- CTA Button -->
+              <div style="text-align: center; margin-top: 24px;">
+                <a href="${process.env.VITE_APP_URL || 'https://aireadines.com'}" style="display: inline-block; background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
+                  View Full Dossier →
+                </a>
               </div>
             </div>
-            <div style="text-align: center; margin-top: 20px; color: #999; font-size: 0.8em;">
+            
+            <!-- Footer -->
+            <div style="text-align: center; padding: 20px; color: #9ca3af; font-size: 12px; border-radius: 0 0 12px 12px;">
               Powered by SalesPulse Autonomous Intelligence
             </div>
           </div>
