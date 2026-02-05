@@ -1,30 +1,44 @@
 import { Resend } from 'resend';
 
 export const config = {
-  runtime: 'nodejs', // Switched to Node.js for Resend compatibility
+  runtime: 'nodejs',
 };
 
-export default async function handler(req) {
+export default async function handler(req, res) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
   if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    return new Response('Missing RESEND_API_KEY', { status: 500 });
+    console.error('[EMAIL] Missing RESEND_API_KEY environment variable');
+    return res.status(500).json({ error: 'Missing RESEND_API_KEY' });
   }
 
   try {
-    const { dossier, recipients } = await req.json();
+    // req.body is already parsed by Vercel
+    const { dossier, recipients } = req.body || {};
 
     if (!dossier || !recipients || recipients.length === 0) {
-      return new Response('Missing required fields', { status: 400 });
+      return res.status(400).json({ error: 'Missing required fields: dossier and recipients' });
     }
+
+    console.log(`[EMAIL] Sending dossier for ${dossier.accountName} to ${recipients.length} recipients`);
 
     const resend = new Resend(apiKey);
 
     const { data, error } = await resend.emails.send({
-      from: 'SalesPulse Intelligence <onboarding@resend.dev>', // Default testing domain
+      from: 'SalesPulse Intelligence <onboarding@resend.dev>',
       to: recipients,
       subject: `Deal Dossier: ${dossier.accountName}`,
       html: `
@@ -51,12 +65,12 @@ export default async function handler(req) {
             <div class="content">
               <div class="section">
                 <div class="label">Executive Summary</div>
-                <div class="value">${dossier.executiveSummary}</div>
+                <div class="value">${dossier.executiveSummary || 'N/A'}</div>
               </div>
               
               <div class="section">
                 <div class="label">Commercial Opportunity</div>
-                <div class="value">${dossier.commercialOpportunity}</div>
+                <div class="value">${dossier.commercialOpportunity || 'N/A'}</div>
               </div>
 
               ${dossier.enrichedContacts && dossier.enrichedContacts.length > 0 ? `
@@ -72,7 +86,7 @@ export default async function handler(req) {
               ` : ''}
 
               <div style="text-align: center;">
-                <a href="${process.env.VITE_APP_URL || 'http://localhost:3000'}" class="btn">View Full Dossier</a>
+                <a href="${process.env.VITE_APP_URL || 'https://sales-signal-pulse.vercel.app'}" class="btn">View Full Dossier</a>
               </div>
             </div>
             <div style="text-align: center; margin-top: 20px; color: #999; font-size: 0.8em;">
@@ -85,14 +99,15 @@ export default async function handler(req) {
     });
 
     if (error) {
-      console.error('Resend Error:', error);
-      return new Response(JSON.stringify({ error }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      console.error('[EMAIL] Resend Error:', error);
+      return res.status(400).json({ error });
     }
 
-    return new Response(JSON.stringify({ data }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    console.log('[EMAIL] Successfully sent:', data);
+    return res.status(200).json({ data });
 
   } catch (e) {
-    console.error('Server Error:', e);
-    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    console.error('[EMAIL] Server Error:', e);
+    return res.status(500).json({ error: e.message });
   }
 }
