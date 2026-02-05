@@ -244,11 +244,15 @@ const SettingsView: React.FC = () => {
     );
 };
 
-export const getSettings = (): AppSettings => {
-    // Helper to get settings synchronously from localStorage if needed (e.g. for initial app load)
-    // The source of truth is now cloud, but we fallback to local for speed/offline.
+export const getSettings = (userProfile?: { settings?: Partial<AppSettings> } | null): AppSettings => {
+    // Cloud-first: If userProfile is provided and has settings, use those
+    if (userProfile?.settings) {
+        return { ...DEFAULT_SETTINGS, ...userProfile.settings };
+    }
+
+    // Fallback to localStorage for synchronous access or when profile not available
     const saved = localStorage.getItem('pulse_settings');
-    return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+    return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
 };
 
 export default SettingsView;

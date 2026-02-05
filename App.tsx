@@ -186,17 +186,17 @@ const AppContent: React.FC = () => {
     setActiveTab('opportunities');
     setDossierError(null);
 
+    let dossierToShow: DealDossier | null = null;
+
     // 1. Check local cache first
     if (dossierCache[signal.id]) {
-      setSelectedDossier(dossierCache[signal.id]);
+      dossierToShow = dossierCache[signal.id];
+      setSelectedDossier(dossierToShow);
       setIsGeneratingDossier(false);
-      return;
-    }
+    } else if (businessProfile) {
+      // 2. Resolve Database Signal ID (Use map or fallback to signal.id for historical signals)
+      const dbSignalId = signalIdMap[signal.id] || signal.id;
 
-    // 2. Resolve Database Signal ID (Use map or fallback to signal.id for historical signals)
-    const dbSignalId = signalIdMap[signal.id] || signal.id;
-
-    if (businessProfile) {
       setIsGeneratingDossier(true);
       try {
         // 3. Check Supabase for existing dossier
@@ -206,46 +206,49 @@ const AppContent: React.FC = () => {
         if (existingDossier) {
           console.log('[APP] Found existing dossier in DB');
           // Cast the JSON content to DealDossier type
-          const appDossier = existingDossier.content as unknown as DealDossier;
-
-          setSelectedDossier(appDossier);
-          setDossierCache(prev => ({ ...prev, [signal.id]: appDossier }));
-          setIsGeneratingDossier(false);
-          return;
-        }
-
-        // 4. If not found, generate new dossier
-        console.log('[APP] No dossier found, generating new one...');
-        const dossier = await geminiService.generateDossier(signal, businessProfile);
-        setSelectedDossier(dossier);
-        setDossierCache(prev => ({ ...prev, [signal.id]: dossier }));
-
-        // 5. Save new dossier to Supabase
-        if (dbSignalId) {
-          await saveDossierToDb(dbSignalId, dossier as unknown as Record<string, unknown>);
-          console.log("[APP] Dossier saved to Supabase for signal:", dbSignalId);
+          dossierToShow = existingDossier.content as unknown as DealDossier;
+          setSelectedDossier(dossierToShow);
+          setDossierCache(prev => ({ ...prev, [signal.id]: dossierToShow! }));
         } else {
-          console.warn("[APP] No database UUID found for signal:", signal.id);
-        }
+          // 4. If not found, generate new dossier
+          console.log('[APP] No dossier found, generating new one...');
+          dossierToShow = await geminiService.generateDossier(signal, businessProfile);
+          setSelectedDossier(dossierToShow);
+          setDossierCache(prev => ({ ...prev, [signal.id]: dossierToShow! }));
 
-        // 6. Send Email Notification (MVP)
-        const settings = getSettings();
-        if (settings.autoSendDossier) {
-          const recipients = settings.emailRecipients.split(',').map(e => e.trim()).filter(Boolean);
-          if (recipients.length > 0) {
-            emailService.sendDossierEmail({
-              dossier,
-              recipients
-            }); // Fire and forget
+          // 5. Save new dossier to Supabase
+          if (dbSignalId) {
+            await saveDossierToDb(dbSignalId, dossierToShow as unknown as Record<string, unknown>);
+            console.log("[APP] Dossier saved to Supabase for signal:", dbSignalId);
+          } else {
+            console.warn("[APP] No database UUID found for signal:", signal.id);
           }
         }
-
 
       } catch (e) {
         handleError(e);
         setDossierError("The AI encountered an issue generating this dossier. This might be due to API rate limits.");
       } finally {
         setIsGeneratingDossier(false);
+      }
+    }
+
+    // 6. Send Email Notification - NOW triggers on EVERY dossier view (not just new generation)
+    if (dossierToShow) {
+      const settings = getSettings(userProfile); // Cloud-first settings
+      console.log('[APP] Email settings:', { autoSend: settings.autoSendDossier, recipients: settings.emailRecipients });
+
+      if (settings.autoSendDossier) {
+        const recipients = settings.emailRecipients.split(',').map(e => e.trim()).filter(Boolean);
+        if (recipients.length > 0) {
+          console.log('[APP] Sending dossier email to:', recipients);
+          emailService.sendDossierEmail({
+            dossier: dossierToShow,
+            recipients
+          }); // Fire and forget
+        } else {
+          console.log('[APP] No email recipients configured');
+        }
       }
     }
   };
