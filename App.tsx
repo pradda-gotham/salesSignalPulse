@@ -73,6 +73,11 @@ const AppContent: React.FC = () => {
   const [activeHuntingRegion, setActiveHuntingRegion] = useState<string>('');
   const [isLoadingProfile, setIsLoadingProfile] = useState(true); // Prevent flash
 
+  // Adhoc/Live Hunt session state
+  const [isAdhocSession, setIsAdhocSession] = useState(false);
+  const [adhocProfile, setAdhocProfile] = useState<BusinessProfile | null>(null);
+  const [adhocTriggers, setAdhocTriggers] = useState<SalesTrigger[]>([]);
+
   // Route handling for auth callback
   const [currentRoute, setCurrentRoute] = useState(window.location.pathname);
 
@@ -282,6 +287,19 @@ const AppContent: React.FC = () => {
   };
 
   const handleStartHunting = () => {
+    // Check if we're in adhoc session mode
+    if (isAdhocSession && adhocProfile && adhocTriggers.length > 0) {
+      setIsHunting(true);
+      triggerHunting(adhocProfile, adhocTriggers, activeHuntingRegion);
+      setActiveTab('signals');
+      // Reset adhoc session after starting hunt
+      setIsAdhocSession(false);
+      setAdhocProfile(null);
+      setAdhocTriggers([]);
+      return;
+    }
+
+    // Normal flow
     if (businessProfile && activeTriggers.length > 0) {
       setIsHunting(true);
       triggerHunting(businessProfile, activeTriggers, activeHuntingRegion);
@@ -420,13 +438,18 @@ const AppContent: React.FC = () => {
 
     // Strategy and Settings are always accessible
     if (activeTab === 'strategy') {
+      // Use adhoc profile if in adhoc session mode, otherwise use main profile
+      const currentProfile = isAdhocSession ? adhocProfile : businessProfile;
+      const currentTriggers = isAdhocSession ? adhocTriggers : activeTriggers;
+
       return (
         <StrategyView
-          profile={businessProfile}
-          onTriggersUpdated={handleTriggersUpdated}
+          profile={currentProfile}
+          onTriggersUpdated={isAdhocSession ? setAdhocTriggers : handleTriggersUpdated}
           onStartHunting={handleStartHunting}
           activeRegion={activeHuntingRegion}
           onRegionChange={setActiveHuntingRegion}
+          initialTriggers={isAdhocSession ? adhocTriggers : undefined}
         />
       );
     }
@@ -475,9 +498,17 @@ const AppContent: React.FC = () => {
       case 'live-hunt':
         return (
           <AdhocHuntView
-            onStartHunt={(profile, triggers, region) => {
-              triggerHunting(profile, triggers, region);
-              setActiveTab('signals');
+            onCalibrationComplete={(profile, triggers) => {
+              // Store adhoc session data
+              setAdhocProfile(profile);
+              setAdhocTriggers(triggers);
+              setIsAdhocSession(true);
+              // Set region from profile
+              if (profile.geography.length > 0) {
+                setActiveHuntingRegion(profile.geography[0]);
+              }
+              // Navigate to strategy for review
+              setActiveTab('strategy');
             }}
           />
         );

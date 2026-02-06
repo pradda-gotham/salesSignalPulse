@@ -31,9 +31,10 @@ interface StrategyViewProps {
   onStartHunting: () => void;
   activeRegion: string;
   onRegionChange: (r: string) => void;
+  initialTriggers?: SalesTrigger[]; // For adhoc sessions with pre-generated triggers
 }
 
-const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated, onStartHunting, activeRegion, onRegionChange }) => {
+const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated, onStartHunting, activeRegion, onRegionChange, initialTriggers }) => {
   const { isDarkMode } = useTheme();
   const [triggers, setTriggers] = useState<SalesTrigger[]>([]);
   const [showCustomForm, setShowCustomForm] = useState(false);
@@ -73,9 +74,12 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
     onTriggersUpdated(presets);
   };
 
-  // Auto-load MVP presets on mount
+  // Auto-load triggers on mount: use initialTriggers if provided, otherwise load MVP presets
   useEffect(() => {
-    if (triggers.length === 0) {
+    if (initialTriggers && initialTriggers.length > 0) {
+      setTriggers(initialTriggers);
+      // Don't call onTriggersUpdated here since parent already has them
+    } else if (triggers.length === 0) {
       loadMVPPresets();
     }
   }, []);

@@ -5,7 +5,7 @@ import { geminiService } from '../services/geminiService';
 import { Loader2, Radar } from 'lucide-react';
 
 interface AdhocHuntViewProps {
-    onStartHunt: (profile: BusinessProfile, triggers: SalesTrigger[], region: string) => void;
+    onCalibrationComplete: (profile: BusinessProfile, triggers: SalesTrigger[]) => void;
 }
 
 /**
@@ -13,7 +13,7 @@ interface AdhocHuntViewProps {
  * Wraps the OnboardingView to allow manual "Session-based" hunting on any URL.
  * Does NOT overwrite the main organization profile.
  */
-const AdhocHuntView: React.FC<AdhocHuntViewProps> = ({ onStartHunt }) => {
+const AdhocHuntView: React.FC<AdhocHuntViewProps> = ({ onCalibrationComplete }) => {
     const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
 
     // Called when user completes the Onboarding/Calibration flow
@@ -23,17 +23,12 @@ const AdhocHuntView: React.FC<AdhocHuntViewProps> = ({ onStartHunt }) => {
             // 1. Generate Triggers for this adhoc profile
             console.log("[ADHOC] Generating triggers for:", profile.name);
 
-            // We assume geminiService.generateTriggers exists and works. 
-            // If it requires a saved profile, we might need a workaround, but usually it just takes the object.
             const triggers = await geminiService.generateTriggers(profile);
 
             console.log("[ADHOC] Triggers generated:", triggers.length);
 
-            // 2. Start the Hunt
-            // Use the first region from the profile as default
-            const region = profile.geography[0] || "Global";
-
-            onStartHunt(profile, triggers, region);
+            // 2. Navigate to Strategy for review (consistent with legacy flow)
+            onCalibrationComplete(profile, triggers);
         } catch (e) {
             console.error("[ADHOC] Error generating strategy:", e);
             alert("Failed to generate hunt strategy. Please try again.");
