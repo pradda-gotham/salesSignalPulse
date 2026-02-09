@@ -10,6 +10,8 @@ interface AuthContextType {
     loading: boolean;
     signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
     signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+    signInWithGoogle: () => Promise<{ error: Error | null }>;
+    resetPassword: (email: string) => Promise<{ error: Error | null }>;
     signOut: () => Promise<void>;
     createOrg: (name: string) => Promise<{ error: Error | null }>;
     refreshProfile: () => Promise<void>;
@@ -88,9 +90,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setSession(session);
             setUser(session?.user ?? null);
 
-            if (event === 'SIGNED_IN' && session?.user) {
+            if (session?.user) {
+                // Fetch profile on any auth event with active session
                 fetchProfile(session.user.id);
-            } else if (event === 'SIGNED_OUT') {
+            }
+
+            if (event === 'SIGNED_OUT' || !session) {
                 setUserProfile(null);
                 setOrganization(null);
             }
@@ -143,6 +148,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setOrganization(null);
     };
 
+    // Sign in with Google OAuth
+    const signInWithGoogle = async () => {
+        console.log('[Auth] Signing in with Google...');
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: window.location.origin
+            }
+        });
+
+        if (error) {
+            console.error('[Auth] Google sign-in error:', error);
+            return { error };
+        }
+
+        return { error: null };
+    };
+
+    // Reset password
+    const resetPassword = async (email: string) => {
+        console.log('[Auth] Sending password reset email to:', email);
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/reset-password`
+        });
+
+        if (error) {
+            console.error('[Auth] Password reset error:', error);
+            return { error };
+        }
+
+        return { error: null };
+    };
+
     // Create organization and link to user
     const createOrg = async (name: string) => {
         if (!user) return { error: new Error('Not logged in') };
@@ -189,6 +227,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             loading,
             signUp,
             signIn,
+            signInWithGoogle,
+            resetPassword,
             signOut,
             createOrg,
             refreshProfile,

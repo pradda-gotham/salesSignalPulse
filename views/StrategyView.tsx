@@ -45,7 +45,7 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
   const [globalSearchMode, setGlobalSearchMode] = useState<'web' | 'sites' | 'both'>('web');
   const [customSignal, setCustomSignal] = useState({
     event: '',
-    product: profile.products[0] || '',
+    product: profile?.products?.[0] || '',
     source: 'Web Scraping / Custom Feed',
     limitToSite: '',
     logic: ''
@@ -56,7 +56,7 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
       {
         id: `mvp-tender-${Date.now()}`,
         event: 'Contract Awarded',
-        product: profile.products[0] || 'Core Product',
+        product: profile?.products?.[0] || 'Core Product',
         source: 'Government Tenders / Industry News',
         logic: 'Winning bidder enters immediate procurement phase.',
         status: 'Approved'
@@ -64,7 +64,7 @@ const StrategyView: React.FC<StrategyViewProps> = ({ profile, onTriggersUpdated,
       {
         id: `mvp-project-${Date.now()}`,
         event: 'New Project Announcement',
-        product: profile.products[0] || 'Core Product',
+        product: profile?.products?.[0] || 'Core Product',
         source: 'Construction / Development News',
         logic: 'New facility requires immediate site setup and infrastructure.',
         status: 'Approved'

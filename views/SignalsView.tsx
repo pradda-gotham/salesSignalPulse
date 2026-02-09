@@ -287,7 +287,7 @@ const SignalsView: React.FC<{ signals: MarketSignal[], profile: BusinessProfile,
               className={`bg-transparent text-sm font-bold focus:outline-none cursor-pointer appearance-none pr-6 ${isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}
             >
-              {profile.geography.map(geo => (
+              {(profile.geography || []).map(geo => (
                 <option key={geo} value={geo} className={isDarkMode ? 'bg-[#141414]' : 'bg-white'}>Focusing on: {geo}</option>
               ))}
             </select>

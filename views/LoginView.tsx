@@ -6,8 +6,9 @@ interface LoginViewProps {
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
-    const { signIn, signUp, signInWithGoogle } = useAuth();
+    const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
     const [isSignUp, setIsSignUp] = useState(false);
+    const [isForgotPassword, setIsForgotPassword] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -67,6 +68,30 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
         setLoading(false);
     };
 
+    const handleForgotPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!email.trim()) {
+            setMessage({ type: 'error', text: 'Please enter your email address' });
+            return;
+        }
+
+        setLoading(true);
+        setMessage(null);
+
+        const { error } = await resetPassword(email);
+        if (error) {
+            setMessage({ type: 'error', text: error.message });
+        } else {
+            setMessage({
+                type: 'success',
+                text: '✉️ Password reset email sent! Check your inbox.'
+            });
+        }
+
+        setLoading(false);
+    };
+
     return (
         <div style={styles.container}>
             {/* Left Panel - Branding */}
@@ -102,12 +127,17 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                     {/* Welcome text */}
                     <div style={styles.welcomeSection}>
                         <h3 style={styles.welcomeTitle}>
-                            {isSignUp ? 'Get Started!' : 'Welcome Back!'}
+                            {isForgotPassword ? 'Reset Password' : (isSignUp ? 'Get Started!' : 'Welcome Back!')}
                         </h3>
+                        {isForgotPassword && (
+                            <p style={styles.welcomeSubtitle}>
+                                Enter your email and we'll send you a reset link.
+                            </p>
+                        )}
                     </div>
 
                     {/* Form */}
-                    <form onSubmit={handleSubmit} style={styles.form}>
+                    <form onSubmit={isForgotPassword ? handleForgotPassword : handleSubmit} style={styles.form}>
                         <div style={styles.inputGroup}>
                             <input
                                 type="email"
@@ -119,30 +149,34 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                             />
                         </div>
 
-                        <div style={styles.inputGroup}>
-                            <label style={styles.inputLabel}>Password</label>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="••••••••"
-                                style={styles.input}
-                                disabled={loading}
-                            />
-                        </div>
+                        {!isForgotPassword && (
+                            <>
+                                <div style={styles.inputGroup}>
+                                    <label style={styles.inputLabel}>Password</label>
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="••••••••"
+                                        style={styles.input}
+                                        disabled={loading}
+                                    />
+                                </div>
 
-                        {isSignUp && (
-                            <div style={styles.inputGroup}>
-                                <label style={styles.inputLabel}>Confirm Password</label>
-                                <input
-                                    type="password"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    placeholder="••••••••"
-                                    style={styles.input}
-                                    disabled={loading}
-                                />
-                            </div>
+                                {isSignUp && (
+                                    <div style={styles.inputGroup}>
+                                        <label style={styles.inputLabel}>Confirm Password</label>
+                                        <input
+                                            type="password"
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            placeholder="••••••••"
+                                            style={styles.input}
+                                            disabled={loading}
+                                        />
+                                    </div>
+                                )}
+                            </>
                         )}
 
                         {message && (
@@ -163,14 +197,59 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                             }}
                             disabled={loading}
                         >
-                            {loading ? 'Please wait...' : (isSignUp ? 'Create Account' : 'Login Now')}
+                            {loading ? 'Please wait...' : (
+                                isForgotPassword ? 'Send Reset Link' : (isSignUp ? 'Create Account' : 'Login Now')
+                            )}
                         </button>
 
-
-
-                        {!isSignUp && (
+                        {/* Forgot Password / Back to Login */}
+                        {!isSignUp && !isForgotPassword && (
                             <div style={styles.forgotPassword}>
-                                Forget password? <button type="button" style={styles.linkButton}>Click here</button>
+                                Forget password?{' '}
+                                <button
+                                    type="button"
+                                    style={styles.linkButton}
+                                    onClick={() => {
+                                        setIsForgotPassword(true);
+                                        setMessage(null);
+                                    }}
+                                >
+                                    Click here
+                                </button>
+                            </div>
+                        )}
+
+                        {isForgotPassword && (
+                            <div style={styles.forgotPassword}>
+                                Remember your password?{' '}
+                                <button
+                                    type="button"
+                                    style={styles.linkButton}
+                                    onClick={() => {
+                                        setIsForgotPassword(false);
+                                        setMessage(null);
+                                    }}
+                                >
+                                    Back to Login
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Toggle Sign Up / Sign In */}
+                        {!isForgotPassword && (
+                            <div style={styles.toggleAuth}>
+                                {isSignUp ? "Already have an account? " : "Don't have an account? "}
+                                <button
+                                    type="button"
+                                    style={styles.linkButton}
+                                    onClick={() => {
+                                        setIsSignUp(!isSignUp);
+                                        setMessage(null);
+                                        setConfirmPassword('');
+                                    }}
+                                >
+                                    {isSignUp ? 'Sign In' : 'Sign Up'}
+                                </button>
                             </div>
                         )}
                     </form>
@@ -342,6 +421,14 @@ const styles: { [key: string]: React.CSSProperties } = {
         fontSize: '14px',
         color: '#808191',
         marginTop: '8px',
+    },
+    toggleAuth: {
+        textAlign: 'center',
+        fontSize: '14px',
+        color: '#808191',
+        marginTop: '16px',
+        paddingTop: '16px',
+        borderTop: '1px solid #E8E8F0',
     },
 };
 

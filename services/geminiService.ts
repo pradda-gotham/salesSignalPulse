@@ -36,8 +36,8 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
 const matchUtils = {
   getKeywords(text: string): string[] {
     if (!text) return [];
-    // More inclusive keyword extraction, preserving more context
-    const stopWords = new Set(['the', 'and', 'for', 'with', 'from', 'this', 'that', 'into', 'under', 'project', 'construction', 'new', 'nsw', 'gov', 'govt', 'wa', 'nt', 'qld', 'vic', 'sa', 'tas', 'au', 'nz']);
+    // Minimal stop words - keep industry-relevant terms like 'project', 'construction', 'new'
+    const stopWords = new Set(['the', 'and', 'for', 'with', 'from', 'this', 'that', 'into', 'under', 'nsw', 'gov', 'govt', 'wa', 'nt', 'qld', 'vic', 'sa', 'tas', 'au', 'nz', 'com', 'www', 'http', 'https']);
     return text.toLowerCase()
       .replace(/[^\w\s]/g, ' ')
       .split(/\s+/)
@@ -57,33 +57,31 @@ const matchUtils = {
 
   /**
    * Calculates a similarity score between a generated signal and a search result chunk.
+   * Since we no longer ask the model for sourceUrl, we rely on headline/title matching.
    */
-  calculateScore(signal: any, chunk: any): number {
+  calculateScore(signal: any, chunk: any, debug: boolean = false): number {
     let score = 0;
     const chunkTitle = chunk.web?.title || "";
     const chunkUri = chunk.web?.uri || "";
     const chunkKeywords = this.getKeywords(chunkTitle);
 
-    // 1. Check direct source title match (if AI provided it)
-    if (signal.sourceTitle) {
-      const sourceKeywords = this.getKeywords(signal.sourceTitle);
-      const matches = sourceKeywords.filter(k => chunkKeywords.includes(k));
-      score += matches.length * 15;
-    }
-
-    // 2. Check signal headline match (often more reliable than the AI's 'sourceTitle' field)
+    // 1. Check signal headline match against chunk title
     const headlineKeywords = this.getKeywords(signal.headline);
     const headlineMatches = headlineKeywords.filter(k => chunkKeywords.includes(k));
-    score += headlineMatches.length * 10;
+    score += headlineMatches.length * 15;
 
-    // 3. Domain match
-    const signalHost = this.getHostname(signal.sourceUrl);
-    const chunkHost = this.getHostname(chunkUri);
-    if (signalHost && chunkHost && signalHost === chunkHost) {
-      score += 40;
-    }
+    // 2. Check summary keywords match
+    const summaryKeywords = this.getKeywords(signal.summary);
+    const summaryMatches = summaryKeywords.filter(k => chunkKeywords.includes(k));
+    score += summaryMatches.length * 5;
+
+    // 3. Decision maker name match (company names often appear in URLs/titles)
+    const decisionMakerKeywords = this.getKeywords(signal.decisionMaker);
+    const decisionMakerMatches = decisionMakerKeywords.filter(k => chunkKeywords.includes(k));
+    score += decisionMakerMatches.length * 20;
 
     // 4. Source quality weighting
+    const chunkHost = this.getHostname(chunkUri);
     if (chunkHost.includes('.gov') || chunkHost.includes('.govt')) {
       score += 20;
     } else if (['abc.net.au', 'nzherald', 'smh.com.au', 'theguardian'].some(news => chunkHost.includes(news))) {
@@ -92,9 +90,42 @@ const matchUtils = {
       score -= 5;
     }
 
+    // Debug logging for score breakdown
+    if (debug) {
+      console.log(`[SCORE DEBUG] Signal: "${signal.headline?.substring(0, 50)}..."`);
+      console.log(`  Chunk: "${chunkTitle?.substring(0, 60)}..."`);
+      console.log(`  Headline keywords: [${headlineKeywords.join(', ')}]`);
+      console.log(`  Chunk keywords: [${chunkKeywords.join(', ')}]`);
+      console.log(`  Matches: headline=${headlineMatches.length}(+${headlineMatches.length * 15}), summary=${summaryMatches.length}(+${summaryMatches.length * 5}), decisionMaker=${decisionMakerMatches.length}(+${decisionMakerMatches.length * 20})`);
+      console.log(`  Final Score: ${score}`);
+    }
+
     return score;
   }
 };
+
+/**
+ * Validates that a URL is accessible. Returns true if the URL responds, false otherwise.
+ * Uses a simple fetch with a short timeout.
+ */
+async function validateUrl(url: string, timeoutMs: number = 5000): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    const response = await fetch(url, {
+      method: 'HEAD',
+      signal: controller.signal,
+      mode: 'no-cors' // Allow cross-origin requests without CORS errors
+    });
+
+    clearTimeout(timeoutId);
+    return true; // If no error thrown, URL is reachable
+  } catch (error) {
+    console.warn(`[URL Validation] Failed for ${url}:`, (error as Error).message);
+    return false;
+  }
+}
 
 export const geminiService = {
   async profileBusiness(url: string): Promise<Partial<BusinessProfile>> {
@@ -202,6 +233,8 @@ export const geminiService = {
       console.log(`[DEBUG] Allowed Sites (Parsed):`, allowedSites);
 
       // Define the response schema once for reuse
+      // NOTE: We intentionally do NOT include sourceUrl/sourceTitle in the schema.
+      // URLs are taken exclusively from groundingChunks metadata to prevent hallucination.
       const signalSchema = {
         type: Type.ARRAY,
         items: {
@@ -212,11 +245,9 @@ export const geminiService = {
             importance: { type: Type.STRING },
             matchedProducts: { type: Type.ARRAY, items: { type: Type.STRING } },
             decisionMaker: { type: Type.STRING },
-            urgency: { type: Type.STRING, enum: Object.values(SignalUrgency) },
-            sourceUrl: { type: Type.STRING },
-            sourceTitle: { type: Type.STRING }
+            urgency: { type: Type.STRING, enum: Object.values(SignalUrgency) }
           },
-          required: ["headline", "summary", "importance", "matchedProducts", "decisionMaker", "urgency", "sourceUrl", "sourceTitle"]
+          required: ["headline", "summary", "importance", "matchedProducts", "decisionMaker", "urgency"]
         }
       };
 
@@ -234,8 +265,8 @@ export const geminiService = {
            REQUIREMENTS:
            1. Look for keywords like "awarded to", "contract signed", "winning bidder", "secured contract".
            2. Focus on Commercial or Government contracts > $1M.
-           3. Return the exact source URL and Title from your search results.
-           4. Identify the WINNING COMPANY as the decision maker.
+           3. Identify the WINNING COMPANY as the decision maker.
+           4. DO NOT generate source URLs - these will be extracted from search metadata.
            
            If fewer than 6 results are found within the time range, return what you find. Do not make up results.
            Format as JSON array.`,
@@ -248,8 +279,8 @@ export const geminiService = {
            REQUIREMENTS:
            1. Look for keywords like "groundbreaking", "site establishment", "approved for construction", "development application approved", "commenced construction".
            2. Focus on physical infrastructure, facilities, or major capital projects.
-           3. Return the exact source URL and Title from your search results.
-           4. Identify the PROJECT OWNER/DEVELOPER as the decision maker.
+           3. Identify the PROJECT OWNER/DEVELOPER as the decision maker.
+           4. DO NOT generate source URLs - these will be extracted from search metadata.
            
            If fewer than 6 results are found within the time range, return what you find. Do not make up results.
            Format as JSON array.`,
@@ -262,8 +293,8 @@ export const geminiService = {
            REQUIREMENTS:
            1. Look for expansion announcements, new facility openings, major investments, leadership changes indicating growth.
            2. Focus on companies that would be buyers for ${profile.products.join(', ')}.
-           3. Return the exact source URL and Title from your search results.
-           4. Identify the COMPANY MAKING THE ANNOUNCEMENT as the decision maker.
+           3. Identify the COMPANY MAKING THE ANNOUNCEMENT as the decision maker.
+           4. DO NOT generate source URLs - these will be extracted from search metadata.
            
            Prioritize press releases from company newsrooms and reputable industry publications.
            If fewer than 6 results are found within the time range, return what you find. Do not make up results.
@@ -302,8 +333,8 @@ export const geminiService = {
            
            REQUIREMENTS:
            1. Look for contract awards, project announcements, tender notices, or business news.
-           2. Return the exact source URL and Title from your search results.
-           3. Identify the relevant DECISION MAKER (company or organization).
+           2. Identify the relevant DECISION MAKER (company or organization).
+           3. DO NOT generate source URLs - these will be extracted from search metadata.
            
            If no results are found on this specific site, return an empty array []. Do not make up results.
            Format as JSON array.`;
@@ -349,9 +380,18 @@ export const geminiService = {
       }
 
       console.log(`[DEBUG] Total Raw Signals: ${allRawSignals.length}`);
+      console.log(`[DEBUG] Total Grounding Chunks: ${allGroundingChunks.length}`);
+
+      // Log sample grounding chunks for debugging
+      if (allGroundingChunks.length > 0) {
+        console.log(`[DEBUG] Sample Grounding Chunks:`);
+        allGroundingChunks.slice(0, 3).forEach((chunk, i) => {
+          console.log(`  ${i + 1}. "${chunk.web?.title?.substring(0, 60) || 'No title'}..." -> ${chunk.web?.uri || 'No URI'}`);
+        });
+      }
 
       if (allRawSignals.length > 0 && allGroundingChunks.length === 0) {
-        console.warn("Signals found but no grounding metadata returned. This may indicate a tool execution issue.");
+        console.warn("[WARNING] Signals found but NO grounding metadata returned. Using fallback mode.");
       }
 
       // Verify, filter, and deduplicate signals
@@ -359,41 +399,76 @@ export const geminiService = {
       const seenUrls = new Set<string>();
       const seenHeadlines = new Set<string>();
 
-      for (let s of allRawSignals) {
-        // Dedupe by URL domain
-        const signalHost = matchUtils.getHostname(s.sourceUrl);
-        if (seenUrls.has(signalHost)) {
-          // console.log(`[DEBUG] Duplicate URL domain discarded: ${signalHost}`);
-          continue;
-        }
+      // ========== MINIMUM SCORE THRESHOLD ==========
+      // Lowered from 0 to -10 to allow more signals through
+      // Negative threshold allows even low-confidence matches when grounding is weak
+      const MINIMUM_SCORE_THRESHOLD = -10;
 
-        // Dedupe by headline similarity (simple exact match for now)
+      for (let s of allRawSignals) {
+        console.log(`\n[VERIFY] Processing signal: "${s.headline?.substring(0, 60)}..."`);
+
+        // Dedupe by headline similarity first (since we no longer have model-generated URLs)
         const normalizedHeadline = s.headline?.toLowerCase().trim();
         if (seenHeadlines.has(normalizedHeadline)) {
-          // console.log(`[DEBUG] Duplicate headline discarded: ${normalizedHeadline}`);
+          console.log(`  [SKIP] Duplicate headline`);
           continue;
         }
 
-        // Map signal to best search result using robust scoring
+        // ========== FALLBACK MODE: No grounding chunks ==========
+        // If no grounding chunks returned, use the signal directly with a warning
+        if (allGroundingChunks.length === 0) {
+          console.warn(`  [FALLBACK] No grounding chunks available. Using signal with generated URL placeholder.`);
+          seenHeadlines.add(normalizedHeadline);
+
+          const confidence: SignalConfidence = {
+            freshness: 70, // Lower confidence for unverified signals
+            proximity: 100,
+            intentStrength: 70,
+            buyerMatch: 70,
+            urgency: s.urgency === SignalUrgency.EMERGENCY ? 100 : 60,
+            total: 0
+          };
+          confidence.total = Math.round((confidence.freshness + confidence.proximity + confidence.intentStrength + confidence.buyerMatch + confidence.urgency) / 5);
+
+          verifiedSignals.push({
+            ...s,
+            id: `sig-${Date.now()}-${Math.random()}`,
+            timestamp: 'Unverified',
+            score: confidence.total,
+            confidenceDetails: confidence,
+            sourceUrl: '#unverified', // Placeholder URL
+            sourceTitle: s.headline,
+            region: regionContext,
+            status: 'New'
+          });
+          continue;
+        }
+
+        // Map signal to best search result using robust scoring (with debug for first 3)
+        const shouldDebug = verifiedSignals.length < 3;
         const rankedChunks = allGroundingChunks
           .map(c => ({
             chunk: c,
-            score: matchUtils.calculateScore(s, c)
+            score: matchUtils.calculateScore(s, c, shouldDebug)
           }))
           .sort((a, b) => b.score - a.score);
 
         const bestMatch = rankedChunks[0];
+        const topScores = rankedChunks.slice(0, 3).map(r => r.score);
+        console.log(`  [SCORING] Top 3 chunk scores: [${topScores.join(', ')}]`);
+        console.log(`  [SCORING] Best match: score=${bestMatch?.score || 0}, url="${bestMatch?.chunk.web?.uri?.substring(0, 50) || 'none'}..."`);
 
-        // Only discard if score is truly zero (no connection to reality)
-        if (!bestMatch || bestMatch.score <= 0 || !bestMatch.chunk.web?.uri) {
-          console.log(`[DEBUG] Hallucination discarded (Score: ${bestMatch?.score || 0}): "${s.headline}"`);
+        // Check if score meets threshold
+        if (!bestMatch || bestMatch.score < MINIMUM_SCORE_THRESHOLD || !bestMatch.chunk.web?.uri) {
+          console.log(`  [DISCARD] Score ${bestMatch?.score || 0} below threshold ${MINIMUM_SCORE_THRESHOLD}`);
           continue;
         }
 
-        // Use grounding metadata as source of truth
+        // Use grounding metadata as sole source of truth for URLs
         const verifiedUrl = bestMatch.chunk.web.uri;
-        const verifiedTitle = bestMatch.chunk.web.title || s.sourceTitle;
+        const verifiedTitle = bestMatch.chunk.web.title || s.headline; // Fallback to headline if no title
         const verifiedHost = matchUtils.getHostname(verifiedUrl);
+        console.log(`  [VERIFIED] Using URL: ${verifiedUrl}`);
 
         // ========== DOMAIN WHITELIST FILTER ==========
         // If sites mode is active, enforce strict domain matching

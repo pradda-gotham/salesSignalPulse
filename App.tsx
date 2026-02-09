@@ -146,6 +146,24 @@ const AppContent: React.FC = () => {
     loadProfile();
   }, [organization?.id]);
 
+  // Clear app state when organization changes (prevents data leakage between users)
+  useEffect(() => {
+    if (!organization) {
+      console.log('[APP] Organization cleared, resetting all app state');
+      setBusinessProfile(null);
+      setSignals([]);
+      setActiveTriggers([]);
+      setSelectedSignal(null);
+      setSelectedDossier(null);
+      setDossierCache({});
+      setSignalIdMap({});
+      setIsHunting(false);
+      setIsAdhocSession(false);
+      setAdhocProfile(null);
+      setAdhocTriggers([]);
+    }
+  }, [organization]);
+
   const handleError = (e: any) => {
     console.error("API Error", e);
     if (
@@ -391,10 +409,20 @@ const AppContent: React.FC = () => {
   };
 
   const handleSignOut = async () => {
+    console.log('[APP] Signing out, clearing all state');
     await signOut();
+    // Clear all org-specific state to prevent data leakage
     setBusinessProfile(null);
     setSignals([]);
     setActiveTriggers([]);
+    setSelectedSignal(null);
+    setSelectedDossier(null);
+    setDossierCache({});
+    setSignalIdMap({});
+    setIsHunting(false);
+    setIsAdhocSession(false);
+    setAdhocProfile(null);
+    setAdhocTriggers([]);
   };
 
   // Loading state
@@ -419,9 +447,9 @@ const AppContent: React.FC = () => {
     return <LoginView />;
   }
 
-  // Logged in but no profile - show org setup
-  if (!userProfile) {
-    return <SetupOrgView onComplete={() => setCurrentRoute('/')} />;
+  // Logged in but no organization - show org setup
+  if (!userProfile || !organization) {
+    return <SetupOrgView onComplete={() => { setActiveTab('strategy'); setCurrentRoute('/'); }} />;
   }
 
   // Logged in with profile - show main app
@@ -530,7 +558,7 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <Layout activeTab={activeTab} onTabChange={setActiveTab} onLogoClick={handleLogoClick}>
+    <Layout activeTab={activeTab} onTabChange={setActiveTab} onLogoClick={handleLogoClick} organizationName={organization?.name}>
       {renderContent()}
 
       {/* Quota Recovery Overlay */}
