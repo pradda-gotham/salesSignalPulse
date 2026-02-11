@@ -3,23 +3,26 @@ import { supabase } from '../src/lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Building2, Globe, Briefcase, MapPin, Package, Users, Loader2, CheckCircle2, ArrowRight, Plus, X } from 'lucide-react';
 
+import { BusinessProfile } from '../types';
+
 interface SetupOrgViewProps {
     onComplete: () => void;
+    initialProfile?: BusinessProfile | null;
 }
 
-export const SetupOrgView: React.FC<SetupOrgViewProps> = ({ onComplete }) => {
+export const SetupOrgView: React.FC<SetupOrgViewProps> = ({ onComplete, initialProfile }) => {
     const { user, refreshProfile } = useAuth();
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     // Form state - matching BusinessProfile type
-    const [orgName, setOrgName] = useState('');
-    const [sector, setSector] = useState('');
-    const [websiteUrl, setWebsiteUrl] = useState('');
-    const [locations, setLocations] = useState<string[]>(['']);
-    const [products, setProducts] = useState<string[]>(['']);
-    const [targetGroups, setTargetGroups] = useState<string[]>(['']);
+    const [orgName, setOrgName] = useState(initialProfile?.name || '');
+    const [sector, setSector] = useState(initialProfile?.industry || '');
+    const [websiteUrl, setWebsiteUrl] = useState(initialProfile?.website || '');
+    const [locations, setLocations] = useState<string[]>(initialProfile?.geography && initialProfile.geography.length > 0 ? initialProfile.geography : ['']);
+    const [products, setProducts] = useState<string[]>(initialProfile?.products && initialProfile.products.length > 0 ? initialProfile.products : ['']);
+    const [targetGroups, setTargetGroups] = useState<string[]>(initialProfile?.targetGroups && initialProfile.targetGroups.length > 0 ? initialProfile.targetGroups : ['']);
 
     const sectors = [
         'Construction & Infrastructure',
@@ -280,8 +283,8 @@ export const SetupOrgView: React.FC<SetupOrgViewProps> = ({ onComplete }) => {
                                                 }
                                             }}
                                             className={`px-2.5 py-1 text-xs font-medium rounded-md border transition-all ${locations.includes(loc)
-                                                    ? 'bg-[#6C5DD3] text-white border-[#6C5DD3]'
-                                                    : 'bg-white text-[#808191] border-gray-200 hover:border-[#6C5DD3] hover:text-[#6C5DD3]'
+                                                ? 'bg-[#6C5DD3] text-white border-[#6C5DD3]'
+                                                : 'bg-white text-[#808191] border-gray-200 hover:border-[#6C5DD3] hover:text-[#6C5DD3]'
                                                 }`}
                                         >
                                             {loc}

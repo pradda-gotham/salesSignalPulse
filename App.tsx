@@ -9,7 +9,7 @@ import InsightsView from './views/InsightsView';
 import OnboardingView from './views/OnboardingView';
 import { LoginView } from './views/LoginView';
 import { AuthCallback } from './views/AuthCallback';
-import { SetupOrgView } from './views/SetupOrgView';
+import { OnboardingOrchestrator } from './views/OnboardingOrchestrator';
 import AuthTestPage from './views/AuthTestPage';
 import AdhocHuntView from './views/AdhocHuntView';
 import SettingsView, { getSettings } from './views/SettingsView';
@@ -91,11 +91,15 @@ const AppContent: React.FC = () => {
   const [dossierCache, setDossierCache] = useState<Record<string, DealDossier>>({});
   const [fetchingDossierIds, setFetchingDossierIds] = useState<Set<string>>(new Set());
 
+  // Auto-enrichment progress for export
+  const MAX_AUTO_DOSSIERS = 4;
+  const [enrichmentProgress, setEnrichmentProgress] = useState<{ current: number; total: number } | null>(null);
+
   // Map local signal IDs to database UUIDs
   const [signalIdMap, setSignalIdMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (businessProfile && businessProfile.geography.length > 0 && !activeHuntingRegion) {
+    if (businessProfile && businessProfile.geography?.length > 0 && !activeHuntingRegion) {
       setActiveHuntingRegion(businessProfile.geography[0]);
     }
   }, [businessProfile]);
@@ -378,9 +382,47 @@ const AppContent: React.FC = () => {
         console.log("[APP] Hunt log completed successfully");
       }
 
-      if (discovered.length > 0) {
-        const topSignals = [...discovered].sort((a, b) => b.score - a.score).slice(0, 2);
-        topSignals.forEach(s => prefetchDossier(s));
+      // Auto-enrich top signals for export (sequential to control cost)
+      if (discovered.length > 0 && businessProfile) {
+        const topSignals = [...discovered].sort((a, b) => b.score - a.score).slice(0, MAX_AUTO_DOSSIERS);
+        const total = topSignals.length;
+        setEnrichmentProgress({ current: 0, total });
+
+        // Run sequentially in background (non-blocking, errors caught per signal)
+        (async () => {
+          for (let i = 0; i < topSignals.length; i++) {
+            const sig = topSignals[i];
+            setEnrichmentProgress({ current: i, total });
+            try {
+              // RESOLVE ID: Use the database UUID if available, otherwise fall back to local ID
+              // This is critical because the UI displays signals with DB UUIDs after sync
+              const dbSignalId = newIdMap[sig.id] || sig.id;
+
+              if (!dossierCache[dbSignalId]) {
+                const dossier = await geminiService.generateDossier(sig, businessProfile);
+
+                // Update dossier ID to match signal ID (for clean linkage)
+                const linkedDossier = { ...dossier, signalId: dbSignalId };
+
+                // Key by BOTH UUID (for valid DB link) and Local ID (for immediate UI state)
+                // This handles the race condition where UI might show local IDs before DB sync
+                setDossierCache(prev => ({
+                  ...prev,
+                  [dbSignalId]: linkedDossier,
+                  [sig.id]: linkedDossier
+                }));
+
+                // Also save to Supabase
+                if (newIdMap[sig.id]) {
+                  await saveDossierToDb(dbSignalId, linkedDossier as unknown as Record<string, unknown>);
+                }
+              }
+            } catch (e) {
+              console.warn(`[APP] Auto-enrich failed for signal ${sig.id}`, e);
+            }
+          }
+          setEnrichmentProgress({ current: total, total });
+        })();
       }
     } catch (e) {
       // Complete hunt log with error
@@ -449,7 +491,7 @@ const AppContent: React.FC = () => {
 
   // Logged in but no organization - show org setup
   if (!userProfile || !organization) {
-    return <SetupOrgView onComplete={() => { setActiveTab('strategy'); setCurrentRoute('/'); }} />;
+    return <OnboardingOrchestrator onComplete={() => { setActiveTab('strategy'); setCurrentRoute('/'); }} />;
   }
 
   // Logged in with profile - show main app
@@ -508,6 +550,8 @@ const AppContent: React.FC = () => {
             onViewDossier={handleViewDossier}
             activeRegion={activeHuntingRegion}
             onRegionChange={setActiveHuntingRegion}
+            dossierCache={dossierCache}
+            enrichmentProgress={enrichmentProgress}
           />
         );
       case 'opportunities':

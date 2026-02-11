@@ -21,7 +21,10 @@ import {
   Linkedin,
   User,
   ExternalLink,
-  Building
+  Building,
+  CheckCircle2,
+  Mail,
+  Phone
 } from 'lucide-react';
 import { DealDossier, MarketSignal } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
@@ -38,7 +41,7 @@ interface OpportunitiesViewProps {
 const SkeletonPulse: React.FC<{ className?: string }> = ({ className }) => {
   const { isDarkMode } = useTheme();
   return (
-    <div className={`animate-pulse rounded-xl ${isDarkMode ? 'bg-white/5' : 'bg-gray-200'} ${className}`} />
+    <div className={`animate-pulse rounded-md ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'} ${className}`} />
   );
 };
 
@@ -52,16 +55,16 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
           <AlertCircle className="w-8 h-8 text-red-500" />
         </div>
         <div>
-          <h2 className={`text-2xl font-black mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Dossier Generation Failed</h2>
-          <p className={`max-md mx-auto ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>
+          <h2 className={`text-2xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>Dossier Generation Failed</h2>
+          <p className={`max-w-md mx-auto ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
             {error || "An unexpected error occurred during intelligence gathering."}
           </p>
         </div>
         <div className="flex gap-4">
-          <button onClick={onBack} className={`px-6 py-3 rounded-xl font-bold transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>
+          <button onClick={onBack} className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all border ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border-white/5' : 'bg-white hover:bg-slate-50 text-[#1B1D21] border-slate-200'}`}>
             Back to Signals
           </button>
-          <button onClick={onRetry} className="px-6 py-3 bg-[#6C5DD3] hover:bg-[#5A4DBF] text-white rounded-xl font-bold flex items-center gap-2 transition-all">
+          <button onClick={onRetry} className="px-6 py-2.5 bg-[#6C5DD3] hover:bg-[#5B4EC2] text-white rounded-xl font-bold text-sm flex items-center gap-2 transition-all shadow-lg shadow-[#6C5DD3]/20">
             <RefreshCw className="w-4 h-4" /> Retry
           </button>
         </div>
@@ -71,13 +74,14 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
 
   if (!signal) {
     return (
-      <div className="text-center py-20 animate-in fade-in">
-        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 ${isDarkMode ? 'bg-zinc-900' : 'bg-gray-100'}`}>
-          <Target className={`w-8 h-8 ${isDarkMode ? 'text-zinc-700' : 'text-gray-400'}`} />
+      <div className="text-center py-32 animate-in fade-in">
+        <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 border ${isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-slate-200'}`}>
+          <Target className={`w-10 h-10 ${isDarkMode ? 'text-zinc-600' : 'text-slate-300'}`} />
         </div>
-        <p className={`italic text-lg mb-6 ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Select a signal from the Signal engine to generate a strategic Dossier.</p>
-        <button onClick={onBack} className={`px-8 py-3 rounded-xl font-bold border transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border-white/5' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-200'}`}>
-          View Signal Engine
+        <h3 className={`text-xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>No Signal Selected</h3>
+        <p className={`text-sm mb-8 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Select a signal from the Market Pulse to generate a strategic Dossier.</p>
+        <button onClick={onBack} className={`px-8 py-3 rounded-xl font-bold text-sm border transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border-white/5' : 'bg-white hover:bg-slate-50 text-[#1B1D21] border-slate-200'}`}>
+          Return to Market Pulse
         </button>
       </div>
     );
@@ -88,37 +92,61 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
   const isPending = !dossier && isLoading;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 animate-in slide-in-from-right duration-500 pb-32">
-      <button onClick={onBack} className={`flex items-center gap-2 transition-colors group mb-4 ${isDarkMode ? 'text-zinc-500 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>
+    <div className="max-w-7xl mx-auto space-y-8 animate-in slide-in-from-right duration-500 pb-40 font-sans">
+
+      {/* Back Navigation */}
+      <button
+        onClick={onBack}
+        className={`flex items-center gap-2 text-sm font-medium transition-colors group ${isDarkMode ? 'text-zinc-500 hover:text-white' : 'text-[#808191] hover:text-[#1B1D21]'}`}
+      >
         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-        Back
+        Back to Signals
       </button>
 
-      {/* Header */}
-      <div className={`flex items-start justify-between border-b pb-10 ${isDarkMode ? 'border-white/5' : 'border-gray-200'}`}>
+      {/* Header Section */}
+      <div className={`flex items-start justify-between border-b pb-8 ${isDarkMode ? 'border-white/5' : 'border-slate-200/60'}`}>
         <div className="space-y-4 flex-1">
           <div className="flex items-center gap-3">
-            <span className="px-3 py-1 rounded bg-[#6C5DD3]/10 text-[#6C5DD3] text-[10px] font-black uppercase tracking-widest border border-[#6C5DD3]/20">
-              {isPending ? 'Gathering Intelligence...' : 'Battle-Ready Dossier'}
-            </span>
+            {/* Status Badge */}
+            <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border flex items-center gap-2 ${isPending
+                ? 'bg-[#6C5DD3]/10 text-[#6C5DD3] border-[#6C5DD3]/20'
+                : 'bg-[#6C5DD3]/10 text-[#6C5DD3] border-[#6C5DD3]/20'
+              }`}>
+              {isPending && <Loader2 className="w-3 h-3 animate-spin" />}
+              {isPending ? 'Gathering Intelligence...' : 'Strategic Dossier Ready'}
+            </div>
+
+            {/* Confidence Badge */}
             {dossier ? (
-              <div className={`flex items-center gap-1.5 px-3 py-1 rounded border text-xs font-bold animate-in fade-in duration-700 ${dossier.confidence === 'High' ? 'text-green-500 border-green-500/20 bg-green-500/10' : 'text-yellow-500 border-yellow-500/20 bg-yellow-500/10'
+              <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border animate-in fade-in ${dossier.confidence === 'High'
+                  ? 'bg-green-500/10 text-green-600 border-green-500/20'
+                  : 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
                 }`}>
-                <ShieldCheck className="w-3.5 h-3.5" />
-                {dossier.confidence} Conf.
+                <ShieldCheck className="w-3 h-3" />
+                {dossier.confidence} Confidence
               </div>
-            ) : <SkeletonPulse className="w-24 h-6" />}
+            ) : <SkeletonPulse className="w-24 h-6 rounded-full" />}
           </div>
-          <h1 className={`text-5xl font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{displayAccountName}</h1>
-          <p className={`text-xl leading-relaxed max-w-2xl italic ${isDarkMode ? 'text-zinc-400' : 'text-gray-500'}`}>
-            Detected Signal: “{signal.headline}”
-          </p>
+
+          <div>
+            <h1 className={`text-4xl font-bold tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
+              {displayAccountName}
+            </h1>
+            <div className={`flex items-center gap-2 text-lg italic ${isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}`}>
+              <span className="opacity-50">Signal Detected:</span>
+              <span className={isDarkMode ? 'text-zinc-300' : 'text-[#50515e]'}>“{signal.headline}”</span>
+            </div>
+          </div>
         </div>
-        <div className="text-right min-w-[120px]">
-          <div className="text-[10px] text-zinc-500 font-black uppercase mb-2 tracking-widest">Est. Opportunity</div>
+
+        {/* Est. Opportunity Metric */}
+        <div className="text-right min-w-[140px]">
+          <div className={`text-[10px] font-bold uppercase mb-2 tracking-widest ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
+            Est. Opportunity
+          </div>
           {dossier ? (
-            <div className={`text-4xl font-black flex items-center justify-end animate-in fade-in zoom-in-95 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              <DollarSign className="w-8 h-8 text-[#6C5DD3] -mr-1" />
+            <div className={`text-4xl font-mono font-bold flex items-center justify-end animate-in fade-in zoom-in-95 ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
+              <span className="text-[#6C5DD3] mr-1">$</span>
               {(dossier.pricingStrategy.estimatedValue / 1000).toFixed(0)}k
             </div>
           ) : <SkeletonPulse className="w-32 h-10 ml-auto" />}
@@ -126,52 +154,56 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
       </div>
 
       <div className="grid lg:grid-cols-3 gap-8">
+        {/* Main Content (Left Column) */}
         <div className="lg:col-span-2 space-y-8">
+
           {/* Executive Summary */}
           <section className="space-y-4">
-            <div className={`flex items-center gap-2 font-bold uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-400' : 'text-gray-500'}`}>
+            <div className={`flex items-center gap-2 font-bold uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
               <FileText className="w-4 h-4 text-[#6C5DD3]" />
               Strategic Briefing
             </div>
-            <div className={`p-8 rounded-[2rem] border leading-relaxed italic text-lg shadow-inner relative overflow-hidden ${isDarkMode ? 'bg-white/5 border-white/5 text-zinc-200' : 'bg-gray-50 border-gray-200 text-gray-700'}`}>
+            <div className={`p-8 rounded-2xl border leading-relaxed text-[15px] shadow-sm relative overflow-hidden ${isDarkMode ? 'bg-[#141414] border-white/5 text-zinc-300' : 'bg-white border-slate-200/60 text-[#50515e]'
+              }`}>
               {displaySummary}
               {isPending && (
-                <div className={`absolute inset-0 flex items-end justify-center pb-4 ${isDarkMode ? 'bg-gradient-to-t from-[#0a0a0a]/50 to-transparent' : 'bg-gradient-to-t from-white/50 to-transparent'}`}>
-                  <span className="flex items-center gap-2 text-[10px] font-black text-[#6C5DD3] animate-pulse">
-                    <Loader2 className="w-3 h-3 animate-spin" /> ENHANCING WITH ACCOUNT INTEL
-                  </span>
+                <div className={`absolute inset-0 flex items-center justify-center ${isDarkMode ? 'bg-[#141414]/80' : 'bg-white/80'}`}>
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="w-8 h-8 text-[#6C5DD3] animate-spin" />
+                    <span className="text-xs font-bold text-[#6C5DD3] animate-pulse">ANALYZING OPPORTUNITY...</span>
+                  </div>
                 </div>
               )}
             </div>
           </section>
 
           {/* Recommended Bundle */}
-          <section className="space-y-6">
-            <div className={`flex items-center gap-2 font-bold uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-400' : 'text-gray-500'}`}>
+          <section className="space-y-4">
+            <div className={`flex items-center gap-2 font-bold uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
               <Package className="w-4 h-4 text-[#6C5DD3]" />
               Product Configuration
             </div>
-            <div className={`overflow-hidden rounded-[2rem] border ${isDarkMode ? 'border-white/5' : 'border-gray-200'}`}>
+            <div className={`overflow-hidden rounded-2xl border shadow-sm ${isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-slate-200/60'}`}>
               <table className="w-full text-left text-sm">
-                <thead className={`font-bold uppercase tracking-wider text-[10px] ${isDarkMode ? 'bg-white/5 text-zinc-500' : 'bg-gray-100 text-gray-500'}`}>
+                <thead className={`font-bold uppercase tracking-wider text-[10px] border-b ${isDarkMode ? 'bg-white/5 text-zinc-500 border-white/5' : 'bg-slate-50/50 text-[#808191] border-slate-100'}`}>
                   <tr>
-                    <th className="px-8 py-5">SKU</th>
-                    <th className="px-8 py-5">Item</th>
-                    <th className="px-8 py-5 text-right">Qty</th>
+                    <th className="px-6 py-4">SKU</th>
+                    <th className="px-6 py-4">Description</th>
+                    <th className="px-6 py-4 text-right">Qty</th>
                   </tr>
                 </thead>
-                <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-200'}`}>
+                <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-100'}`}>
                   {dossier ? dossier.recommendedBundle.map((item, i) => (
-                    <tr key={i} className={`animate-in fade-in slide-in-from-left-2 duration-300 ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-gray-50'}`} style={{ animationDelay: `${i * 100}ms` }}>
-                      <td className="px-8 py-5 font-mono text-[#6C5DD3] font-bold">{item.sku}</td>
-                      <td className={`px-8 py-5 ${isDarkMode ? 'text-zinc-300' : 'text-gray-700'}`}>{item.description}</td>
-                      <td className={`px-8 py-5 text-right font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.quantity}</td>
+                    <tr key={i} className={`animate-in fade-in slide-in-from-left-2 duration-300 ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`} style={{ animationDelay: `${i * 100}ms` }}>
+                      <td className="px-6 py-4 font-mono text-[#6C5DD3] font-bold text-xs">{item.sku}</td>
+                      <td className={`px-6 py-4 ${isDarkMode ? 'text-zinc-300' : 'text-[#1B1D21]'}`}>{item.description}</td>
+                      <td className={`px-6 py-4 text-right font-bold ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>{item.quantity}</td>
                     </tr>
                   )) : Array.from({ length: 3 }).map((_, i) => (
                     <tr key={i}>
-                      <td className="px-8 py-5"><SkeletonPulse className="w-16 h-4" /></td>
-                      <td className="px-8 py-5"><SkeletonPulse className="w-48 h-4" /></td>
-                      <td className="px-8 py-5 text-right"><SkeletonPulse className="w-8 h-4 ml-auto" /></td>
+                      <td className="px-6 py-4"><SkeletonPulse className="w-16 h-4" /></td>
+                      <td className="px-6 py-4"><SkeletonPulse className="w-48 h-4" /></td>
+                      <td className="px-6 py-4 text-right"><SkeletonPulse className="w-8 h-4 ml-auto" /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -179,289 +211,210 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
             </div>
           </section>
 
-          {/* Pricing Strategy - moved to main content for better layout */}
-          <section className={`p-6 rounded-2xl border space-y-4 ${isDarkMode ? 'bg-zinc-900 border-white/5' : 'bg-gray-50 border-gray-200'}`}>
-            <div className={`flex items-center gap-2 font-bold uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-400' : 'text-gray-500'}`}>
+          {/* Pricing Strategy */}
+          <section className={`p-6 rounded-2xl border space-y-4 shadow-sm ${isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-slate-200/60'}`}>
+            <div className={`flex items-center gap-2 font-bold uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
               <TrendingUp className="w-4 h-4 text-[#6C5DD3]" />
               Pricing Strategy
             </div>
             {dossier ? (
               <div className="flex items-start gap-8 animate-in fade-in">
                 <div className="flex-1">
-                  <div className="text-xs text-zinc-500 mb-1">Recommended Logic</div>
-                  <div className={`font-black leading-relaxed ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{dossier.pricingStrategy.logic}</div>
+                  <div className={`text-xs font-semibold mb-1 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Strategy Logic</div>
+                  <div className={`text-sm leading-relaxed font-medium ${isDarkMode ? 'text-zinc-300' : 'text-[#1B1D21]'}`}>{dossier.pricingStrategy.logic}</div>
                 </div>
-                <div className={`flex-shrink-0 text-right border-l pl-8 ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`}>
-                  <div className="text-xs text-zinc-500 mb-1">Flex Allowance</div>
-                  <div className="text-[#6C5DD3] text-4xl font-black">{dossier.pricingStrategy.discount}%</div>
+                <div className={`flex-shrink-0 text-right border-l pl-8 ${isDarkMode ? 'border-white/10' : 'border-slate-100'}`}>
+                  <div className={`text-xs font-semibold mb-1 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Max Discount</div>
+                  <div className="text-[#6C5DD3] text-3xl font-bold">{dossier.pricingStrategy.discount}%</div>
                 </div>
               </div>
             ) : (
               <div className="flex items-start gap-8">
-                <SkeletonPulse className="flex-1 h-16" />
+                <SkeletonPulse className="flex-1 h-12" />
                 <SkeletonPulse className="w-24 h-12" />
               </div>
             )}
           </section>
         </div>
 
+        {/* Right Sidebar */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Account Intelligence Module */}
-          <section className={`p-5 rounded-2xl border space-y-4 ${isDarkMode ? 'bg-zinc-900 border-white/5' : 'bg-gray-50 border-gray-200'}`}>
-            <div className={`flex items-center gap-2 font-bold uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-400' : 'text-gray-500'}`}>
-              <Target className="w-4 h-4 text-[#6C5DD3]" />
-              Account Intelligence
+
+          {/* Account Intelligence */}
+          <section className={`p-6 rounded-2xl border space-y-5 shadow-sm ${isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-slate-200/60'}`}>
+            <div className={`flex items-center justify-between font-bold uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-[#6C5DD3]" />
+                Account Intel
+              </div>
               {dossier?.isEnriched && (
-                <span className="ml-auto px-2 py-0.5 rounded bg-green-500/10 text-green-400 text-[9px] border border-green-500/20 flex items-center gap-1">
-                  <ShieldCheck className="w-2.5 h-2.5" />
-                  VERIFIED
+                <span className="flex items-center gap-1 text-[#10B981] bg-[#10B981]/10 px-1.5 py-0.5 rounded border border-[#10B981]/20">
+                  <ShieldCheck className="w-3 h-3" /> VERIFIED
                 </span>
               )}
             </div>
 
-            {/* Company Details */}
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <div className={`flex items-center gap-3 font-bold text-lg leading-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  <Building className="w-5 h-5 text-zinc-500 flex-shrink-0" />
+            <div className="space-y-4">
+              <div>
+                <div className={`flex items-center gap-2 font-bold text-lg mb-1 ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
+                  <Building className={`w-4 h-4 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`} />
                   {dossier?.enrichedCompany?.name || displayAccountName}
                 </div>
-                <div className="flex flex-col gap-2 pl-8">
+
+                {/* Company Links/Info */}
+                <div className="pl-6 space-y-2 mt-2">
                   {dossier ? (
                     <>
-                      {dossier.enrichedCompany ? (
-                        <>
-                          <a
-                            href={`https://${dossier.enrichedCompany.domain}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`flex items-center gap-2 text-sm transition-colors animate-in fade-in ${isDarkMode ? 'text-zinc-400 hover:text-[#6C5DD3]' : 'text-gray-500 hover:text-[#6C5DD3]'}`}
-                          >
-                            <Globe className="w-3.5 h-3.5" />
-                            {dossier.enrichedCompany.domain}
-                          </a>
-                          {dossier.enrichedCompany.linkedinUrl && (
-                            <a
-                              href={dossier.enrichedCompany.linkedinUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={`flex items-center gap-2 text-sm transition-colors animate-in fade-in ${isDarkMode ? 'text-zinc-400 hover:text-[#6C5DD3]' : 'text-gray-500 hover:text-[#6C5DD3]'}`}
-                            >
-                              <Linkedin className="w-3.5 h-3.5" />
-                              Company LinkedIn
-                            </a>
-                          )}
-                          {dossier.enrichedCompany.employeeCount && (
-                            <div className={`text-xs ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>
-                              👥 {dossier.enrichedCompany.employeeCount.toLocaleString()} employees
-                            </div>
-                          )}
-                          {dossier.enrichedCompany.revenue && (
-                            <div className={`text-xs ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>
-                              💰 {dossier.enrichedCompany.revenue}
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <a
-                            href={dossier.targetWebsite?.startsWith('http') ? dossier.targetWebsite : `https://${dossier.targetWebsite}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`flex items-center gap-2 text-sm transition-colors animate-in fade-in ${isDarkMode ? 'text-zinc-400 hover:text-[#6C5DD3]' : 'text-gray-500 hover:text-[#6C5DD3]'}`}
-                          >
-                            <Globe className="w-3.5 h-3.5" />
-                            {dossier.targetWebsite || 'Website Unavailable'}
-                          </a>
-                          {dossier.targetLinkedin && (
-                            <a
-                              href={dossier.targetLinkedin}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={`flex items-center gap-2 text-sm transition-colors animate-in fade-in ${isDarkMode ? 'text-zinc-400 hover:text-[#6C5DD3]' : 'text-gray-500 hover:text-[#6C5DD3]'}`}
-                            >
-                              <Linkedin className="w-3.5 h-3.5" />
-                              LinkedIn Profile
-                            </a>
-                          )}
-                        </>
+                      <a href={dossier.enrichedCompany?.domain ? `https://${dossier.enrichedCompany.domain}` : '#'} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 text-xs hover:text-[#6C5DD3] transition-colors ${isDarkMode ? 'text-zinc-400' : 'text-[#50515e]'}`}>
+                        <Globe className="w-3.5 h-3.5" />
+                        {dossier.enrichedCompany?.domain || dossier.targetWebsite || 'Website Unavailable'}
+                      </a>
+                      {(dossier.enrichedCompany?.linkedinUrl || dossier.targetLinkedin) && (
+                        <a href={dossier.enrichedCompany?.linkedinUrl || dossier.targetLinkedin} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 text-xs hover:text-[#6C5DD3] transition-colors ${isDarkMode ? 'text-zinc-400' : 'text-[#50515e]'}`}>
+                          <Linkedin className="w-3.5 h-3.5" />
+                          LinkedIn Profile
+                        </a>
+                      )}
+                      {dossier.enrichedCompany?.employeeCount && (
+                        <div className={`text-xs ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
+                          👥 {dossier.enrichedCompany.employeeCount.toLocaleString()} employees
+                        </div>
+                      )}
+                      {dossier.enrichedCompany?.revenue && (
+                        <div className={`text-xs ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
+                          💰 {dossier.enrichedCompany.revenue}
+                        </div>
                       )}
                     </>
-                  ) : (
-                    <>
-                      <SkeletonPulse className="w-32 h-3" />
-                      <SkeletonPulse className="w-24 h-3" />
-                    </>
-                  )}
-                  {/* CRITICAL MECHANIC: Display the verified news source headline and link */}
-                  <a
-                    href={signal.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-sm text-[#6C5DD3] hover:text-[#6C5DD3] transition-colors font-bold mt-1"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Source: {signal.sourceTitle || 'View Trigger Article'}
-                  </a>
+                  ) : <SkeletonPulse className="w-32 h-4" />}
                 </div>
               </div>
 
-              <div className={`h-px ${isDarkMode ? 'bg-white/5' : 'bg-gray-200'}`} />
+              <div className={`h-px ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`} />
 
-              {/* Decision Makers - Show enriched contacts if available */}
-              {dossier?.enrichedContacts && dossier.enrichedContacts.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">
-                    Verified Decision Makers ({dossier.enrichedContacts.length})
-                  </div>
-                  {dossier.enrichedContacts.map((contact, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-4 rounded-xl border space-y-2 ${contact.isPrimary
-                          ? isDarkMode
-                            ? 'bg-[#6C5DD3]/5 border-[#6C5DD3]/20'
-                            : 'bg-orange-50 border-orange-200'
-                          : isDarkMode
-                            ? 'bg-white/5 border-white/5'
-                            : 'bg-gray-100 border-gray-200'
-                        }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-zinc-500 flex-shrink-0" />
-                          <div>
-                            <div className={`font-bold text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                              {contact.name}
-                            </div>
-                            <div className={`text-xs ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>
-                              {contact.title}
-                            </div>
-                          </div>
-                        </div>
-                        {contact.isPrimary && (
-                          <span className="px-2 py-0.5 rounded text-[9px] font-black bg-[#6C5DD3]/20 text-[#6C5DD3] border border-[#6C5DD3]/30">
-                            PRIMARY
-                          </span>
-                        )}
-                      </div>
-                      <div className="space-y-1.5 pl-6">
-                        {contact.email && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-green-400">✓</span>
-                            <a
-                              href={`mailto:${contact.email}`}
-                              className={`text-xs font-mono transition-colors ${isDarkMode ? 'text-zinc-400 hover:text-[#6C5DD3]' : 'text-gray-600 hover:text-[#6C5DD3]'}`}
-                            >
-                              {contact.email}
-                            </a>
-                          </div>
-                        )}
-                        {contact.phone && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-green-400">✓</span>
-                            <a
-                              href={`tel:${contact.phone}`}
-                              className={`text-xs font-mono transition-colors ${isDarkMode ? 'text-zinc-400 hover:text-[#6C5DD3]' : 'text-gray-600 hover:text-[#6C5DD3]'}`}
-                            >
-                              {contact.phone}
-                            </a>
-                          </div>
-                        )}
-                        {contact.linkedinUrl && (
-                          <a
-                            href={contact.linkedinUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`flex items-center gap-2 text-xs transition-colors ${isDarkMode ? 'text-zinc-400 hover:text-[#6C5DD3]' : 'text-gray-600 hover:text-[#6C5DD3]'}`}
-                          >
-                            <Linkedin className="w-3 h-3" />
-                            View Profile
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                // Fallback to Gemini-generated contact
-                <div className="space-y-3">
-                  <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Key Stakeholder</div>
-                  <div className={`flex items-center gap-3 font-bold text-lg ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                    <User className="w-5 h-5 text-zinc-500 flex-shrink-0" />
-                    {dossier?.keyPersonName || signal.decisionMaker || <SkeletonPulse className="w-24 h-6" />}
-                  </div>
-                  <div className="pl-8">
-                    {dossier ? (
-                      dossier.keyPersonLinkedin ? (
-                        <a
-                          href={dossier.keyPersonLinkedin}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`flex items-center gap-2 text-sm transition-colors animate-in fade-in ${isDarkMode ? 'text-zinc-400 hover:text-[#6C5DD3]' : 'text-gray-500 hover:text-[#6C5DD3]'}`}
-                        >
-                          <Linkedin className="w-3.5 h-3.5" />
-                          Stakeholder LinkedIn
-                        </a>
-                      ) : (
-                        <div className={`text-xs italic ${isDarkMode ? 'text-zinc-600' : 'text-gray-400'}`}>
-                          Contact details unavailable
-                        </div>
-                      )
-                    ) : (
-                      <SkeletonPulse className="w-24 h-3" />
-                    )}
-                  </div>
-                </div>
-              )}
+              {/* Source Link */}
+              <a href={signal.sourceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-bold text-[#6C5DD3] hover:underline">
+                <ExternalLink className="w-3.5 h-3.5" />
+                Source: {signal.sourceTitle}
+              </a>
             </div>
           </section>
 
-          {/* Battlecard */}
-          <section className={`p-6 rounded-2xl border space-y-4 relative overflow-hidden ${isDarkMode ? 'bg-[#6C5DD3]/10 border-[#6C5DD3]/20' : 'bg-orange-50 border-orange-200'}`}>
-            <div className="flex items-center gap-2 text-[#6C5DD3] font-bold uppercase tracking-widest text-[10px]">
-              <Swords className="w-4 h-4" />
-              Competitive Battlecard
+          {/* Stakeholders */}
+          <section className={`p-6 rounded-2xl border space-y-4 shadow-sm ${isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-slate-200/60'}`}>
+            <div className={`font-bold uppercase tracking-widest text-[10px] mb-2 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
+              Stakeholders
             </div>
-            {dossier ? (
-              <div className="space-y-6 animate-in fade-in duration-1000">
-                <div>
-                  <div className="text-[10px] font-black text-red-500 uppercase mb-2 tracking-tighter">Competitor Weakness</div>
-                  <p className={`text-sm italic leading-relaxed ${isDarkMode ? 'text-zinc-300' : 'text-gray-700'}`}>"{dossier.battlecard.competitorWeakness}"</p>
-                </div>
-                <div className={`h-px ${isDarkMode ? 'bg-white/5' : 'bg-gray-200'}`} />
-                <div>
-                  <div className="text-[10px] font-black text-green-500 uppercase mb-2 tracking-tighter">Our Strike Edge</div>
-                  <p className={`text-sm font-medium leading-relaxed ${isDarkMode ? 'text-zinc-300' : 'text-gray-700'}`}>"{dossier.battlecard.ourEdge}"</p>
-                </div>
+
+            {dossier?.enrichedContacts && dossier.enrichedContacts.length > 0 ? (
+              <div className="space-y-3">
+                {dossier.enrichedContacts.map((contact, idx) => (
+                  <div key={idx} className={`p-3 rounded-xl border ${contact.isPrimary
+                    ? isDarkMode ? 'bg-[#6C5DD3]/10 border-[#6C5DD3]/20' : 'bg-[#6C5DD3]/5 border-[#6C5DD3]/10'
+                    : isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'
+                    }`}>
+                    <div className="flex justify-between items-start mb-1">
+                      <div>
+                        <div className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>{contact.name}</div>
+                        <div className={`text-[10px] ${isDarkMode ? 'text-zinc-400' : 'text-[#50515e]'}`}>{contact.title}</div>
+                      </div>
+                      {contact.isPrimary && (
+                        <span className="text-[9px] font-black text-[#6C5DD3] bg-[#6C5DD3]/10 border border-[#6C5DD3]/20 px-1.5 py-0.5 rounded">KEY</span>
+                      )}
+                    </div>
+
+                    <div className="space-y-1 mt-2">
+                      {contact.email && (
+                        <a href={`mailto:${contact.email}`} className={`flex items-center gap-1.5 text-[10px] hover:text-[#6C5DD3] transition-colors ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
+                          <Mail className="w-3 h-3" /> {contact.email}
+                        </a>
+                      )}
+                      {contact.linkedinUrl && (
+                        <a href={contact.linkedinUrl} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-1.5 text-[10px] hover:text-[#6C5DD3] transition-colors ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
+                          <Linkedin className="w-3 h-3" /> LinkedIn Profile
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
-              <div className="space-y-6">
-                <SkeletonPulse className="w-full h-12" />
-                <div className={`h-px ${isDarkMode ? 'bg-white/5' : 'bg-gray-200'}`} />
-                <SkeletonPulse className="w-full h-12" />
+              <div className="space-y-3">
+                <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                  <div className="flex items-center gap-3">
+                    <User className={`w-8 h-8 p-1.5 rounded-full ${isDarkMode ? 'bg-zinc-800 text-zinc-500' : 'bg-white text-slate-400'}`} />
+                    <div>
+                      <div className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
+                        {dossier?.keyPersonName || signal.decisionMaker || <SkeletonPulse className="w-24 h-4" />}
+                      </div>
+                      <div className={`text-[10px] ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Target Executive</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </section>
+
+          {/* Battlecard */}
+          <section className={`p-6 rounded-2xl border space-y-5 relative overflow-hidden shadow-sm ${isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-slate-200/60'}`}>
+            <div className={`flex items-center gap-2 font-bold uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
+              <Swords className="w-4 h-4 text-[#6C5DD3]" />
+              Competitive Edge
+            </div>
+
+            {dossier ? (
+              <div className="space-y-5 animate-in fade-in">
+                <div>
+                  <div className="text-[10px] font-black text-[#FF5F5F] uppercase mb-1 tracking-wide flex items-center gap-1">
+                    <ShieldAlert className="w-3 h-3" /> Their Weakness
+                  </div>
+                  <p className={`text-xs leading-relaxed italic ${isDarkMode ? 'text-zinc-300' : 'text-[#50515e]'}`}>"{dossier.battlecard.competitorWeakness}"</p>
+                </div>
+                <div className={`h-px ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
+                <div>
+                  <div className="text-[10px] font-black text-[#10B981] uppercase mb-1 tracking-wide flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3" /> Our Win Angle
+                  </div>
+                  <p className={`text-xs font-semibold leading-relaxed ${isDarkMode ? 'text-zinc-200' : 'text-[#1B1D21]'}`}>"{dossier.battlecard.ourEdge}"</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <SkeletonPulse className="w-full h-10" />
+                <SkeletonPulse className="w-full h-10" />
+              </div>
+            )}
+          </section>
+
         </div>
       </div>
 
-      {/* Action Bar */}
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-7xl px-8 flex gap-4 z-30 animate-in slide-in-from-bottom-8 duration-700">
-        <button
-          disabled={!dossier}
-          className="flex-1 py-5 bg-[#6C5DD3] hover:bg-[#6C5DD3] text-white font-black rounded-2xl transition-all shadow-2xl shadow-orange-500/30 flex items-center justify-center gap-3 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
-        >
-          {dossier ? 'Push Opportunity to CRM (Salesforce)' : 'Gathering Deployment Specs...'}
-          <ChevronRight className="w-5 h-5" />
-        </button>
-        <button
-          disabled={!dossier}
-          className={`px-10 py-5 font-bold rounded-2xl border backdrop-blur-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border-white/10' : 'bg-white/80 hover:bg-white text-gray-900 border-gray-200'}`}
-        >
-          <MessageSquare className="w-4 h-4" />
-          {dossier ? 'Email Rep Briefing' : 'Generating Briefing...'}
-        </button>
+      {/* Floating Action Bar (Pill Style) */}
+      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 animate-in slide-in-from-bottom-8 duration-700">
+        <div className={`flex items-center gap-3 p-2 pl-4 rounded-full border shadow-xl backdrop-blur-md ${isDarkMode ? 'bg-[#141414]/90 border-white/10' : 'bg-white/90 border-slate-200'}`}>
+          <div className={`text-xs font-bold mr-2 ${isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}`}>
+            {dossier ? 'Action Ready' : 'Processing...'}
+          </div>
+
+          <button
+            disabled={!dossier}
+            className={`px-5 py-2.5 rounded-full text-xs font-bold border transition-all flex items-center gap-2 ${isDarkMode
+                ? 'border-white/10 hover:bg-white/5 text-white disabled:opacity-50'
+                : 'border-slate-200 hover:bg-slate-50 text-[#1B1D21] disabled:opacity-50'
+              }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5" /> Email Briefing
+          </button>
+
+          <button
+            disabled={!dossier}
+            className="px-6 py-2.5 bg-[#6C5DD3] hover:bg-[#5A4DBF] text-white rounded-full text-xs font-bold transition-all shadow-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Push to CRM <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
+
     </div>
   );
 };

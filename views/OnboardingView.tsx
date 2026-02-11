@@ -7,9 +7,10 @@ import { useTheme } from '../contexts/ThemeContext';
 
 interface OnboardingViewProps {
   onVerified: (profile: BusinessProfile) => void;
+  autoPilotMode?: boolean;
 }
 
-const OnboardingView: React.FC<OnboardingViewProps> = ({ onVerified }) => {
+const OnboardingView: React.FC<OnboardingViewProps> = ({ onVerified, autoPilotMode = false }) => {
   const { isDarkMode } = useTheme();
   const [url, setUrl] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -22,12 +23,21 @@ const OnboardingView: React.FC<OnboardingViewProps> = ({ onVerified }) => {
     setIsAnalyzing(true);
     try {
       const data = await geminiService.profileBusiness(url);
-      setProfile({
+
+      const newProfile = {
         ...data as BusinessProfile,
         name: (data as any).name || "Company Name",
         website: url,
         isVerified: false
-      });
+      };
+
+      if (autoPilotMode) {
+        // Skip review screen and proceed immediately
+        onVerified({ ...newProfile, isVerified: true });
+      } else {
+        // Show review screen (default behavior)
+        setProfile(newProfile);
+      }
     } catch (error) {
       console.error(error);
       alert("Failed to profile business. Please check the console for details and ensure your API key is valid.");

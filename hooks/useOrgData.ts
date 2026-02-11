@@ -132,8 +132,8 @@ export function useOrgData() {
     const saveSignal = useCallback(async (signal: MarketSignal, triggerId?: string) => {
         if (!orgId) return null;
 
-        // Generate fingerprint from headline + source
-        const fingerprint = btoa(signal.headline + signal.sourceUrl).substring(0, 64);
+        // Generate fingerprint from headline + source (handle Unicode characters)
+        const fingerprint = btoa(unescape(encodeURIComponent(signal.headline + (signal.sourceUrl || '')))).substring(0, 64);
 
         // Map app urgency to DB urgency
         const dbUrgency = signal.urgency === SignalUrgency.EMERGENCY ? 'emergency' :
