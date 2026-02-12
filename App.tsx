@@ -42,13 +42,16 @@ const App: React.FC = () => {
 
 // Inner component that uses auth context
 const AppContent: React.FC = () => {
-  const { user, userProfile, organization, loading, signOut } = useAuth();
+  const { user, userProfile, organization, loading, signOut, refreshProfile } = useAuth();
 
   // Use org data hook for Supabase persistence
   const {
     triggers: dbTriggers,
     signals: dbSignals,
     addTrigger,
+    addAITriggers,
+    removeTrigger,
+    activateTrigger,
     saveSignal,
     updateSignalStatus,
     createHuntLog,
@@ -309,22 +312,11 @@ const AppContent: React.FC = () => {
   };
 
   const handleStartHunting = () => {
-    // Check if we're in adhoc session mode
-    if (isAdhocSession && adhocProfile && adhocTriggers.length > 0) {
+    // Always use DB-backed active triggers for hunting
+    const huntTriggers = activeTriggers.filter(t => !t.triggerType || t.triggerType === 'active');
+    if (businessProfile && huntTriggers.length > 0) {
       setIsHunting(true);
-      triggerHunting(adhocProfile, adhocTriggers, activeHuntingRegion);
-      setActiveTab('signals');
-      // Reset adhoc session after starting hunt
-      setIsAdhocSession(false);
-      setAdhocProfile(null);
-      setAdhocTriggers([]);
-      return;
-    }
-
-    // Normal flow
-    if (businessProfile && activeTriggers.length > 0) {
-      setIsHunting(true);
-      triggerHunting(businessProfile, activeTriggers, activeHuntingRegion);
+      triggerHunting(businessProfile, huntTriggers, activeHuntingRegion);
       setActiveTab('signals');
     }
   };
@@ -491,7 +483,56 @@ const AppContent: React.FC = () => {
 
   // Logged in but no organization - show org setup
   if (!userProfile || !organization) {
-    return <OnboardingOrchestrator onComplete={() => { setActiveTab('strategy'); setCurrentRoute('/'); }} />;
+    return <OnboardingOrchestrator onComplete={async (profile, aiTriggers) => {
+      const orgId = profile.id;
+      if (!orgId) {
+        console.error('[APP] No orgId on profile — cannot persist triggers');
+        await refreshProfile();
+        return;
+      }
+
+      // 1. Set the tab FIRST (before auth refresh causes re-render)
+      setActiveTab('strategy');
+      setCurrentRoute('/');
+      setBusinessProfile(profile);
+
+      // 2. Persist AI-generated triggers directly via dataService
+      //    (useOrgData hooks have stale orgId=null at this point)
+      if (aiTriggers.length > 0) {
+        console.log('[APP] Persisting', aiTriggers.length, 'AI triggers from onboarding');
+        for (const t of aiTriggers) {
+          await dataService.createTrigger(orgId, {
+            product: t.product,
+            event: t.event,
+            source: t.source,
+            logic: t.logic,
+            trigger_type: 'ai_generated',
+          });
+        }
+      }
+
+      // 3. Create default preset triggers as 'active'
+      console.log('[APP] Creating default preset triggers');
+      await dataService.createTrigger(orgId, {
+        product: 'All Products',
+        event: 'Contract Awarded',
+        source: 'Government Tenders / Industry News',
+        logic: 'Winning bidder enters immediate procurement phase.',
+        trigger_type: 'active',
+      });
+      await dataService.createTrigger(orgId, {
+        product: 'Civil Infrastructure Bundle',
+        event: 'New Project Announcement',
+        source: 'DA Approvals / Building News',
+        logic: 'New facility requires immediate site setup services.',
+        trigger_type: 'active',
+      });
+
+      // 4. LAST: Refresh auth to transition past the onboarding guard.
+      //    useOrgData will then load all triggers from DB automatically.
+      console.log('[APP] All persistence done. Refreshing auth...');
+      await refreshProfile();
+    }} />;
   }
 
   // Logged in with profile - show main app
@@ -508,18 +549,19 @@ const AppContent: React.FC = () => {
 
     // Strategy and Settings are always accessible
     if (activeTab === 'strategy') {
-      // Use adhoc profile if in adhoc session mode, otherwise use main profile
-      const currentProfile = isAdhocSession ? adhocProfile : businessProfile;
-      const currentTriggers = isAdhocSession ? adhocTriggers : activeTriggers;
-
       return (
         <StrategyView
-          profile={currentProfile}
-          onTriggersUpdated={isAdhocSession ? setAdhocTriggers : handleTriggersUpdated}
-          onStartHunting={handleStartHunting}
-          activeRegion={activeHuntingRegion}
-          onRegionChange={setActiveHuntingRegion}
-          initialTriggers={isAdhocSession ? adhocTriggers : undefined}
+          profile={businessProfile}
+          triggers={activeTriggers}
+          setTriggers={(val) => {
+            const newVal = typeof val === 'function' ? val(activeTriggers) : val;
+            handleTriggersUpdated(newVal);
+          }}
+          signals={signals}
+          onDeleteTrigger={removeTrigger}
+          onActivateTrigger={activateTrigger}
+          onGenerateSignals={handleStartHunting}
+          isGenerating={isSearchingSignals}
         />
       );
     }
@@ -570,16 +612,20 @@ const AppContent: React.FC = () => {
       case 'live-hunt':
         return (
           <AdhocHuntView
-            onCalibrationComplete={(profile, triggers) => {
-              // Store adhoc session data
-              setAdhocProfile(profile);
-              setAdhocTriggers(triggers);
-              setIsAdhocSession(true);
-              // Set region from profile
-              if (profile.geography.length > 0) {
+            onCalibrationComplete={async (profile, triggers) => {
+              // Persist AI triggers to DB as 'ai_generated' (deduped)
+              console.log('[APP] Persisting', triggers.length, 'AI triggers from Live Hunt');
+              await addAITriggers(triggers.map(t => ({
+                product: t.product,
+                event: t.event,
+                source: t.source,
+                logic: t.logic,
+              })));
+              // Set region if available
+              if (profile.geography?.length > 0) {
                 setActiveHuntingRegion(profile.geography[0]);
               }
-              // Navigate to strategy for review
+              // Navigate to Strategy — triggers load from DB via useOrgData
               setActiveTab('strategy');
             }}
           />

@@ -26,7 +26,11 @@ export interface SalesTrigger {
   source: string;
   logic: string;
   limitToSite?: string | string[]; // Support both single string (legacy) and array of strings
+  scope?: 'global' | 'bundle' | 'single'; // New Bundle Logic
+  bundleName?: string;
+  targetProducts?: string[];
   searchMode?: 'web' | 'sites' | 'both'; // Default is 'both' if limitToSite exists, otherwise 'web'
+  triggerType?: 'active' | 'ai_generated';
   status: 'Approved' | 'Rejected' | 'Pending';
 }
 

@@ -49,6 +49,7 @@ export interface Database {
                     source: string | null;
                     logic: string | null;
                     is_active: boolean;
+                    trigger_type: 'active' | 'ai_generated';
                     created_at: string;
                     updated_at: string;
                 };
@@ -60,6 +61,7 @@ export interface Database {
                     source?: string | null;
                     logic?: string | null;
                     is_active?: boolean;
+                    trigger_type?: 'active' | 'ai_generated';
                     created_at?: string;
                     updated_at?: string;
                 };
@@ -71,6 +73,7 @@ export interface Database {
                     source?: string | null;
                     logic?: string | null;
                     is_active?: boolean;
+                    trigger_type?: 'active' | 'ai_generated';
                     created_at?: string;
                     updated_at?: string;
                 };

@@ -16,6 +16,7 @@ function dbTriggerToAppTrigger(t: DbTrigger): SalesTrigger {
         event: t.event,
         source: t.source || '',
         logic: t.logic || '',
+        triggerType: (t as any).trigger_type || 'active',
         status: 'Approved',
     };
 }
@@ -109,7 +110,7 @@ export function useOrgData() {
     }, [orgId, loadTriggers, loadSignals]);
 
     // Add a new trigger
-    const addTrigger = useCallback(async (trigger: { product: string; event: string; source?: string; logic?: string }) => {
+    const addTrigger = useCallback(async (trigger: { product: string; event: string; source?: string; logic?: string; trigger_type?: 'active' | 'ai_generated' }) => {
         if (!orgId) return null;
 
         const created = await dataService.createTrigger(orgId, trigger);
@@ -118,6 +119,51 @@ export function useOrgData() {
         }
         return created;
     }, [orgId]);
+
+    // Add AI-generated triggers with content-based deduplication
+    const addAITriggers = useCallback(async (newTriggers: { product: string; event: string; source?: string; logic?: string }[]) => {
+        if (!orgId) return [];
+
+        // Build fingerprint set from ALL existing triggers (both active and ai_generated)
+        const existingFingerprints = new Set(
+            triggers.map(t => `${t.event.toLowerCase().trim()}-${t.product.toLowerCase().trim()}`)
+        );
+
+        const added: SalesTrigger[] = [];
+        for (const trigger of newTriggers) {
+            const fingerprint = `${trigger.event.toLowerCase().trim()}-${trigger.product.toLowerCase().trim()}`;
+            if (existingFingerprints.has(fingerprint)) {
+                console.log('[OrgData] Skipping duplicate AI trigger:', fingerprint);
+                continue;
+            }
+            existingFingerprints.add(fingerprint);
+
+            const created = await dataService.createTrigger(orgId, {
+                ...trigger,
+                trigger_type: 'ai_generated',
+            });
+            if (created) {
+                added.push(dbTriggerToAppTrigger(created));
+            }
+        }
+
+        if (added.length > 0) {
+            setTriggers(prev => [...added, ...prev]);
+        }
+        console.log(`[OrgData] Added ${added.length} unique AI triggers (skipped ${newTriggers.length - added.length} duplicates)`);
+        return added;
+    }, [orgId, triggers]);
+
+    // Activate an AI-generated trigger (move to 'active')
+    const activateTrigger = useCallback(async (triggerId: string) => {
+        const success = await dataService.updateTriggerType(triggerId, 'active');
+        if (success) {
+            setTriggers(prev => prev.map(t =>
+                t.id === triggerId ? { ...t, triggerType: 'active' as const } : t
+            ));
+        }
+        return success;
+    }, []);
 
     // Remove a trigger
     const removeTrigger = useCallback(async (triggerId: string) => {
@@ -233,7 +279,9 @@ export function useOrgData() {
         loadTriggers,
         loadSignals,
         addTrigger,
+        addAITriggers,
         removeTrigger,
+        activateTrigger,
         saveSignal,
         updateSignalStatus,
         createHuntLog,

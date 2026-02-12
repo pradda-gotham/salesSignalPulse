@@ -183,7 +183,7 @@ export const geminiService = {
       const rawTriggers = JSON.parse(response.text || '[]');
       return rawTriggers.map((t: any, idx: number) => ({
         ...t,
-        id: `t-${idx}-${Date.now()}`,
+        id: `ai-${btoa(unescape(encodeURIComponent(t.event + t.product))).substring(0, 16)}-${idx}`,
         status: 'Pending'
       }));
     });

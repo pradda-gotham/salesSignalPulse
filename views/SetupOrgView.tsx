@@ -6,7 +6,7 @@ import { Building2, Globe, Briefcase, MapPin, Package, Users, Loader2, CheckCirc
 import { BusinessProfile } from '../types';
 
 interface SetupOrgViewProps {
-    onComplete: () => void;
+    onComplete: (profile: BusinessProfile) => void;
     initialProfile?: BusinessProfile | null;
 }
 
@@ -91,6 +91,7 @@ export const SetupOrgView: React.FC<SetupOrgViewProps> = ({ onComplete, initialP
 
             // Build complete business profile matching BusinessProfile type
             const businessProfile = {
+                id: orgId,
                 name: orgName.trim(),
                 industry: sector || 'Other',
                 products: validProducts,
@@ -135,9 +136,11 @@ export const SetupOrgView: React.FC<SetupOrgViewProps> = ({ onComplete, initialP
 
             console.log('[SetupOrg] User linked to organization');
 
-            await refreshProfile();
             setStep(2);
-            setTimeout(onComplete, 2000);
+            // Brief UI delay to show success, then hand control to orchestrator for calibration
+            // NOTE: Do NOT call refreshProfile() here — it would unmount the orchestrator
+            // before calibration can run. App.tsx will refresh auth after calibration completes.
+            setTimeout(() => onComplete(businessProfile as BusinessProfile), 1500);
 
         } catch (err) {
             console.error('[SetupOrg] Error:', err);

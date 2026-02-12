@@ -42,7 +42,7 @@ export async function getTriggers(orgId: string): Promise<Trigger[]> {
 
 export async function createTrigger(
     orgId: string,
-    trigger: { product: string; event: string; source?: string; logic?: string }
+    trigger: { product: string; event: string; source?: string; logic?: string; trigger_type?: 'active' | 'ai_generated' }
 ): Promise<Trigger | null> {
     const { data, error } = await supabase
         .from('triggers')
@@ -52,6 +52,7 @@ export async function createTrigger(
             event: trigger.event,
             source: trigger.source || null,
             logic: trigger.logic || null,
+            trigger_type: trigger.trigger_type || 'active',
         })
         .select()
         .single();
@@ -71,6 +72,22 @@ export async function deleteTrigger(triggerId: string): Promise<boolean> {
 
     if (error) {
         console.error('[DataService] Error deleting trigger:', error);
+        return false;
+    }
+    return true;
+}
+
+export async function updateTriggerType(
+    triggerId: string,
+    triggerType: 'active' | 'ai_generated'
+): Promise<boolean> {
+    const { error } = await supabase
+        .from('triggers')
+        .update({ trigger_type: triggerType })
+        .eq('id', triggerId);
+
+    if (error) {
+        console.error('[DataService] Error updating trigger type:', error);
         return false;
     }
     return true;
@@ -271,6 +288,7 @@ export const dataService = {
     getTriggers,
     createTrigger,
     deleteTrigger,
+    updateTriggerType,
     getSignals,
     upsertSignal,
     updateSignalStatus,

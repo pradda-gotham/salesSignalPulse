@@ -1,18 +1,22 @@
+
 import React from 'react';
 import { Rocket, Edit3, ArrowRight } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface OnboardingModeSelectorProps {
     onSelect: (mode: 'auto' | 'manual') => void;
 }
 
 export const OnboardingModeSelector: React.FC<OnboardingModeSelectorProps> = ({ onSelect }) => {
+    const { isDarkMode } = useTheme();
+
     return (
-        <div className="flex flex-col items-center justify-center min-h-[80vh] px-4 animate-in fade-in duration-700">
+        <div className={`flex flex-col items-center justify-center min-h-[80vh] px-4 animate-in fade-in duration-700 font-sans`}>
             <div className="text-center mb-12 max-w-2xl">
-                <h1 className="text-4xl font-black text-[#1B1D21] mb-4">
+                <h1 className={`text-4xl font-black mb-4 ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
                     How would you like to start?
                 </h1>
-                <p className="text-[#808191] text-lg">
+                <p className={`text-lg ${isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}`}>
                     Choose the best way to set up your organization's sales intelligence engine.
                 </p>
             </div>
@@ -21,22 +25,27 @@ export const OnboardingModeSelector: React.FC<OnboardingModeSelectorProps> = ({ 
                 {/* Auto-Pilot Card */}
                 <button
                     onClick={() => onSelect('auto')}
-                    className="group relative flex flex-col items-start p-8 bg-white border border-gray-200 rounded-3xl hover:border-[#6C5DD3] hover:shadow-xl hover:shadow-[#6C5DD3]/10 transition-all duration-300 text-left"
+                    className={`group relative flex flex-col items-start p-8 rounded-3xl border transition-all duration-300 text-left ${isDarkMode
+                            ? 'bg-[#141414] border-white/5 hover:border-[#6C5DD3]/50 hover:bg-white/[0.02] shadow-lg shadow-black/20'
+                            : 'bg-white border-slate-200 hover:border-[#6C5DD3] hover:shadow-xl hover:shadow-[#6C5DD3]/10'
+                        }`}
                 >
                     <div className="w-14 h-14 bg-gradient-to-br from-[#6C5DD3] to-[#8B7DE8] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#6C5DD3]/20 group-hover:scale-110 transition-transform duration-300">
                         <Rocket className="w-7 h-7 text-white" />
                     </div>
-                    <h3 className="text-xl font-bold text-[#1B1D21] mb-2 group-hover:text-[#6C5DD3] transition-colors">
+                    <h3 className={`text-xl font-bold mb-2 transition-colors ${isDarkMode ? 'text-white group-hover:text-[#6C5DD3]' : 'text-[#1B1D21] group-hover:text-[#6C5DD3]'
+                        }`}>
                         Auto-Pilot Setup
                     </h3>
-                    <p className="text-[#808191] text-sm leading-relaxed mb-6">
+                    <p className={`text-sm leading-relaxed mb-6 ${isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}`}>
                         Enter your company website URL and let our AI analyze your business, products, and target market automatically.
                     </p>
                     <div className="mt-auto flex items-center gap-2 text-[#6C5DD3] font-bold text-sm opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
                         Start Auto-Pilot <ArrowRight className="w-4 h-4" />
                     </div>
 
-                    <div className="absolute top-4 right-4 bg-green-100 text-green-700 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
+                    <div className={`absolute top-4 right-4 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide ${isDarkMode ? 'bg-[#6C5DD3]/20 text-[#6C5DD3]' : 'bg-[#6C5DD3]/10 text-[#6C5DD3]'
+                        }`}>
                         Recommended
                     </div>
                 </button>
@@ -44,18 +53,24 @@ export const OnboardingModeSelector: React.FC<OnboardingModeSelectorProps> = ({ 
                 {/* Manual Setup Card */}
                 <button
                     onClick={() => onSelect('manual')}
-                    className="group relative flex flex-col items-start p-8 bg-white border border-gray-200 rounded-3xl hover:border-gray-400 hover:shadow-lg transition-all duration-300 text-left"
+                    className={`group relative flex flex-col items-start p-8 rounded-3xl border transition-all duration-300 text-left ${isDarkMode
+                            ? 'bg-[#141414] border-white/5 hover:border-white/20 hover:bg-white/[0.02] shadow-lg shadow-black/20'
+                            : 'bg-white border-slate-200 hover:border-gray-400 hover:shadow-lg'
+                        }`}
                 >
-                    <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-gray-200 transition-colors duration-300">
-                        <Edit3 className="w-7 h-7 text-gray-500" />
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-colors duration-300 ${isDarkMode ? 'bg-white/5 group-hover:bg-white/10' : 'bg-gray-100 group-hover:bg-gray-200'
+                        }`}>
+                        <Edit3 className={`w-7 h-7 ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`} />
                     </div>
-                    <h3 className="text-xl font-bold text-[#1B1D21] mb-2 group-hover:text-gray-900 transition-colors">
+                    <h3 className={`text-xl font-bold mb-2 transition-colors ${isDarkMode ? 'text-white group-hover:text-zinc-200' : 'text-[#1B1D21] group-hover:text-gray-900'
+                        }`}>
                         Manual Configuration
                     </h3>
-                    <p className="text-[#808191] text-sm leading-relaxed mb-6">
+                    <p className={`text-sm leading-relaxed mb-6 ${isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}`}>
                         Prefer to fill in the details yourself? Manually enter your industry, products, and target demographics.
                     </p>
-                    <div className="mt-auto flex items-center gap-2 text-gray-900 font-bold text-sm opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+                    <div className={`mt-auto flex items-center gap-2 font-bold text-sm opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 ${isDarkMode ? 'text-white' : 'text-gray-900'
+                        }`}>
                         Configure Manually <ArrowRight className="w-4 h-4" />
                     </div>
                 </button>
