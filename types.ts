@@ -113,4 +113,54 @@ export interface DealDossier {
   enrichedContacts?: EnrichedContact[];
   enrichedCompany?: EnrichedCompany;
   isEnriched?: boolean;
+  // Cost estimation
+  estimation?: CostEstimation;
+}
+
+// ============ COST ESTIMATION ============
+
+export interface CostLineItem {
+  description: string;
+  unit: string;            // 'm³', 'hrs', 'days', 'lump sum', '%', 'each', 'tonnes'
+  quantity: number;
+  unitRate: number;
+  amount: number;          // quantity × unitRate
+  source: 'ai' | 'rate_card' | 'manual';
+  isAdjusted: boolean;
+}
+
+export interface CostCategory {
+  total: number;
+  items: CostLineItem[];
+  notes?: string;
+}
+
+export interface CostEstimation {
+  id: string;
+  dossierId: string;
+  signalId: string;
+  createdAt: string;
+  updatedAt: string;
+  estimationType: 'ai_generated' | 'template_based' | 'manual';
+  confidence: 'low' | 'medium' | 'high';
+
+  // The 5 cost categories
+  materials: CostCategory;
+  labour: CostCategory;
+  subContractors: CostCategory;
+  equipment: CostCategory;
+  overhead: CostCategory;
+
+  // Summary totals
+  totalDirectCosts: number;    // materials + labour + sub + equipment
+  totalIndirectCosts: number;  // overhead
+  grandTotal: number;
+  contingency: number;         // percentage (0-30)
+  finalEstimate: number;       // grandTotal × (1 + contingency/100)
+
+  // Metadata
+  assumptions: string[];
+  region: string;
+  projectType: string;
+  projectScale: string;
 }

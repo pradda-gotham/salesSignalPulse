@@ -24,7 +24,8 @@ import {
   Building,
   CheckCircle2,
   Mail,
-  Phone
+  Phone,
+  Calculator
 } from 'lucide-react';
 import { DealDossier, MarketSignal } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
@@ -36,6 +37,7 @@ interface OpportunitiesViewProps {
   error?: string | null;
   onRetry: () => void;
   onBack: () => void;
+  onEstimate?: () => void;
 }
 
 const SkeletonPulse: React.FC<{ className?: string }> = ({ className }) => {
@@ -45,7 +47,7 @@ const SkeletonPulse: React.FC<{ className?: string }> = ({ className }) => {
   );
 };
 
-const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, isLoading, error, onRetry, onBack }) => {
+const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, isLoading, error, onRetry, onBack, onEstimate }) => {
   const { isDarkMode } = useTheme();
 
   if (error) {
@@ -109,8 +111,8 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
           <div className="flex items-center gap-3">
             {/* Status Badge */}
             <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border flex items-center gap-2 ${isPending
-                ? 'bg-[#6C5DD3]/10 text-[#6C5DD3] border-[#6C5DD3]/20'
-                : 'bg-[#6C5DD3]/10 text-[#6C5DD3] border-[#6C5DD3]/20'
+              ? 'bg-[#6C5DD3]/10 text-[#6C5DD3] border-[#6C5DD3]/20'
+              : 'bg-[#6C5DD3]/10 text-[#6C5DD3] border-[#6C5DD3]/20'
               }`}>
               {isPending && <Loader2 className="w-3 h-3 animate-spin" />}
               {isPending ? 'Gathering Intelligence...' : 'Strategic Dossier Ready'}
@@ -119,8 +121,8 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
             {/* Confidence Badge */}
             {dossier ? (
               <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border animate-in fade-in ${dossier.confidence === 'High'
-                  ? 'bg-green-500/10 text-green-600 border-green-500/20'
-                  : 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
+                ? 'bg-green-500/10 text-green-600 border-green-500/20'
+                : 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
                 }`}>
                 <ShieldCheck className="w-3 h-3" />
                 {dossier.confidence} Confidence
@@ -398,9 +400,20 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
 
           <button
             disabled={!dossier}
+            onClick={onEstimate}
             className={`px-5 py-2.5 rounded-full text-xs font-bold border transition-all flex items-center gap-2 ${isDarkMode
-                ? 'border-white/10 hover:bg-white/5 text-white disabled:opacity-50'
-                : 'border-slate-200 hover:bg-slate-50 text-[#1B1D21] disabled:opacity-50'
+              ? 'border-white/10 hover:bg-white/5 text-white disabled:opacity-50'
+              : 'border-slate-200 hover:bg-slate-50 text-[#1B1D21] disabled:opacity-50'
+              }`}
+          >
+            <Calculator className="w-3.5 h-3.5" /> Estimate Costs
+          </button>
+
+          <button
+            disabled={!dossier}
+            className={`px-5 py-2.5 rounded-full text-xs font-bold border transition-all flex items-center gap-2 ${isDarkMode
+              ? 'border-white/10 hover:bg-white/5 text-white disabled:opacity-50'
+              : 'border-slate-200 hover:bg-slate-50 text-[#1B1D21] disabled:opacity-50'
               }`}
           >
             <MessageSquare className="w-3.5 h-3.5" /> Email Briefing

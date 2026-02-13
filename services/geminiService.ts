@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { BusinessProfile, SalesTrigger, MarketSignal, SignalUrgency, SignalConfidence, DealDossier, EnrichedContact, EnrichedCompany } from "../types";
+import { BusinessProfile, SalesTrigger, MarketSignal, SignalUrgency, SignalConfidence, DealDossier, EnrichedContact, EnrichedCompany, CostEstimation, CostCategory } from "../types";
 import { apolloService } from "./apolloService";
 
 const getAI = () => {
@@ -746,6 +746,222 @@ Focus:
       return {
         ...baseDossier,
         isEnriched: false
+      };
+    });
+  },
+
+  async generateEstimation(signal: MarketSignal, profile: BusinessProfile, dossier: DealDossier): Promise<CostEstimation> {
+    return withRetry(async () => {
+      const ai = getAI();
+
+      const estimatedValue = dossier.pricingStrategy?.estimatedValue || 0;
+      const bundleDesc = dossier.recommendedBundle?.map(b => `${b.quantity}x ${b.sku} - ${b.description}`).join('\n') || 'Not specified';
+
+      const prompt = `You are an expert cost estimator. Generate a detailed cost estimation breakdown for this project opportunity.
+
+PROJECT CONTEXT:
+- Signal: "${signal.headline}"
+- Summary: ${signal.summary}
+- Region: ${signal.region}
+- Account: ${dossier.accountName}
+- Estimated Opportunity Value: $${estimatedValue.toLocaleString()}
+- Recommended Products/Bundle:
+${bundleDesc}
+
+SELLER COMPANY: ${profile.name}
+INDUSTRY: ${profile.industry}
+PRODUCTS: ${profile.products.join(', ')}
+
+INSTRUCTIONS:
+1. Search for CURRENT regional market rates for ${signal.region} to ensure pricing accuracy.
+2. Break down costs into exactly 5 categories: materials, labour, subContractors, equipment, overhead.
+3. For each category, provide 3-6 specific line items with realistic quantities and unit rates.
+4. Use appropriate units: m³, m², tonnes, hrs, days, each, lump sum, % etc.
+5. Materials should reflect actual building/industrial material costs for the region.
+6. Labour rates should reflect current award rates or market rates for the region.
+7. Equipment should include hire/day-rates for relevant machinery.
+8. Overhead should include insurance, permits, site establishment, project management, and profit margin.
+9. The subContractors category should cover specialized trades (electrical, plumbing, HVAC, etc.).
+10. Provide a confidence level (low/medium/high) and list key assumptions.
+11. Include a projectType and projectScale description.
+
+Return as JSON.`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: {
+          tools: [{ googleSearch: {} }],
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              confidence: { type: Type.STRING, enum: ['low', 'medium', 'high'] },
+              projectType: { type: Type.STRING },
+              projectScale: { type: Type.STRING },
+              assumptions: { type: Type.ARRAY, items: { type: Type.STRING } },
+              materials: {
+                type: Type.OBJECT,
+                properties: {
+                  notes: { type: Type.STRING },
+                  items: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        description: { type: Type.STRING },
+                        unit: { type: Type.STRING },
+                        quantity: { type: Type.NUMBER },
+                        unitRate: { type: Type.NUMBER },
+                        amount: { type: Type.NUMBER }
+                      },
+                      required: ['description', 'unit', 'quantity', 'unitRate', 'amount']
+                    }
+                  }
+                },
+                required: ['items']
+              },
+              labour: {
+                type: Type.OBJECT,
+                properties: {
+                  notes: { type: Type.STRING },
+                  items: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        description: { type: Type.STRING },
+                        unit: { type: Type.STRING },
+                        quantity: { type: Type.NUMBER },
+                        unitRate: { type: Type.NUMBER },
+                        amount: { type: Type.NUMBER }
+                      },
+                      required: ['description', 'unit', 'quantity', 'unitRate', 'amount']
+                    }
+                  }
+                },
+                required: ['items']
+              },
+              subContractors: {
+                type: Type.OBJECT,
+                properties: {
+                  notes: { type: Type.STRING },
+                  items: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        description: { type: Type.STRING },
+                        unit: { type: Type.STRING },
+                        quantity: { type: Type.NUMBER },
+                        unitRate: { type: Type.NUMBER },
+                        amount: { type: Type.NUMBER }
+                      },
+                      required: ['description', 'unit', 'quantity', 'unitRate', 'amount']
+                    }
+                  }
+                },
+                required: ['items']
+              },
+              equipment: {
+                type: Type.OBJECT,
+                properties: {
+                  notes: { type: Type.STRING },
+                  items: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        description: { type: Type.STRING },
+                        unit: { type: Type.STRING },
+                        quantity: { type: Type.NUMBER },
+                        unitRate: { type: Type.NUMBER },
+                        amount: { type: Type.NUMBER }
+                      },
+                      required: ['description', 'unit', 'quantity', 'unitRate', 'amount']
+                    }
+                  }
+                },
+                required: ['items']
+              },
+              overhead: {
+                type: Type.OBJECT,
+                properties: {
+                  notes: { type: Type.STRING },
+                  items: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        description: { type: Type.STRING },
+                        unit: { type: Type.STRING },
+                        quantity: { type: Type.NUMBER },
+                        unitRate: { type: Type.NUMBER },
+                        amount: { type: Type.NUMBER }
+                      },
+                      required: ['description', 'unit', 'quantity', 'unitRate', 'amount']
+                    }
+                  }
+                },
+                required: ['items']
+              }
+            },
+            required: ['confidence', 'projectType', 'projectScale', 'assumptions', 'materials', 'labour', 'subContractors', 'equipment', 'overhead']
+          } as any
+        }
+      });
+
+      const data = JSON.parse(response.text || '{}');
+
+      // Post-process: compute category totals and overall totals
+      const processCategory = (cat: any): CostCategory => {
+        const items = (cat.items || []).map((item: any) => ({
+          ...item,
+          amount: item.amount || (item.quantity * item.unitRate),
+          source: 'ai' as const,
+          isAdjusted: false
+        }));
+        return {
+          total: items.reduce((sum: number, item: any) => sum + (item.amount || 0), 0),
+          items,
+          notes: cat.notes
+        };
+      };
+
+      const materials = processCategory(data.materials);
+      const labour = processCategory(data.labour);
+      const subContractors = processCategory(data.subContractors);
+      const equipment = processCategory(data.equipment);
+      const overhead = processCategory(data.overhead);
+
+      const totalDirectCosts = materials.total + labour.total + subContractors.total + equipment.total;
+      const totalIndirectCosts = overhead.total;
+      const grandTotal = totalDirectCosts + totalIndirectCosts;
+      const contingency = 10; // default 10%
+      const finalEstimate = grandTotal * (1 + contingency / 100);
+
+      return {
+        id: `est-${Date.now()}`,
+        dossierId: dossier.id,
+        signalId: signal.id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        estimationType: 'ai_generated',
+        confidence: data.confidence || 'medium',
+        materials,
+        labour,
+        subContractors,
+        equipment,
+        overhead,
+        totalDirectCosts,
+        totalIndirectCosts,
+        grandTotal,
+        contingency,
+        finalEstimate,
+        assumptions: data.assumptions || [],
+        region: signal.region,
+        projectType: data.projectType || 'General',
+        projectScale: data.projectScale || 'Not specified'
       };
     });
   }

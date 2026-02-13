@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { MarketSignal, BusinessProfile, SalesTrigger, DealDossier, LeadStatus } from './types';
+import { MarketSignal, BusinessProfile, SalesTrigger, DealDossier, LeadStatus, CostEstimation } from './types';
 import Layout from './components/Layout';
 import SignalsView from './views/SignalsView';
 import OpportunitiesView from './views/OpportunitiesView';
+import EstimationView from './views/EstimationView';
 import StrategyView from './views/StrategyView';
 import InsightsView from './views/InsightsView';
 import OnboardingView from './views/OnboardingView';
@@ -75,6 +76,9 @@ const AppContent: React.FC = () => {
   const [showQuotaOverlay, setShowQuotaOverlay] = useState(false);
   const [activeHuntingRegion, setActiveHuntingRegion] = useState<string>('');
   const [isLoadingProfile, setIsLoadingProfile] = useState(true); // Prevent flash
+  const [selectedEstimation, setSelectedEstimation] = useState<CostEstimation | null>(null);
+  const [isGeneratingEstimation, setIsGeneratingEstimation] = useState(false);
+  const [estimationError, setEstimationError] = useState<string | null>(null);
 
   // Adhoc/Live Hunt session state
   const [isAdhocSession, setIsAdhocSession] = useState(false);
@@ -294,8 +298,32 @@ const AppContent: React.FC = () => {
   const handleBackToSignals = () => {
     setSelectedSignal(null);
     setSelectedDossier(null);
+    setSelectedEstimation(null);
+    setEstimationError(null);
     setDossierError(null);
     setActiveTab('signals');
+  };
+
+  const handleGenerateEstimation = async () => {
+    if (!selectedSignal || !selectedDossier || !businessProfile) return;
+    setEstimationError(null);
+    setIsGeneratingEstimation(true);
+    setActiveTab('estimation');
+    try {
+      const estimation = await geminiService.generateEstimation(selectedSignal, businessProfile, selectedDossier);
+      setSelectedEstimation(estimation);
+    } catch (e) {
+      handleError(e);
+      setEstimationError('The AI encountered an issue generating the cost estimation. This might be due to API rate limits.');
+    } finally {
+      setIsGeneratingEstimation(false);
+    }
+  };
+
+  const handleBackToDossier = () => {
+    setSelectedEstimation(null);
+    setEstimationError(null);
+    setActiveTab('opportunities');
   };
 
   const handleProfileVerified = async (profile: BusinessProfile) => {
@@ -605,6 +633,19 @@ const AppContent: React.FC = () => {
             error={dossierError}
             onRetry={() => selectedSignal && handleViewDossier(selectedSignal)}
             onBack={handleBackToSignals}
+            onEstimate={handleGenerateEstimation}
+          />
+        );
+      case 'estimation':
+        return (
+          <EstimationView
+            estimation={selectedEstimation}
+            accountName={selectedDossier?.accountName || selectedSignal?.headline.split(':')[0] || 'Target Account'}
+            signalHeadline={selectedSignal?.headline || ''}
+            isLoading={isGeneratingEstimation}
+            error={estimationError}
+            onRetry={handleGenerateEstimation}
+            onBack={handleBackToDossier}
           />
         );
       case 'insights':
