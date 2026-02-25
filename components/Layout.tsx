@@ -30,10 +30,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, onLog
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const navItems = [
+    { id: 'strategy', label: 'Strategy', icon: Activity },
+    { id: 'live-hunt', label: 'Live Hunt', icon: Radar },
     { id: 'signals', label: 'Signals', icon: Zap },
     { id: 'opportunities', label: 'Opportunities', icon: Target },
-    { id: 'live-hunt', label: 'Live Hunt', icon: Radar },
-    { id: 'strategy', label: 'Strategy', icon: Activity },
     { id: 'insights', label: 'Insights', icon: BarChart3 },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
