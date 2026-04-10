@@ -147,6 +147,22 @@ export async function deleteTrackedWebsite(id: string): Promise<boolean> {
     return true;
 }
 
+export async function updateTrackedWebsite(
+    id: string,
+    updates: { last_scanned_at?: string; }
+): Promise<boolean> {
+    const { error } = await supabase
+        .from('tracked_websites')
+        .update(updates)
+        .eq('id', id);
+
+    if (error) {
+        console.error('[DataService] Error updating tracked website:', error);
+        return false;
+    }
+    return true;
+}
+
 // ============ SIGNALS ============
 
 export async function getSignals(orgId: string, limit = 50): Promise<Signal[]> {
@@ -348,6 +364,7 @@ export const dataService = {
     getTrackedWebsites,
     createTrackedWebsite,
     deleteTrackedWebsite,
+    updateTrackedWebsite,
     getSignals,
     upsertSignal,
     updateSignalStatus,

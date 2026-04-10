@@ -53,6 +53,7 @@ const AppContent: React.FC = () => {
     addTrigger,
     addTrackedWebsite,
     removeTrackedWebsite,
+    updateTrackedWebsiteScanTime,
     addAITriggers,
     removeTrigger,
     activateTrigger,
@@ -396,6 +397,38 @@ const AppContent: React.FC = () => {
     setActiveTriggers(triggers);
   };
 
+  const handleScanWebsite = async (site: TrackedWebsite) => {
+    if (!businessProfile) return;
+    console.log("[APP] Manually scanning website:", site.url);
+    
+    try {
+      // 1. Trigger scan for single site
+      const trackSignals = await geminiService.scanTrackedWebsites(businessProfile, [site], (signal) => {
+        // Stream each signal to UI
+        setSignals(prev => [signal, ...prev]);
+      });
+
+      // 2. Update scan timestamp in DB & local state
+      await updateTrackedWebsiteScanTime(site.id);
+
+      // 3. Store results in Supabase
+      if (trackSignals.length > 0) {
+        console.log("[APP] Saving", trackSignals.length, "signals from manual scan...");
+        const newIdMap: Record<string, string> = {};
+        for (const signal of trackSignals) {
+          const savedSignal = await saveSignal(signal);
+          if (savedSignal) {
+            newIdMap[signal.id] = savedSignal.id;
+          }
+        }
+        setSignalIdMap(prev => ({ ...prev, ...newIdMap }));
+      }
+    } catch (err) {
+      console.error("[APP] Manual scan failed:", err);
+      handleError(err);
+    }
+  };
+
   const triggerHunting = async (profile: BusinessProfile, triggers: SalesTrigger[], trackedSites: TrackedWebsite[], region?: string) => {
     console.log("[APP] Triggering Hunt with:", { profile, triggers, region, trackedSites });
     setIsSearchingSignals(true);
@@ -624,6 +657,7 @@ const AppContent: React.FC = () => {
           onActivateTrigger={activateTrigger}
           onAddTrackedWebsite={addTrackedWebsite}
           onRemoveTrackedWebsite={removeTrackedWebsite}
+          onScanWebsite={handleScanWebsite}
           onGenerateSignals={handleStartHunting}
           isGenerating={isSearchingSignals}
           marketActivity={marketActivity}

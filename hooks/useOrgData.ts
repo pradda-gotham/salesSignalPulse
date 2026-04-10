@@ -216,6 +216,18 @@ export function useOrgData() {
         return success;
     }, []);
 
+    // Update scan time for a tracked website
+    const updateTrackedWebsiteScanTime = useCallback(async (siteId: string) => {
+        const timestamp = new Date().toISOString();
+        const success = await dataService.updateTrackedWebsite(siteId, { last_scanned_at: timestamp });
+        if (success) {
+            setTrackedWebsites(prev => prev.map(t => 
+                t.id === siteId ? { ...t, lastScannedAt: timestamp } : t
+            ));
+        }
+        return success ? timestamp : null;
+    }, []);
+
     // Save a signal (upsert)
     const saveSignal = useCallback(async (signal: MarketSignal, triggerId?: string) => {
         if (!orgId) return null;
@@ -329,6 +341,7 @@ export function useOrgData() {
         activateTrigger,
         addTrackedWebsite,
         removeTrackedWebsite,
+        updateTrackedWebsiteScanTime,
         saveSignal,
         updateSignalStatus,
         createHuntLog,

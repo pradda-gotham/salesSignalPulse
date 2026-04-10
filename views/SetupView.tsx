@@ -38,6 +38,7 @@ interface SetupViewProps {
   onActivateTrigger?: (triggerId: string) => Promise<boolean>;
   onAddTrackedWebsite?: (website: { url: string; purpose?: string; target_keywords?: string }) => Promise<TrackedWebsite | null>;
   onRemoveTrackedWebsite?: (id: string) => Promise<boolean>;
+  onScanWebsite?: (site: TrackedWebsite) => Promise<void>;
   marketActivity?: { level: string, summary: string, colorClass: string } | null;
   isAssessing?: boolean;
 }
@@ -56,6 +57,7 @@ const SetupView: React.FC<SetupViewProps> = ({
   onActivateTrigger,
   onAddTrackedWebsite,
   onRemoveTrackedWebsite,
+  onScanWebsite,
   marketActivity,
   isAssessing
 }) => {
@@ -63,6 +65,7 @@ const SetupView: React.FC<SetupViewProps> = ({
   const [activeTab, setActiveTab] = useState<TabType>('active');
   const [showCustomTriggerModal, setShowCustomTriggerModal] = useState(false);
   const [showTrackWebsiteModal, setShowTrackWebsiteModal] = useState(false);
+  const [scanningSiteId, setScanningSiteId] = useState<string | null>(null);
 
   // NOTE: Default presets are created in App.tsx during onboarding.
   // Do NOT create them here — it caused duplication on every mount/remount.
@@ -275,6 +278,33 @@ const SetupView: React.FC<SetupViewProps> = ({
                       </td>
                       <td className="px-6 py-5 text-right align-top">
                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={async () => {
+                              if (onScanWebsite) {
+                                setScanningSiteId(site.id);
+                                await onScanWebsite(site);
+                                setScanningSiteId(null);
+                              }
+                            }}
+                            disabled={scanningSiteId !== null}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold transition-all ${
+                              scanningSiteId === site.id
+                                ? 'bg-indigo-500/20 text-indigo-400 cursor-not-allowed'
+                                : 'bg-indigo-500 text-white hover:bg-indigo-600'
+                            }`}
+                          >
+                            {scanningSiteId === site.id ? (
+                              <>
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                                Scanning...
+                              </>
+                            ) : (
+                              <>
+                                <Zap className="w-3 h-3 fill-current" />
+                                Scan Now
+                              </>
+                            )}
+                          </button>
                           <button
                             onClick={() => onRemoveTrackedWebsite && onRemoveTrackedWebsite(site.id)}
                             className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors"
