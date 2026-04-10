@@ -81,9 +81,9 @@ export default async function handler(req, res) {
                 <p style="margin: 0; color: #1B1D21; line-height: 1.7; font-size: 15px;">${dossier.executiveSummary || 'N/A'}</p>
               </div>
 
-              <!-- Commercial Opportunity -->
+              <!-- Commercial Lead -->
               <div style="margin-bottom: 28px; padding-bottom: 24px; border-bottom: 1px solid #F0F0F5;">
-                <div style="font-size: 11px; color: #808191; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 10px;">💰 Commercial Opportunity</div>
+                <div style="font-size: 11px; color: #808191; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 10px;">💰 Commercial Lead</div>
                 <p style="margin: 0; color: #1B1D21; line-height: 1.7; font-size: 15px;">${dossier.commercialOpportunity || 'N/A'}</p>
               </div>
 

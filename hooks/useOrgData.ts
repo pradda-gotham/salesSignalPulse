@@ -2,11 +2,23 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { dataService } from '../services/dataService';
-import { SalesTrigger, MarketSignal, SignalUrgency, LeadStatus } from '../types';
+import { SalesTrigger, MarketSignal, SignalUrgency, LeadStatus, TrackedWebsite } from '../types';
 import { Database } from '../src/lib/database.types';
 
 type DbTrigger = Database['public']['Tables']['triggers']['Row'];
 type DbSignal = Database['public']['Tables']['signals']['Row'];
+type DbTrackedWebsite = Database['public']['Tables']['tracked_websites']['Row'];
+
+function dbTrackedWebsiteToApp(t: DbTrackedWebsite): TrackedWebsite {
+    return {
+        id: t.id,
+        url: t.url,
+        purpose: t.purpose || undefined,
+        targetKeywords: t.target_keywords || undefined,
+        isActive: t.is_active ?? true,
+        lastScannedAt: t.last_scanned_at || undefined,
+    };
+}
 
 // Convert DB trigger to app SalesTrigger format
 function dbTriggerToAppTrigger(t: DbTrigger): SalesTrigger {
@@ -66,15 +78,17 @@ function dbSignalToAppSignal(s: DbSignal): MarketSignal {
             intentStrength: 0,
             buyerMatch: 0,
             urgency: 0,
-            total: s.score,
+            total: s.score || 50,
         },
         status: mapStatus(s.status),
+        trackedWebsiteId: s.tracked_website_id || undefined,
     };
 }
 
 export function useOrgData() {
     const { organization, userProfile } = useAuth();
     const [triggers, setTriggers] = useState<SalesTrigger[]>([]);
+    const [trackedWebsites, setTrackedWebsites] = useState<TrackedWebsite[]>([]);
     const [signals, setSignals] = useState<MarketSignal[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -96,11 +110,18 @@ export function useOrgData() {
         setSignals(dbSignals.map(dbSignalToAppSignal));
     }, [orgId]);
 
+    // Load tracked websites
+    const loadTrackedWebsites = useCallback(async () => {
+        if (!orgId) return;
+        const dbTrackedWebsites = await dataService.getTrackedWebsites(orgId);
+        setTrackedWebsites(dbTrackedWebsites.map(dbTrackedWebsiteToApp));
+    }, [orgId]);
+
     // Initial load
     useEffect(() => {
         const load = async () => {
             setLoading(true);
-            await Promise.all([loadTriggers(), loadSignals()]);
+            await Promise.all([loadTriggers(), loadSignals(), loadTrackedWebsites()]);
             setLoading(false);
         };
 
@@ -174,6 +195,27 @@ export function useOrgData() {
         return success;
     }, []);
 
+    // Add a tracked website
+    const addTrackedWebsite = useCallback(async (website: { url: string; target_keywords?: string; purpose?: string }) => {
+        if (!orgId) return null;
+        const created = await dataService.createTrackedWebsite(orgId, website);
+        if (created) {
+            const appWebsite = dbTrackedWebsiteToApp(created);
+            setTrackedWebsites(prev => [appWebsite, ...prev]);
+            return appWebsite;
+        }
+        return null;
+    }, [orgId]);
+
+    // Remove a tracked website
+    const removeTrackedWebsite = useCallback(async (siteId: string) => {
+        const success = await dataService.deleteTrackedWebsite(siteId);
+        if (success) {
+            setTrackedWebsites(prev => prev.filter(t => t.id !== siteId));
+        }
+        return success;
+    }, []);
+
     // Save a signal (upsert)
     const saveSignal = useCallback(async (signal: MarketSignal, triggerId?: string) => {
         if (!orgId) return null;
@@ -198,6 +240,7 @@ export function useOrgData() {
             score: signal.score,
             matched_products: signal.matchedProducts,
             trigger_id: triggerId,
+            tracked_website_id: signal.trackedWebsiteId,
         });
 
         if (saved) {
@@ -274,14 +317,18 @@ export function useOrgData() {
         organization,
         userProfile,
         triggers,
+        trackedWebsites,
         signals,
         loading,
         loadTriggers,
         loadSignals,
+        loadTrackedWebsites,
         addTrigger,
         addAITriggers,
         removeTrigger,
         activateTrigger,
+        addTrackedWebsite,
+        removeTrackedWebsite,
         saveSignal,
         updateSignalStatus,
         createHuntLog,

@@ -210,7 +210,7 @@ export const SetupOrgView: React.FC<SetupOrgViewProps> = ({ onComplete, initialP
                                     <Package className="w-3.5 h-3.5 text-[#6C5DD3]" />
                                     Your Products/Services <span className="text-[#6C5DD3]">*</span>
                                 </label>
-                                <p className="text-xs text-[#808191]">What do you sell? These will be matched to opportunities.</p>
+                                <p className="text-xs text-[#808191]">What do you sell? These will be matched to leads.</p>
                                 <div className="space-y-2">
                                     {products.map((product, idx) => (
                                         <div key={idx} className="flex gap-2">
@@ -370,11 +370,11 @@ export const SetupOrgView: React.FC<SetupOrgViewProps> = ({ onComplete, initialP
                             Welcome aboard! 🎉
                         </h2>
                         <p className="text-[#808191]">
-                            <span className="text-[#6C5DD3] font-semibold">{orgName}</span> is ready to discover opportunities
+                            <span className="text-[#6C5DD3] font-semibold">{orgName}</span> is ready to discover leads
                         </p>
                         <div className="flex items-center justify-center gap-2 text-[#808191] text-sm mt-4">
                             <Loader2 className="w-4 h-4 animate-spin text-[#6C5DD3]" />
-                            Redirecting to Strategy...
+                            Redirecting to Setup...
                         </div>
                     </div>
                 )}

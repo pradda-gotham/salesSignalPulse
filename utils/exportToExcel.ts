@@ -62,7 +62,7 @@ export function exportSignalsToExcel(
             'News Date': newsDate,
             'Headline': signal.headline,
             'Anticipated Product': signal.matchedProducts?.join(', ') || '',
-            'Size of Opportunity': opportunitySize,
+            'Size of Lead': opportunitySize,
             'Key Contact Details': contactDetails,
         };
     });
@@ -76,7 +76,7 @@ export function exportSignalsToExcel(
         { wch: 14 },  // News Date
         { wch: 40 },  // Headline
         { wch: 30 },  // Anticipated Product
-        { wch: 20 },  // Size of Opportunity
+        { wch: 20 },  // Size of Lead
         { wch: 40 },  // Key Contact Details
     ];
 

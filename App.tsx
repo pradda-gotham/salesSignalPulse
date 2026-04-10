@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { MarketSignal, BusinessProfile, SalesTrigger, DealDossier, LeadStatus, CostEstimation } from './types';
+import { MarketSignal, BusinessProfile, SalesTrigger, DealDossier, LeadStatus, CostEstimation, TrackedWebsite } from './types';
 import Layout from './components/Layout';
 import SignalsView from './views/SignalsView';
-import OpportunitiesView from './views/OpportunitiesView';
+import LeadsView from './views/LeadsView';
 import EstimationView from './views/EstimationView';
-import StrategyView from './views/StrategyView';
+import SetupView from './views/SetupView';
 import InsightsView from './views/InsightsView';
 import OnboardingView from './views/OnboardingView';
 import { LoginView } from './views/LoginView';
@@ -48,8 +48,11 @@ const AppContent: React.FC = () => {
   // Use org data hook for Supabase persistence
   const {
     triggers: dbTriggers,
+    trackedWebsites: dbTrackedWebsites,
     signals: dbSignals,
     addTrigger,
+    addTrackedWebsite,
+    removeTrackedWebsite,
     addAITriggers,
     removeTrigger,
     activateTrigger,
@@ -79,6 +82,24 @@ const AppContent: React.FC = () => {
   const [selectedEstimation, setSelectedEstimation] = useState<CostEstimation | null>(null);
   const [isGeneratingEstimation, setIsGeneratingEstimation] = useState(false);
   const [estimationError, setEstimationError] = useState<string | null>(null);
+  const [marketActivity, setMarketActivity] = useState<{ level: string, summary: string, colorClass: string } | null>(null);
+  const [isAssessingActivity, setIsAssessingActivity] = useState(false);
+
+  // Assess market activity once profile is loaded
+  useEffect(() => {
+    if (businessProfile && businessProfile.industry && businessProfile.geography?.length > 0 && !marketActivity && !isAssessingActivity) {
+      setIsAssessingActivity(true);
+      geminiService.assessMarketActivity(businessProfile)
+        .then(data => {
+          setMarketActivity(data);
+          setIsAssessingActivity(false);
+        })
+        .catch(err => {
+          console.error("Failed to assess market activity:", err);
+          setIsAssessingActivity(false);
+        });
+    }
+  }, [businessProfile, marketActivity, isAssessingActivity]);
 
   // Adhoc/Live Hunt session state
   const [isAdhocSession, setIsAdhocSession] = useState(false);
@@ -116,7 +137,7 @@ const AppContent: React.FC = () => {
     if (dbTriggers.length > 0) {
       console.log('[APP] Syncing triggers from DB:', dbTriggers.length);
       setActiveTriggers(dbTriggers);
-    }
+    } // No state for tracked websites needed in App, we just pass down
     if (dbSignals.length > 0) {
       console.log('[APP] Syncing signals from DB:', dbSignals.length);
       setSignals(dbSignals);
@@ -162,6 +183,8 @@ const AppContent: React.FC = () => {
     if (!organization) {
       console.log('[APP] Organization cleared, resetting all app state');
       setBusinessProfile(null);
+      setMarketActivity(null);
+      setIsAssessingActivity(false);
       setSignals([]);
       setActiveTriggers([]);
       setSelectedSignal(null);
@@ -188,6 +211,8 @@ const AppContent: React.FC = () => {
 
   const handleLogoClick = () => {
     setBusinessProfile(null);
+    setMarketActivity(null);
+    setIsAssessingActivity(false);
     setSignals([]);
     setActiveTriggers([]);
     setSelectedSignal(null);
@@ -217,7 +242,7 @@ const AppContent: React.FC = () => {
 
   const handleViewDossier = async (signal: MarketSignal) => {
     setSelectedSignal(signal);
-    setActiveTab('opportunities');
+    setActiveTab('leads');
     setDossierError(null);
 
     let dossierToShow: DealDossier | null = null;
@@ -323,12 +348,12 @@ const AppContent: React.FC = () => {
   const handleBackToDossier = () => {
     setSelectedEstimation(null);
     setEstimationError(null);
-    setActiveTab('opportunities');
+    setActiveTab('leads');
   };
 
   const handleProfileVerified = async (profile: BusinessProfile) => {
     setBusinessProfile(profile);
-    setActiveTab('strategy');
+    setActiveTab('setup');
 
     // Save profile to Supabase
     const saved = await saveBusinessProfile(profile as unknown as Record<string, unknown>);
@@ -344,7 +369,7 @@ const AppContent: React.FC = () => {
     const huntTriggers = activeTriggers.filter(t => !t.triggerType || t.triggerType === 'active');
     if (businessProfile && huntTriggers.length > 0) {
       setIsHunting(true);
-      triggerHunting(businessProfile, huntTriggers, activeHuntingRegion);
+      triggerHunting(businessProfile, huntTriggers, dbTrackedWebsites, activeHuntingRegion);
       setActiveTab('signals');
     }
   };
@@ -371,8 +396,8 @@ const AppContent: React.FC = () => {
     setActiveTriggers(triggers);
   };
 
-  const triggerHunting = async (profile: BusinessProfile, triggers: SalesTrigger[], region?: string) => {
-    console.log("[APP] Triggering Hunt with:", { profile, triggers, region });
+  const triggerHunting = async (profile: BusinessProfile, triggers: SalesTrigger[], trackedSites: TrackedWebsite[], region?: string) => {
+    console.log("[APP] Triggering Hunt with:", { profile, triggers, region, trackedSites });
     setIsSearchingSignals(true);
 
     // Create hunt log
@@ -380,8 +405,16 @@ const AppContent: React.FC = () => {
     console.log("[APP] Hunt log created:", huntId);
 
     try {
-      const discovered = await geminiService.huntSignals(profile, triggers, region);
-      setSignals(discovered);
+      const [regularSignals, trackSignals] = await Promise.all([
+        geminiService.huntSignals(profile, triggers, region, (signal) => {
+          // Stream each signal to the UI as it arrives
+          setSignals(prev => [...prev, signal]);
+        }),
+        geminiService.scanTrackedWebsites(profile, trackedSites, (signal) => {
+          setSignals(prev => [...prev, signal]);
+        })
+      ]);
+      const discovered = [...regularSignals, ...trackSignals];
 
       // Save discovered signals to Supabase and track database IDs
       console.log("[APP] Saving", discovered.length, "signals to Supabase...");
@@ -520,7 +553,7 @@ const AppContent: React.FC = () => {
       }
 
       // 1. Set the tab FIRST (before auth refresh causes re-render)
-      setActiveTab('strategy');
+      setActiveTab('setup');
       setCurrentRoute('/');
       setBusinessProfile(profile);
 
@@ -575,12 +608,13 @@ const AppContent: React.FC = () => {
       );
     }
 
-    // Strategy and Settings are always accessible
-    if (activeTab === 'strategy') {
+    // Setup and Settings are always accessible
+    if (activeTab === 'setup') {
       return (
-        <StrategyView
+        <SetupView
           profile={businessProfile}
           triggers={activeTriggers}
+          trackedWebsites={dbTrackedWebsites}
           setTriggers={(val) => {
             const newVal = typeof val === 'function' ? val(activeTriggers) : val;
             handleTriggersUpdated(newVal);
@@ -588,8 +622,12 @@ const AppContent: React.FC = () => {
           signals={signals}
           onDeleteTrigger={removeTrigger}
           onActivateTrigger={activateTrigger}
+          onAddTrackedWebsite={addTrackedWebsite}
+          onRemoveTrackedWebsite={removeTrackedWebsite}
           onGenerateSignals={handleStartHunting}
           isGenerating={isSearchingSignals}
+          marketActivity={marketActivity}
+          isAssessing={isAssessingActivity}
         />
       );
     }
@@ -622,11 +660,13 @@ const AppContent: React.FC = () => {
             onRegionChange={setActiveHuntingRegion}
             dossierCache={dossierCache}
             enrichmentProgress={enrichmentProgress}
+            marketActivity={marketActivity}
+            isAssessing={isAssessingActivity}
           />
         );
-      case 'opportunities':
+      case 'leads':
         return (
-          <OpportunitiesView
+          <LeadsView
             signal={selectedSignal}
             dossier={selectedDossier}
             isLoading={isGeneratingDossier}
@@ -666,8 +706,8 @@ const AppContent: React.FC = () => {
               if (profile.geography?.length > 0) {
                 setActiveHuntingRegion(profile.geography[0]);
               }
-              // Navigate to Strategy — triggers load from DB via useOrgData
-              setActiveTab('strategy');
+              // Navigate to Setup — triggers load from DB via useOrgData
+              setActiveTab('setup');
             }}
           />
         );

@@ -6,6 +6,7 @@ type Organization = Database['public']['Tables']['organizations']['Row'];
 type Trigger = Database['public']['Tables']['triggers']['Row'];
 type Signal = Database['public']['Tables']['signals']['Row'];
 type Dossier = Database['public']['Tables']['dossiers']['Row'];
+type DbTrackedWebsite = Database['public']['Tables']['tracked_websites']['Row'];
 
 // ============ ORGANIZATION ============
 
@@ -93,6 +94,59 @@ export async function updateTriggerType(
     return true;
 }
 
+// ============ TRACKED WEBSITES ============
+
+export async function getTrackedWebsites(orgId: string): Promise<DbTrackedWebsite[]> {
+    const { data, error } = await supabase
+        .from('tracked_websites')
+        .select('*')
+        .eq('org_id', orgId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('[DataService] Error fetching tracked websites:', error);
+        return [];
+    }
+    return data || [];
+}
+
+export async function createTrackedWebsite(
+    orgId: string,
+    website: { url: string; target_keywords?: string; purpose?: string }
+): Promise<DbTrackedWebsite | null> {
+    const { data, error } = await supabase
+        .from('tracked_websites')
+        .insert({
+            org_id: orgId,
+            url: website.url,
+            target_keywords: website.target_keywords || null,
+            purpose: website.purpose || null,
+            is_active: true,
+        })
+        .select()
+        .single();
+
+    if (error) {
+        console.error('[DataService] Error creating tracked website:', error);
+        return null;
+    }
+    return data;
+}
+
+export async function deleteTrackedWebsite(id: string): Promise<boolean> {
+    const { error } = await supabase
+        .from('tracked_websites')
+        .update({ is_active: false })
+        .eq('id', id);
+
+    if (error) {
+        console.error('[DataService] Error deleting tracked website:', error);
+        return false;
+    }
+    return true;
+}
+
 // ============ SIGNALS ============
 
 export async function getSignals(orgId: string, limit = 50): Promise<Signal[]> {
@@ -125,6 +179,7 @@ export async function upsertSignal(
         score?: number;
         matched_products?: string[];
         trigger_id?: string;
+        tracked_website_id?: string;
     }
 ): Promise<Signal | null> {
     const { data, error } = await supabase
@@ -143,6 +198,7 @@ export async function upsertSignal(
                 score: signal.score || 50,
                 matched_products: signal.matched_products || [],
                 trigger_id: signal.trigger_id || null,
+                tracked_website_id: signal.tracked_website_id || null,
             },
             { onConflict: 'org_id,fingerprint' }
         )
@@ -289,6 +345,9 @@ export const dataService = {
     createTrigger,
     deleteTrigger,
     updateTriggerType,
+    getTrackedWebsites,
+    createTrackedWebsite,
+    deleteTrackedWebsite,
     getSignals,
     upsertSignal,
     updateSignalStatus,

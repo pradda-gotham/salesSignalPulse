@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Zap,
   Clock,
@@ -22,7 +22,11 @@ import {
   ExternalLink,
   Download,
   Flame,
-  Filter
+  Filter,
+  TrendingUp,
+  RefreshCw,
+  Plus,
+  Globe
 } from 'lucide-react';
 import { MarketSignal, SignalUrgency, BusinessProfile, LeadStatus, DealDossier } from '../types';
 import { geminiService } from '../services/geminiService';
@@ -89,10 +93,10 @@ const LeadCard: React.FC<LeadCardProps> = ({ signal, profile, onUpdateStatus, on
 
   return (
     <div className={`rounded-xl border transition-all animate-in slide-in-from-bottom-4 duration-500 ${signal.relevanceFeedback === 'Negative'
-        ? 'opacity-40 grayscale scale-95'
-        : isDarkMode
-          ? 'bg-[#141414] border-white/5 hover:border-[#6C5DD3]/30 shadow-sm'
-          : 'bg-white border-slate-200/60 hover:shadow-md hover:border-[#6C5DD3]/30'
+      ? 'opacity-40 grayscale scale-95'
+      : isDarkMode
+        ? 'bg-[#141414] border-white/5 hover:border-[#6C5DD3]/30 shadow-sm'
+        : 'bg-white border-slate-200/60 hover:shadow-md hover:border-[#6C5DD3]/30'
       }`}>
 
       {/* Card Header & Main Content */}
@@ -100,21 +104,21 @@ const LeadCard: React.FC<LeadCardProps> = ({ signal, profile, onUpdateStatus, on
         <div className="flex items-start justify-between gap-6 mb-6">
           {/* Left: Score & Headline */}
           <div className="flex gap-4 flex-1">
-            {/* Score Box */}
-            <div className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center flex-shrink-0 ${signal.urgency === SignalUrgency.EMERGENCY || signal.urgency === SignalUrgency.HIGH
-                ? 'bg-[#FF5F5F]/10 text-[#FF5F5F]'
-                : 'bg-[#6C5DD3]/10 text-[#6C5DD3]'
-              }`}>
-              <span className="text-[10px] font-bold uppercase opacity-60 leading-none mb-0.5">Score</span>
-              <span className="text-xl font-bold leading-none">{signal.score}</span>
-            </div>
+
 
             <div className="flex-1">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className={`text-lg font-bold leading-tight mb-2 group-hover:text-[#6C5DD3] transition-colors ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
-                    {signal.headline}
-                  </h3>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className={`text-lg font-bold leading-tight group-hover:text-[#6C5DD3] transition-colors ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
+                      {signal.headline}
+                    </h3>
+                    {signal.trackedWebsiteId && (
+                      <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 whitespace-nowrap">
+                        Tracked Site
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-3">
                     <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${isDarkMode ? 'bg-white/5 text-zinc-400 border-white/5' : 'bg-slate-50 text-[#808191] border-slate-100'}`}>
                       <MapPin className="w-3 h-3" /> {signal.region}
@@ -164,39 +168,28 @@ const LeadCard: React.FC<LeadCardProps> = ({ signal, profile, onUpdateStatus, on
               ))}
             </div>
             <div className="pt-2">
-              <a
-                href={signal.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`inline-flex items-center gap-1.5 text-xs font-semibold hover:underline ${isDarkMode ? 'text-[#6C5DD3]' : 'text-[#6C5DD3]'}`}
-              >
-                <ExternalLink className="w-3 h-3" />
-                Source: {signal.sourceTitle}
-              </a>
+              {signal.sourceUrl ? (
+                <a
+                  href={signal.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`inline-flex items-center gap-1.5 text-xs font-semibold hover:underline ${isDarkMode ? 'text-[#6C5DD3]' : 'text-[#6C5DD3]'}`}
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  Source: {signal.sourceTitle}
+                </a>
+              ) : (
+                <div className={`inline-flex items-center gap-1.5 text-xs font-semibold ${isDarkMode ? 'text-zinc-500' : 'text-gray-400'}`}>
+                  <ExternalLink className="w-3 h-3 opacity-50" />
+                  Source: {signal.sourceTitle} (Unpublished)
+                </div>
+              )}
             </div>
           </div>
 
           {/* Right Column: Confidence & Target */}
           <div className={`space-y-4 pl-6 border-l ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
-            <div>
-              <h4 className={`text-[10px] font-bold uppercase tracking-widest mb-3 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Confidence Score</h4>
-              <div className="space-y-3">
-                {[
-                  { label: 'Freshness', val: signal.confidenceDetails.freshness },
-                  { label: 'Buyer Match', val: signal.confidenceDetails.buyerMatch },
-                ].map((f) => (
-                  <div key={f.label} className="space-y-1">
-                    <div className={`flex justify-between text-[10px] font-bold uppercase ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
-                      <span>{f.label}</span>
-                      <span>{f.val}%</span>
-                    </div>
-                    <div className={`h-1 rounded-full overflow-hidden ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}>
-                      <div className="h-full bg-gradient-to-r from-[#6C5DD3] to-[#00C4FF] rounded-full" style={{ width: `${f.val}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+
 
             <div className={`p-3 rounded-lg border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
               <div className={`text-[10px] font-bold uppercase mb-1 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Decision Maker</div>
@@ -219,8 +212,8 @@ const LeadCard: React.FC<LeadCardProps> = ({ signal, profile, onUpdateStatus, on
                     key={tab.id}
                     onClick={() => setActiveOutreachTab(tab.id as any)}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${activeOutreachTab === tab.id
-                        ? 'bg-[#6C5DD3] text-white'
-                        : isDarkMode ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-[#808191] hover:text-[#1B1D21] hover:bg-white'
+                      ? 'bg-[#6C5DD3] text-white'
+                      : isDarkMode ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-[#808191] hover:text-[#1B1D21] hover:bg-white'
                       }`}
                   >
                     <tab.icon className="w-3.5 h-3.5" /> {tab.id}
@@ -284,14 +277,48 @@ const LeadCard: React.FC<LeadCardProps> = ({ signal, profile, onUpdateStatus, on
   );
 };
 
-const SignalsView: React.FC<{ signals: MarketSignal[], profile: BusinessProfile, isHunting: boolean, isSearching: boolean, onUpdateStatus: (id: string, s: LeadStatus) => void, onUpdateFeedback: (id: string, f: 'Positive' | 'Negative') => void, onViewDossier: (s: MarketSignal) => void, activeRegion: string, onRegionChange: (r: string) => void, dossierCache?: Record<string, DealDossier>, enrichmentProgress?: { current: number; total: number } | null }> = ({ signals, profile, isHunting, isSearching, onUpdateStatus, onUpdateFeedback, onViewDossier, activeRegion, onRegionChange, dossierCache = {}, enrichmentProgress }) => {
+const SignalsView: React.FC<{ 
+  signals: MarketSignal[], 
+  profile: BusinessProfile, 
+  isHunting: boolean, 
+  isSearching: boolean, 
+  onUpdateStatus: (id: string, s: LeadStatus) => void, 
+  onUpdateFeedback: (id: string, f: 'Positive' | 'Negative') => void, 
+  onViewDossier: (s: MarketSignal) => void, 
+  activeRegion: string, 
+  onRegionChange: (r: string) => void, 
+  dossierCache?: Record<string, DealDossier>, 
+  enrichmentProgress?: { current: number; total: number } | null,
+  marketActivity?: { level: string, summary: string, colorClass: string } | null,
+  isAssessing?: boolean
+}> = ({ 
+  signals, 
+  profile, 
+  isHunting, 
+  isSearching, 
+  onUpdateStatus, 
+  onUpdateFeedback, 
+  onViewDossier, 
+  activeRegion, 
+  onRegionChange, 
+  dossierCache = {}, 
+  enrichmentProgress,
+  marketActivity,
+  isAssessing 
+}) => {
   const { isDarkMode } = useTheme();
-  const filteredSignals = signals.filter(s => s.status !== 'Archived');
+  const [viewMode, setViewMode] = useState<'all' | 'website'>('all');
+
+  const filteredSignals = signals.filter(s => {
+    if (s.status === 'Archived') return false;
+    if (viewMode === 'website' && !s.trackedWebsiteId) return false;
+    return true; 
+  });
   const isEnriching = enrichmentProgress !== null && enrichmentProgress !== undefined && enrichmentProgress.current < enrichmentProgress.total;
 
-  // Metrics Calculation
+  // Metrics Calculation (based on current viewMode)
   const totalSignals = filteredSignals.length;
-  const highUrgency = filteredSignals.filter(s => s.urgency === 'High' || s.urgency === 'Emergency').length;
+  const highUrgency = filteredSignals.filter(s => s.urgency === SignalUrgency.HIGH || s.urgency === SignalUrgency.EMERGENCY).length;
   const pipeline = filteredSignals.filter(s => s.status === 'Contacted' || s.status === 'Meeting Booked').length;
 
   return (
@@ -302,7 +329,7 @@ const SignalsView: React.FC<{ signals: MarketSignal[], profile: BusinessProfile,
         <div>
           <h1 className={`text-xl font-semibold tracking-tight ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>Market Pulse</h1>
           <p className={`text-sm mt-1 font-normal ${isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}`}>
-            Real-time opportunities for <span className="font-semibold text-[#6C5DD3]">{profile.name}</span>
+            Real-time leads for <span className="font-semibold text-[#6C5DD3]">{profile.name}</span>
           </p>
         </div>
 
@@ -315,13 +342,9 @@ const SignalsView: React.FC<{ signals: MarketSignal[], profile: BusinessProfile,
             </div>
           )}
 
-          {/* Scan Status Badge (Small) */}
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-[10px] font-bold uppercase tracking-wide ${isHunting
-            ? 'bg-green-500/10 text-green-500 border-green-500/20'
-            : isDarkMode ? 'bg-white/5 text-zinc-500 border-white/5' : 'bg-slate-100 text-[#808191] border-slate-200'}`}>
-            <Radar className={`w-3 h-3 ${isHunting ? 'animate-spin' : ''}`} />
-            {isHunting ? 'Scanning' : 'Standby'}
-          </div>
+
+
+
 
           {/* Export Button */}
           {filteredSignals.length > 0 && (
@@ -339,12 +362,12 @@ const SignalsView: React.FC<{ signals: MarketSignal[], profile: BusinessProfile,
       </div>
 
       {/* Metrics Grid (Strategy Style) */}
-      <div className={`rounded-xl border flex shadow-sm overflow-hidden ${isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-slate-200/60'}`}>
-        {/* Total Opportunities */}
+      <div className={`rounded-xl border flex shadow-sm ${isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-slate-200/60'}`}>
+        {/* Total Leads */}
         <div className={`flex-1 flex items-center gap-3 px-6 py-4 border-r ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
           <Zap className={`w-5 h-5 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`} />
           <div>
-            <p className={`text-[10px] font-semibold uppercase tracking-wider leading-none mb-1 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Opportunities</p>
+            <p className={`text-[10px] font-semibold uppercase tracking-wider leading-none mb-1 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Leads</p>
             <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>{totalSignals} Active Signals</p>
           </div>
         </div>
@@ -358,13 +381,26 @@ const SignalsView: React.FC<{ signals: MarketSignal[], profile: BusinessProfile,
           </div>
         </div>
 
-        {/* Pipeline */}
-        <div className={`flex-1 flex items-center gap-3 px-6 py-4 border-r ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
-          <CheckCircle2 className="w-5 h-5 text-[#10B981]" />
+        {/* Activity Level */}
+        <div className={`flex-1 flex items-center gap-3 px-6 py-4 relative group border-r ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
+          {isAssessing ? (
+            <RefreshCw className={`w-5 h-5 animate-spin ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`} />
+          ) : marketActivity ? (
+            <TrendingUp className={`w-5 h-5 ${marketActivity.colorClass.startsWith('text-') ? marketActivity.colorClass.replace(/-[0-9]+$/, '-500') : 'text-[#6C5DD3]'}`} />
+          ) : (
+            <TrendingUp className={`w-5 h-5 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`} />
+          )}
           <div>
-            <p className={`text-[10px] font-semibold uppercase tracking-wider leading-none mb-1 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>In Pipeline</p>
-            <p className="text-sm font-medium text-[#10B981]">{pipeline} Actioned</p>
+            <p className={`text-[10px] font-semibold uppercase tracking-wider leading-none mb-1 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Activity Level</p>
+            <p className={`text-sm font-medium ${isAssessing ? (isDarkMode ? 'text-zinc-500' : 'text-[#808191]') : (marketActivity?.colorClass || (isDarkMode ? 'text-white' : 'text-[#1B1D21]'))}`}>
+              {isAssessing ? 'Polling Trend...' : (marketActivity?.level || 'Assessing...')}
+            </p>
           </div>
+          {marketActivity?.summary && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-6 opacity-0 group-hover:opacity-100 group-hover:translate-y-4 transition-all z-20 pointer-events-none w-56 p-2 text-xs rounded shadow-lg bg-slate-800 text-white border border-slate-700 text-center leading-relaxed">
+              {marketActivity.summary}
+            </div>
+          )}
         </div>
 
         {/* Territory (Filter) */}
@@ -387,6 +423,30 @@ const SignalsView: React.FC<{ signals: MarketSignal[], profile: BusinessProfile,
 
       {/* Signals List */}
       <div className="space-y-6">
+        
+        {/* Signal View Tabs */}
+        <div className={`flex gap-4 border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`}>
+          <button
+            onClick={() => setViewMode('all')}
+            className={`text-xs font-semibold py-3 px-1 transition-colors relative ${viewMode === 'all' ? 'text-[#6C5DD3]' : (isDarkMode ? 'text-zinc-500 hover:text-zinc-300' : 'text-slate-500 hover:text-slate-700')}`}
+          >
+            All Signals
+            {viewMode === 'all' && (
+              <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#6C5DD3] rounded-t-full shadow-[0_-2px_10px_rgba(108,93,211,0.5)]"></span>
+            )}
+          </button>
+          <button
+            onClick={() => setViewMode('website')}
+            className={`text-xs font-semibold py-3 px-1 transition-colors relative flex items-center gap-1.5 ${viewMode === 'website' ? 'text-[#6C5DD3]' : (isDarkMode ? 'text-zinc-500 hover:text-zinc-300' : 'text-slate-500 hover:text-slate-700')}`}
+          >
+            <Globe className="w-3.5 h-3.5" />
+            Website Signals
+            {viewMode === 'website' && (
+              <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#6C5DD3] rounded-t-full shadow-[0_-2px_10px_rgba(108,93,211,0.5)]"></span>
+            )}
+          </button>
+        </div>
+
         {isSearching ? (
           <div className="py-32 flex flex-col items-center justify-center text-center space-y-6">
             <div className="relative">
@@ -421,6 +481,8 @@ const SignalsView: React.FC<{ signals: MarketSignal[], profile: BusinessProfile,
           </div>
         )}
       </div>
+
+
     </div>
   );
 };

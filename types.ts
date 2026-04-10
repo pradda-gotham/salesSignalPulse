@@ -34,6 +34,16 @@ export interface SalesTrigger {
   status: 'Approved' | 'Rejected' | 'Pending';
 }
 
+export interface TrackedWebsite {
+  id: string;
+  url: string;
+  purpose?: string;
+  targetKeywords?: string;
+  isActive: boolean;
+  lastScannedAt?: string;
+}
+
+
 export interface SignalConfidence {
   freshness: number;
   proximity: number;
@@ -59,6 +69,7 @@ export interface MarketSignal {
   confidenceDetails: SignalConfidence;
   status: LeadStatus;
   relevanceFeedback?: 'Positive' | 'Negative';
+  trackedWebsiteId?: string;
 }
 
 export interface EnrichedContact {

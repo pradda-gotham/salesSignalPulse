@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plus,
   Trash2,
@@ -20,34 +20,49 @@ import {
   Sparkles,
   MoreHorizontal
 } from 'lucide-react';
-import { SalesTrigger, BusinessProfile, MarketSignal } from '../types';
+import { SalesTrigger, BusinessProfile, MarketSignal, TrackedWebsite } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
+import { geminiService } from '../services/geminiService';
+import { CustomTriggerModal } from '../components/CustomTriggerModal';
+import { TrackWebsiteModal } from '../components/TrackWebsiteModal';
 
-interface StrategyViewProps {
+interface SetupViewProps {
   profile: BusinessProfile | null;
   triggers: SalesTrigger[];
+  trackedWebsites?: TrackedWebsite[];
   setTriggers: React.Dispatch<React.SetStateAction<SalesTrigger[]>>;
   signals: MarketSignal[];
   onGenerateSignals: () => void;
   isGenerating: boolean;
   onDeleteTrigger?: (triggerId: string) => Promise<boolean>;
   onActivateTrigger?: (triggerId: string) => Promise<boolean>;
+  onAddTrackedWebsite?: (website: { url: string; purpose?: string; target_keywords?: string }) => Promise<TrackedWebsite | null>;
+  onRemoveTrackedWebsite?: (id: string) => Promise<boolean>;
+  marketActivity?: { level: string, summary: string, colorClass: string } | null;
+  isAssessing?: boolean;
 }
 
-type TabType = 'active' | 'ai_generated';
+type TabType = 'active' | 'ai_generated' | 'tracked_sites';
 
-const StrategyView: React.FC<StrategyViewProps> = ({
+const SetupView: React.FC<SetupViewProps> = ({
   profile,
   triggers,
+  trackedWebsites = [],
   setTriggers,
   signals,
   onGenerateSignals,
   isGenerating,
   onDeleteTrigger,
-  onActivateTrigger
+  onActivateTrigger,
+  onAddTrackedWebsite,
+  onRemoveTrackedWebsite,
+  marketActivity,
+  isAssessing
 }) => {
   const { isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('active');
+  const [showCustomTriggerModal, setShowCustomTriggerModal] = useState(false);
+  const [showTrackWebsiteModal, setShowTrackWebsiteModal] = useState(false);
 
   // NOTE: Default presets are created in App.tsx during onboarding.
   // Do NOT create them here — it caused duplication on every mount/remount.
@@ -91,19 +106,15 @@ const StrategyView: React.FC<StrategyViewProps> = ({
       icon: Target,
       color: 'text-slate-400'
     },
-    {
-      label: 'Reliability',
-      value: '98.2% Accurate',
-      icon: CheckCircle2,
-      color: 'text-accent-green',
-      valueColor: 'text-emerald-500'
-    },
+
     {
       label: 'Activity Level',
-      value: 'High Frequency',
-      icon: TrendingUp,
+      value: isAssessing ? 'Polling Trend...' : (marketActivity?.level || 'Assessing...'),
+      icon: isAssessing ? RefreshCw : (marketActivity ? Activity : TrendingUp),
       color: 'text-accent-purple',
-      valueColor: 'text-violet-500'
+      valueColor: isAssessing ? 'text-slate-400' : (marketActivity?.colorClass || 'text-violet-500'),
+      summary: marketActivity?.summary,
+      isSpinning: isAssessing
     },
   ];
 
@@ -121,11 +132,10 @@ const StrategyView: React.FC<StrategyViewProps> = ({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button className={`px-4 py-1.5 border rounded-md text-xs font-medium transition-all flex items-center gap-2 ${isDarkMode ? 'border-slate-700 hover:bg-slate-800' : 'border-slate-200 hover:bg-slate-50'}`}>
-            <Plus className="w-3.5 h-3.5" />
-            Custom Signal
-          </button>
-          <button className={`px-4 py-1.5 rounded-md text-xs font-medium hover:opacity-90 transition-all flex items-center gap-2 ${isDarkMode ? 'bg-slate-100 text-slate-900' : 'bg-slate-900 text-white'}`}>
+
+          <button 
+            onClick={() => setShowTrackWebsiteModal(true)}
+            className={`px-4 py-1.5 rounded-md text-xs font-medium hover:opacity-90 transition-all flex items-center gap-2 ${isDarkMode ? 'bg-slate-100 text-slate-900' : 'bg-slate-900 text-white'}`}>
             <Globe className="w-3.5 h-3.5" />
             Track Website
           </button>
@@ -133,14 +143,19 @@ const StrategyView: React.FC<StrategyViewProps> = ({
       </header>
 
       {/* Metrics Row */}
-      <div className={`rounded-xl flex overflow-hidden ${isDarkMode ? 'bg-slate-900 border border-slate-800/60' : 'bg-white border border-slate-200/60'}`}>
+      <div className={`rounded-xl flex ${isDarkMode ? 'bg-slate-900 border border-slate-800/60' : 'bg-white border border-slate-200/60'}`}>
         {metrics.map((m, i) => (
-          <div key={i} className={`flex-1 flex items-center gap-3 px-6 py-4 ${i !== metrics.length - 1 ? (isDarkMode ? 'border-r border-slate-800/50' : 'border-r border-slate-100') : ''}`}>
-            <m.icon className={`w-5 h-5 ${m.color === 'text-accent-green' ? 'text-emerald-500' : m.color === 'text-accent-purple' ? 'text-violet-500' : 'text-slate-400'}`} />
+          <div key={i} className={`flex-1 flex items-center gap-3 px-6 py-4 relative group ${i !== metrics.length - 1 ? (isDarkMode ? 'border-r border-slate-800/50' : 'border-r border-slate-100') : ''}`}>
+            <m.icon className={`w-5 h-5 ${m.isSpinning ? 'animate-spin' : ''} ${m.color === 'text-accent-green' ? 'text-emerald-500' : m.color === 'text-accent-purple' ? 'text-violet-500' : 'text-slate-400'}`} />
             <div>
               <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider leading-none mb-1">{m.label}</p>
               <p className={`text-sm font-medium ${m.valueColor || (isDarkMode ? 'text-slate-200' : 'text-slate-900')}`}>{m.value}</p>
             </div>
+            {m.summary && (
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-8 opacity-0 group-hover:opacity-100 group-hover:translate-y-4 transition-all z-20 pointer-events-none w-56 p-2 text-xs rounded shadow-lg bg-slate-800 text-white border border-slate-700 text-center leading-relaxed">
+                {m.summary}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -149,7 +164,15 @@ const StrategyView: React.FC<StrategyViewProps> = ({
       <section className="space-y-4">
         {/* Table Header with Tabs */}
         <div className="flex items-center justify-between px-1">
-          <h2 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>Active Configurations</h2>
+          <div className="flex items-center gap-4">
+            <h2 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>Active Configurations</h2>
+            <button
+              onClick={() => setShowCustomTriggerModal(true)}
+              className={`px-3 py-1 rounded border text-xs font-medium flex items-center gap-1.5 transition-all ${isDarkMode ? 'bg-[#141414] border-white/10 text-white hover:border-[#6C5DD3]/50 hover:text-[#6C5DD3]' : 'bg-white border-slate-200 text-[#1B1D21] hover:border-[#6C5DD3]/50 hover:text-[#6C5DD3]'}`}
+            >
+              <Plus className="w-3.5 h-3.5" /> Create Trigger
+            </button>
+          </div>
           <div className="flex gap-4">
             <button
               onClick={() => setActiveTab('active')}
@@ -174,6 +197,18 @@ const StrategyView: React.FC<StrategyViewProps> = ({
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setActiveTab('tracked_sites')}
+              className={`text-xs font-medium pb-1 transition-colors flex items-center gap-1 ${activeTab === 'tracked_sites' ? 'text-indigo-500 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              <Globe className="w-3 h-3" />
+              Tracked Sites
+              {trackedWebsites.length > 0 && (
+                <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${activeTab === 'tracked_sites' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                  {trackedWebsites.length}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -181,16 +216,77 @@ const StrategyView: React.FC<StrategyViewProps> = ({
         <div className={`rounded-xl overflow-hidden border ${isDarkMode ? 'bg-slate-900 border-slate-800/60' : 'bg-white border-slate-200/60'}`}>
           <table className="w-full text-left">
             <thead>
-              <tr className={`border-b ${isDarkMode ? 'border-slate-800 bg-slate-800/30' : 'border-slate-100 bg-slate-50/50'}`}>
-                <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Trigger Event</th>
-                <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Logic & Intent</th>
-                <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</th>
-                <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Category</th>
-                <th className="px-6 py-3 text-right"></th>
-              </tr>
+              {activeTab === 'tracked_sites' ? (
+                <tr className={`border-b ${isDarkMode ? 'border-slate-800 bg-slate-800/30' : 'border-slate-100 bg-slate-50/50'}`}>
+                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Website URL</th>
+                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Tracking Purpose & Keywords</th>
+                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</th>
+                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Last Scanned</th>
+                  <th className="px-6 py-3 text-right"></th>
+                </tr>
+              ) : (
+                <tr className={`border-b ${isDarkMode ? 'border-slate-800 bg-slate-800/30' : 'border-slate-100 bg-slate-50/50'}`}>
+                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Trigger Event</th>
+                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Logic & Intent</th>
+                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</th>
+                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Category</th>
+                  <th className="px-6 py-3 text-right"></th>
+                </tr>
+              )}
             </thead>
             <tbody className={`divide-y ${isDarkMode ? 'divide-slate-800' : 'divide-slate-100'}`}>
-              {displayTriggers.length === 0 ? (
+              {activeTab === 'tracked_sites' ? (
+                trackedWebsites.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <Globe className="w-8 h-8 text-slate-300" />
+                        <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                          No websites are currently being tracked.
+                        </p>
+                        <button
+                          onClick={() => setShowTrackWebsiteModal(true)}
+                          className="mt-2 text-xs font-semibold text-indigo-500 hover:text-indigo-600"
+                        >
+                          + Track a Website
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  trackedWebsites.map((site) => (
+                    <tr key={site.id} className={`group transition-colors ${isDarkMode ? 'hover:bg-slate-800/20' : 'hover:bg-slate-50/50'}`}>
+                      <td className="px-6 py-5 align-top">
+                        <p className={`text-sm font-semibold max-w-xs truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{site.url}</p>
+                      </td>
+                      <td className="px-6 py-5 align-top">
+                        {site.purpose && <p className={`text-xs font-medium mb-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>{site.purpose}</p>}
+                        <p className={`text-xs max-w-xs italic leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>"{site.targetKeywords || 'Any interesting signals'}"</p>
+                      </td>
+                      <td className="px-6 py-5 align-top">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase border bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                          Active
+                        </span>
+                      </td>
+                      <td className="px-6 py-5 align-top">
+                        <span className={`text-xs px-2 py-1 rounded inline-flex items-center gap-1.5 ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-600'}`}>
+                          <Monitor className="w-3 h-3" /> {site.lastScannedAt ? new Date(site.lastScannedAt).toLocaleDateString() : 'Never'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5 text-right align-top">
+                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => onRemoveTrackedWebsite && onRemoveTrackedWebsite(site.id)}
+                            className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )
+              ) : displayTriggers.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
@@ -293,23 +389,59 @@ const StrategyView: React.FC<StrategyViewProps> = ({
               {activeTriggers.length} Active Trigger{activeTriggers.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <div className={`w-px h-4 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
-          <div className="flex items-center gap-4">
-            <button className="text-[11px] font-bold text-slate-500 hover:text-indigo-500 transition-colors uppercase tracking-widest">Global Filter</button>
-            <button
-              onClick={onGenerateSignals}
-              disabled={isGenerating || activeTriggers.length === 0}
-              className={`text-white text-[11px] font-bold px-4 py-1.5 rounded-full hover:shadow-md transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-indigo-600 hover:bg-indigo-700'}`}
-            >
-              {isGenerating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              Sync Signals
-            </button>
-          </div>
+          
+          <div className={`w-px h-6 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}></div>
+          
+          <button
+            onClick={onGenerateSignals}
+            disabled={isGenerating || activeTriggers.length === 0}
+            className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-[#6C5DD3] focus:ring-offset-2 ${
+              isGenerating || activeTriggers.length === 0
+                ? 'bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-500'
+                : 'bg-gradient-to-r from-[#6C5DD3] to-[#5b4eb3] text-white hover:shadow-md hover:-translate-y-0.5 hover:from-[#7c6deb] hover:to-[#6C5DD3]'
+            }`}
+          >
+            {isGenerating ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                Initializing Hunt...
+              </>
+            ) : (
+              <>
+                <Zap className="w-4 h-4 fill-current" />
+                Trigger Live Hunt
+              </>
+            )}
+          </button>
         </div>
       </div>
+
+      {/* Custom Trigger Modal */}
+      {showCustomTriggerModal && (
+        <CustomTriggerModal
+          onClose={() => setShowCustomTriggerModal(false)}
+          onAdd={(newTrigger) => {
+            setTriggers(prev => [...prev, newTrigger]);
+            setActiveTab('active');
+          }}
+        />
+      )}
+
+      {/* Track Website Modal */}
+      {showTrackWebsiteModal && (
+        <TrackWebsiteModal
+          onClose={() => setShowTrackWebsiteModal(false)}
+          onAdd={async (newSite) => {
+            if (onAddTrackedWebsite) {
+              await onAddTrackedWebsite(newSite);
+            }
+            setActiveTab('tracked_sites');
+          }}
+        />
+      )}
 
     </div>
   );
 };
 
-export default StrategyView;
+export default SetupView;

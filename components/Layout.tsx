@@ -30,12 +30,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, onLog
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const navItems = [
-    { id: 'strategy', label: 'Strategy', icon: Activity },
+    { id: 'setup', label: 'Setup', icon: Activity },
     { id: 'live-hunt', label: 'Live Hunt', icon: Radar },
     { id: 'signals', label: 'Signals', icon: Zap },
-    { id: 'opportunities', label: 'Opportunities', icon: Target },
+    { id: 'leads', label: 'Leads', icon: Target },
     { id: 'insights', label: 'Insights', icon: BarChart3 },
-    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   return (
@@ -108,14 +107,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, onLog
 
           {/* Plan Info */}
           <div className={`mt-auto p-6 ${isCollapsed ? 'px-4' : ''}`}>
-            <div className={`p-4 rounded-2xl transition-colors duration-300 ${isCollapsed ? 'p-3' : ''
+            <button 
+              onClick={() => onTabChange('settings')}
+              className={`w-full p-4 rounded-2xl transition-all duration-300 text-left cursor-pointer hover:-translate-y-0.5 hover:shadow-md ${isCollapsed ? 'p-3 text-center' : ''
               } ${isDarkMode
-                ? 'bg-gradient-to-br from-[#6C5DD3]/10 to-[#00C4FF]/10 border border-[#6C5DD3]/20'
-                : 'bg-gradient-to-br from-[#6C5DD3]/5 to-[#00C4FF]/5'
+                ? 'bg-gradient-to-br from-[#6C5DD3]/10 to-[#00C4FF]/10 border border-[#6C5DD3]/20 hover:border-[#6C5DD3]/40 hover:from-[#6C5DD3]/20 hover:to-[#00C4FF]/20'
+                : 'bg-gradient-to-br from-[#6C5DD3]/5 to-[#00C4FF]/5 hover:from-[#6C5DD3]/10 hover:to-[#00C4FF]/10 border border-transparent hover:border-[#6C5DD3]/20'
               }`}>
               {isCollapsed ? (
                 <div className="flex items-center justify-center">
-                  <div className="w-8 h-8 rounded-lg bg-[#6C5DD3]/20 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-[#6C5DD3]/20 flex items-center justify-center transition-colors">
                     <span className="text-xs font-bold text-[#6C5DD3]">E</span>
                   </div>
                 </div>
@@ -125,7 +126,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, onLog
                   <p className={`text-sm ${isDarkMode ? 'text-zinc-300' : 'text-[#808191]'}`}>{organizationName || 'No Organization'}</p>
                 </>
               )}
-            </div>
+            </button>
           </div>
         </div>
 
@@ -187,12 +188,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, onLog
               {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
 
-            <div className={`w-8 h-8 rounded-full border flex items-center justify-center text-xs font-bold ${isDarkMode
-              ? 'bg-zinc-800 border-white/10 text-zinc-300'
-              : 'bg-gray-100 border-gray-200 text-gray-600'
-              }`}>
-              JD
-            </div>
+
           </div>
         </header>
 

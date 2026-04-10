@@ -114,7 +114,7 @@ export default async function handler(req, res) {
               await resend.emails.send({
                 from: 'SalesPulse <noreply@salespulse.dev>',
                 to: user.email,
-                subject: `🔥 ${signals.length} New Opportunity Signals - ${org.name}`,
+                subject: `🔥 ${signals.length} New Lead Signals - ${org.name}`,
                 html: emailHtml,
               });
               console.log(`[DIGEST] Sent email to ${user.email}`);
@@ -200,7 +200,7 @@ function buildDigestEmail(orgName, signals) {
     <!-- Header -->
     <div style="text-align: center; margin-bottom: 32px;">
       <h1 style="color: #f97316; font-size: 24px; margin: 0;">⚡ SalesPulse</h1>
-      <p style="color: #888; margin-top: 8px;">Daily Opportunity Digest for ${escapeHtml(orgName)}</p>
+      <p style="color: #888; margin-top: 8px;">Daily Lead Digest for ${escapeHtml(orgName)}</p>
     </div>
 
     <!-- Summary -->

@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { BusinessProfile, SalesTrigger, MarketSignal, SignalUrgency, SignalConfidence, DealDossier, EnrichedContact, EnrichedCompany, CostEstimation, CostCategory } from "../types";
+import { BusinessProfile, SalesTrigger, MarketSignal, SignalUrgency, SignalConfidence, DealDossier, EnrichedContact, EnrichedCompany, CostEstimation, CostCategory, TrackedWebsite } from "../types";
 import { apolloService } from "./apolloService";
 
 const getAI = () => {
@@ -31,78 +31,25 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
 }
 
 /**
- * Enhanced heuristic matching utilities for grounding verification.
+ * Wraps a promise in a timeout to prevent infinite hanging if the API connection silently drops.
  */
-const matchUtils = {
-  getKeywords(text: string): string[] {
-    if (!text) return [];
-    // Minimal stop words - keep industry-relevant terms like 'project', 'construction', 'new'
-    const stopWords = new Set(['the', 'and', 'for', 'with', 'from', 'this', 'that', 'into', 'under', 'nsw', 'gov', 'govt', 'wa', 'nt', 'qld', 'vic', 'sa', 'tas', 'au', 'nz', 'com', 'www', 'http', 'https']);
-    return text.toLowerCase()
-      .replace(/[^\w\s]/g, ' ')
-      .split(/\s+/)
-      .filter(w => w.length > 2 && !stopWords.has(w));
-  },
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeoutHandle: NodeJS.Timeout;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(() => {
+      reject(new Error(`Operation timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
 
-  getHostname(url: string): string {
-    if (!url) return "";
-    try {
-      const cleanUrl = url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`;
-      const parsed = new URL(cleanUrl);
-      return parsed.hostname.replace('www.', '').toLowerCase();
-    } catch {
-      return url.toLowerCase();
-    }
-  },
+  return Promise.race([
+    promise,
+    timeoutPromise
+  ]).finally(() => {
+    clearTimeout(timeoutHandle);
+  });
+}
 
-  /**
-   * Calculates a similarity score between a generated signal and a search result chunk.
-   * Since we no longer ask the model for sourceUrl, we rely on headline/title matching.
-   */
-  calculateScore(signal: any, chunk: any, debug: boolean = false): number {
-    let score = 0;
-    const chunkTitle = chunk.web?.title || "";
-    const chunkUri = chunk.web?.uri || "";
-    const chunkKeywords = this.getKeywords(chunkTitle);
 
-    // 1. Check signal headline match against chunk title
-    const headlineKeywords = this.getKeywords(signal.headline);
-    const headlineMatches = headlineKeywords.filter(k => chunkKeywords.includes(k));
-    score += headlineMatches.length * 15;
-
-    // 2. Check summary keywords match
-    const summaryKeywords = this.getKeywords(signal.summary);
-    const summaryMatches = summaryKeywords.filter(k => chunkKeywords.includes(k));
-    score += summaryMatches.length * 5;
-
-    // 3. Decision maker name match (company names often appear in URLs/titles)
-    const decisionMakerKeywords = this.getKeywords(signal.decisionMaker);
-    const decisionMakerMatches = decisionMakerKeywords.filter(k => chunkKeywords.includes(k));
-    score += decisionMakerMatches.length * 20;
-
-    // 4. Source quality weighting
-    const chunkHost = this.getHostname(chunkUri);
-    if (chunkHost.includes('.gov') || chunkHost.includes('.govt')) {
-      score += 20;
-    } else if (['abc.net.au', 'nzherald', 'smh.com.au', 'theguardian'].some(news => chunkHost.includes(news))) {
-      score += 10;
-    } else if (['tenderlink', 'tenders', 'bci', 'australiantenders'].some(agg => chunkHost.includes(agg))) {
-      score -= 5;
-    }
-
-    // Debug logging for score breakdown
-    if (debug) {
-      console.log(`[SCORE DEBUG] Signal: "${signal.headline?.substring(0, 50)}..."`);
-      console.log(`  Chunk: "${chunkTitle?.substring(0, 60)}..."`);
-      console.log(`  Headline keywords: [${headlineKeywords.join(', ')}]`);
-      console.log(`  Chunk keywords: [${chunkKeywords.join(', ')}]`);
-      console.log(`  Matches: headline=${headlineMatches.length}(+${headlineMatches.length * 15}), summary=${summaryMatches.length}(+${summaryMatches.length * 5}), decisionMaker=${decisionMakerMatches.length}(+${decisionMakerMatches.length * 20})`);
-      console.log(`  Final Score: ${score}`);
-    }
-
-    return score;
-  }
-};
 
 /**
  * Validates that a URL is accessible. Returns true if the URL responds, false otherwise.
@@ -127,29 +74,119 @@ async function validateUrl(url: string, timeoutMs: number = 5000): Promise<boole
   }
 }
 
+// Pass 2: The Verifier - Finds the exact URL for a specific headline
+async function verifySignalSource(headline: string, companyName: string): Promise<string> {
+  return withRetry(async () => {
+    try {
+      const ai = getAI();
+      console.log(`[VERIFY] Starting verification for: "${headline.substring(0, 60)}..."`);
+
+      const response = await withTimeout(
+        ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: `Find the exact URL of the news article, press release, or tender page for this headline: "${headline}".
+          The article is related to construction, architecture, or government in Australia, possibly involving ${companyName}.
+          Respond with ONLY the full URL. Nothing else. No markdown. No explanation.`,
+          config: {
+            tools: [{ googleSearch: {} }],
+            temperature: 0.1
+          }
+        }),
+        45000 // 45 second timeout
+      );
+
+      const rawText = response.text ? response.text.trim() : "";
+      console.log(`[VERIFY] Raw response text: "${rawText.substring(0, 200)}"`);
+
+      // Strategy 1: Extract URL from the response text using regex
+      // This handles cases where Gemini wraps the URL in markdown, backticks, or extra text
+      const urlRegex = /https?:\/\/[^\s"'`<>\])\n]+/gi;
+      const urlMatches = rawText.match(urlRegex);
+
+      if (urlMatches && urlMatches.length > 0) {
+        // Clean trailing punctuation that might have been captured
+        const cleanUrl = urlMatches[0].replace(/[.,;:!?)]+$/, '');
+        try {
+          const parsed = new URL(cleanUrl);
+          if (parsed.pathname.length > 3) {
+            console.log(`[VERIFY] ✅ Found URL from text: ${cleanUrl}`);
+            return cleanUrl;
+          }
+        } catch (e) { /* invalid URL, try next strategy */ }
+      }
+
+      // Strategy 2: Check grounding chunks for deep links
+      const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+      console.log(`[VERIFY] Grounding chunks: ${chunks.length}`);
+
+      if (chunks.length > 0) {
+        // Find a URL that isn't just a root domain
+        const deepLink = chunks.find(c => {
+          try {
+            const url = new URL(c.web?.uri || '');
+            return url.pathname.length > 3;
+          } catch (e) { return false; }
+        });
+
+        if (deepLink?.web?.uri) {
+          console.log(`[VERIFY] ✅ Found URL from grounding chunk: ${deepLink.web.uri}`);
+          return deepLink.web.uri;
+        }
+
+        // If no deep link, take ANY grounding chunk URL (even a homepage is better than nothing)
+        const anyChunk = chunks.find(c => c.web?.uri);
+        if (anyChunk?.web?.uri) {
+          console.log(`[VERIFY] ⚠️ Using homepage-level grounding URL: ${anyChunk.web.uri}`);
+          return anyChunk.web.uri;
+        }
+      }
+
+      // Strategy 3: Check search entry points (another metadata location for search grounding URLs)
+      const searchEntryPoint = response.candidates?.[0]?.groundingMetadata?.searchEntryPoint;
+      if (searchEntryPoint?.renderedContent) {
+        const entryMatches = searchEntryPoint.renderedContent.match(urlRegex);
+        if (entryMatches && entryMatches.length > 0) {
+          const cleanEntryUrl = entryMatches[0].replace(/[.,;:!?)]+$/, '');
+          console.log(`[VERIFY] ✅ Found URL from search entry point: ${cleanEntryUrl}`);
+          return cleanEntryUrl;
+        }
+      }
+
+      console.warn(`[VERIFY] ❌ Could not find any URL for: "${headline.substring(0, 60)}..."`);
+      return "unverified";
+    } catch (err) {
+      console.warn(`[VERIFY FAILED] Could not verify source for "${headline.substring(0, 60)}...":`, (err as Error).message);
+      return "unverified";
+    }
+  });
+}
+
 export const geminiService = {
   async profileBusiness(url: string): Promise<Partial<BusinessProfile>> {
     return withRetry(async () => {
       const ai = getAI();
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Profile the business at this URL: ${url}. Identify the actual company name, industry, core products, target customer groups, and geography. Return as JSON.`,
-        config: {
-          tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              name: { type: Type.STRING },
-              industry: { type: Type.STRING },
-              products: { type: Type.ARRAY, items: { type: Type.STRING } },
-              targetGroups: { type: Type.ARRAY, items: { type: Type.STRING } },
-              geography: { type: Type.ARRAY, items: { type: Type.STRING } },
-            },
-            required: ["name", "industry", "products", "targetGroups", "geography"]
+      const response = await withTimeout(
+        ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: `Profile the business at this URL: ${url}. Identify the actual company name, industry, core products, target customer groups, and geography. Return as JSON.`,
+          config: {
+            tools: [{ googleSearch: {} }],
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING },
+                industry: { type: Type.STRING },
+                products: { type: Type.ARRAY, items: { type: Type.STRING } },
+                targetGroups: { type: Type.ARRAY, items: { type: Type.STRING } },
+                geography: { type: Type.ARRAY, items: { type: Type.STRING } },
+              },
+              required: ["name", "industry", "products", "targetGroups", "geography"]
+            }
           }
-        }
-      });
+        }),
+        45000 // 45 seconds for profiling
+      );
       return JSON.parse(response.text || '{}');
     });
   },
@@ -159,26 +196,29 @@ export const geminiService = {
       const ai = getAI();
       const prompt = `Given these products: ${profile.products.join(', ')} and these target groups: ${profile.targetGroups.join(', ')} for the company ${profile.name}, what real-world events or "sales triggers" create immediate demand? Generate 4 triggers. For each, provide a specific product, a trigger event, a data source, and the sales logic.`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                product: { type: Type.STRING },
-                event: { type: Type.STRING },
-                source: { type: Type.STRING },
-                logic: { type: Type.STRING }
-              },
-              required: ["product", "event", "source", "logic"]
+      const response = await withTimeout(
+        ai.models.generateContent({
+          model: 'gemini-3-pro-preview',
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  product: { type: Type.STRING },
+                  event: { type: Type.STRING },
+                  source: { type: Type.STRING },
+                  logic: { type: Type.STRING }
+                },
+                required: ["product", "event", "source", "logic"]
+              }
             }
           }
-        }
-      });
+        }),
+        45000 // 45 seconds
+      );
 
       const rawTriggers = JSON.parse(response.text || '[]');
       return rawTriggers.map((t: any, idx: number) => ({
@@ -189,7 +229,12 @@ export const geminiService = {
     });
   },
 
-  async huntSignals(profile: BusinessProfile, activeTriggers: SalesTrigger[], activeRegion?: string): Promise<MarketSignal[]> {
+  async huntSignals(
+    profile: BusinessProfile,
+    activeTriggers: SalesTrigger[],
+    activeRegion?: string,
+    onSignal?: (signal: MarketSignal) => void
+  ): Promise<MarketSignal[]> {
     return withRetry(async () => {
       const ai = getAI();
       const regionContext = activeRegion || profile.geography.join(', ');
@@ -232,311 +277,226 @@ export const geminiService = {
       console.log(`[DEBUG] Execution Mode - Web: ${runWebMode}, Sites: ${runSitesMode}`);
       console.log(`[DEBUG] Allowed Sites (Parsed):`, allowedSites);
 
-      // Define the response schema once for reuse
-      // NOTE: We intentionally do NOT include sourceUrl/sourceTitle in the schema.
-      // URLs are taken exclusively from groundingChunks metadata to prevent hallucination.
-      const signalSchema = {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            headline: { type: Type.STRING },
-            summary: { type: Type.STRING },
-            importance: { type: Type.STRING },
-            matchedProducts: { type: Type.ARRAY, items: { type: Type.STRING } },
-            decisionMaker: { type: Type.STRING },
-            urgency: { type: Type.STRING, enum: Object.values(SignalUrgency) }
-          },
-          required: ["headline", "summary", "importance", "matchedProducts", "decisionMaker", "urgency"]
-        }
-      };
+      // NOTE: We intentionally do NOT use responseMimeType/responseSchema.
+      // JSON schema mode suppresses grounding quality and causes frequent timeouts.
+      // Instead we request JSON in the prompt and parse it from free-text response.
 
-      const allPromises: Promise<any>[] = [];
+      // Build diverse prompt angles for one-signal-per-call
+      const promptAngles = [
+        // Tender/Contract opportunities
+        `Find 1 recently awarded contract or tender in ${regionContext} related to ${profile.industry} or ${profile.products.join(', ')}. Look for "awarded to", "contract signed", "winning bidder". Focus on contracts > $1M.`,
+        `Find 1 government tender or procurement notice in ${regionContext} relevant to companies buying ${profile.products.join(', ')}. Look for official government procurement portals or gazette notices.`,
+        `Find 1 public infrastructure project in ${regionContext} that was recently approved or funded, where ${profile.products.join(', ')} would be needed.`,
+        // Project/Construction announcements
+        `Find 1 recent construction project that just commenced or broke ground in ${regionContext} related to ${profile.industry}. Look for "groundbreaking", "site establishment", "commenced construction".`,
+        `Find 1 major development application that was recently approved in ${regionContext} for a commercial, industrial, or institutional building project.`,
+        `Find 1 recently announced expansion, renovation, or new facility in ${regionContext} that would require ${profile.products.join(', ')}.`,
+        // Industry news & press releases
+        `Find 1 recent press release or news article about a major business expansion or new investment in ${regionContext} relevant to ${profile.name} selling ${profile.products.join(', ')}.`,
+        `Find 1 recent leadership change, merger, or acquisition in ${regionContext} within ${profile.industry} that indicates growth and potential purchasing activity.`,
+        `Find 1 recent news article about a company opening a new office, warehouse, or facility in ${regionContext} that would need ${profile.products.join(', ')}.`,
+        `Find 1 recent real estate or property development announcement in ${regionContext} involving commercial or industrial projects > $5M.`,
+      ];
 
-      // ========== WEB MODE: Multi-pass hunting ==========
-      if (runWebMode) {
-        console.log("[DEBUG] Starting Web Mode Searches...");
-        const webPrompts = [
-          // Pass 1: Tender/Contract Wins
-          `SEARCH GROUNDING TASK: Find 6 recent contract awards or tender winners in ${regionContext} related to ${profile.industry} or ${profile.products.join(', ')}.
-           
-           TIME CONSTRAINT: Only include results from ${dateRange}. Ignore anything older.
-           
-           REQUIREMENTS:
-           1. Look for keywords like "awarded to", "contract signed", "winning bidder", "secured contract".
-           2. Focus on Commercial or Government contracts > $1M.
-           3. Identify the WINNING COMPANY as the decision maker.
-           4. DO NOT generate source URLs - these will be extracted from search metadata.
-           
-           If fewer than 6 results are found within the time range, return what you find. Do not make up results.
-           Format as JSON array.`,
-
-          // Pass 2: Project/Construction Announcements
-          `SEARCH GROUNDING TASK: Find 6 recent project announcements, construction starts, or development approvals in ${regionContext} related to ${profile.industry}.
-           
-           TIME CONSTRAINT: Only include results from ${dateRange}. Ignore anything older.
-           
-           REQUIREMENTS:
-           1. Look for keywords like "groundbreaking", "site establishment", "approved for construction", "development application approved", "commenced construction".
-           2. Focus on physical infrastructure, facilities, or major capital projects.
-           3. Identify the PROJECT OWNER/DEVELOPER as the decision maker.
-           4. DO NOT generate source URLs - these will be extracted from search metadata.
-           
-           If fewer than 6 results are found within the time range, return what you find. Do not make up results.
-           Format as JSON array.`,
-
-          // Pass 3: Industry News & Press Releases
-          `SEARCH GROUNDING TASK: Find 6 recent news articles or press releases about major business activities in ${regionContext} relevant to ${profile.name} selling ${profile.products.join(', ')}.
-           
-           TIME CONSTRAINT: Only include results from ${dateRange}. Ignore anything older.
-           
-           REQUIREMENTS:
-           1. Look for expansion announcements, new facility openings, major investments, leadership changes indicating growth.
-           2. Focus on companies that would be buyers for ${profile.products.join(', ')}.
-           3. Identify the COMPANY MAKING THE ANNOUNCEMENT as the decision maker.
-           4. DO NOT generate source URLs - these will be extracted from search metadata.
-           
-           Prioritize press releases from company newsrooms and reputable industry publications.
-           If fewer than 6 results are found within the time range, return what you find. Do not make up results.
-           Format as JSON array.`
-        ];
-
-        webPrompts.forEach((prompt, idx) => {
-          allPromises.push(
-            ai.models.generateContent({
-              model: 'gemini-3-flash-preview',
-              contents: prompt,
-              config: {
-                tools: [{ googleSearch: {} }],
-                responseMimeType: "application/json",
-                responseSchema: signalSchema as any
-              }
-            }).then(res => {
-              console.log(`[DEBUG] Web Pass ${idx + 1} completed.`);
-              return res;
-            }).catch(err => {
-              console.warn(`Web search pass ${idx + 1} failed:`, err.message);
-              return null;
-            })
-          );
-        });
-      }
-
-      // ========== SITES MODE: Per-site parallel searches ==========
+      // Add site-specific prompts if sites mode is active
       if (runSitesMode && allowedSites.length > 0) {
-        console.log(`[DEBUG] Starting Sites Mode Searches for: ${allowedSites.join(', ')}`);
         for (const site of allowedSites) {
-          const sitePrompt = `SEARCH GROUNDING TASK: Search ONLY on site:${site} for recent opportunities in ${regionContext} related to ${profile.industry} or ${profile.products.join(', ')}.
-           
-           STRICT CONSTRAINT: Only return results from site:${site}. Do not include results from any other domain.
-           TIME CONSTRAINT: Only include results from ${dateRange}. Ignore anything older.
-           
-           REQUIREMENTS:
-           1. Look for contract awards, project announcements, tender notices, or business news.
-           2. Identify the relevant DECISION MAKER (company or organization).
-           3. DO NOT generate source URLs - these will be extracted from search metadata.
-           
-           If no results are found on this specific site, return an empty array []. Do not make up results.
-           Format as JSON array.`;
-
-          allPromises.push(
-            ai.models.generateContent({
-              model: 'gemini-3-flash-preview',
-              contents: sitePrompt,
-              config: {
-                tools: [{ googleSearch: {} }],
-                responseMimeType: "application/json",
-                responseSchema: signalSchema as any
-              }
-            }).then(res => {
-              console.log(`[DEBUG] Site Search for ${site} completed.`);
-              return res;
-            }).catch(err => {
-              console.warn(`Site search failed for ${site}:`, err.message);
-              return null;
-            })
+          promptAngles.push(
+            `Search ONLY on site:${site} for 1 recent opportunity in ${regionContext} related to ${profile.industry} or ${profile.products.join(', ')}. STRICT: only return results from site:${site}.`
           );
         }
       }
 
-      // Execute all searches in parallel
-      const responses = await Promise.all(allPromises);
+      // Filter to web-only or sites-only based on mode
+      const activePrompts = runWebMode ? promptAngles : promptAngles.filter(p => p.includes('site:'));
 
-      // Collect all signals and grounding chunks from all passes
-      const allRawSignals: any[] = [];
-      const allGroundingChunks: any[] = [];
-
-      for (const response of responses) {
-        if (!response) continue;
-        try {
-          const signals = JSON.parse(response.text || '[]');
-          const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-          console.log(`[DEBUG] Pass Result: ${signals.length} signals, ${chunks.length} chunks.`);
-          allRawSignals.push(...signals);
-          allGroundingChunks.push(...chunks);
-        } catch (e) {
-          console.warn("Failed to parse response:", e);
-        }
-      }
-
-      console.log(`[DEBUG] Total Raw Signals: ${allRawSignals.length}`);
-      console.log(`[DEBUG] Total Grounding Chunks: ${allGroundingChunks.length}`);
-
-      // Log sample grounding chunks for debugging
-      if (allGroundingChunks.length > 0) {
-        console.log(`[DEBUG] Sample Grounding Chunks:`);
-        allGroundingChunks.slice(0, 3).forEach((chunk, i) => {
-          console.log(`  ${i + 1}. "${chunk.web?.title?.substring(0, 60) || 'No title'}..." -> ${chunk.web?.uri || 'No URI'}`);
-        });
-      }
-
-      if (allRawSignals.length > 0 && allGroundingChunks.length === 0) {
-        console.warn("[WARNING] Signals found but NO grounding metadata returned. Using fallback mode.");
-      }
-
-      // Verify, filter, and deduplicate signals
-      const verifiedSignals: MarketSignal[] = [];
-      const seenUrls = new Set<string>();
+      const TARGET_SIGNALS = 10;
+      const discoveredSignals: MarketSignal[] = [];
       const seenHeadlines = new Set<string>();
 
-      // ========== MINIMUM SCORE THRESHOLD ==========
-      // Lowered from 0 to -10 to allow more signals through
-      // Negative threshold allows even low-confidence matches when grounding is weak
-      const MINIMUM_SCORE_THRESHOLD = -10;
+      console.log(`[HUNT] Starting one-signal-per-call hunt. ${activePrompts.length} prompt angles available, targeting ${TARGET_SIGNALS} signals.`);
 
-      for (let s of allRawSignals) {
-        console.log(`\n[VERIFY] Processing signal: "${s.headline?.substring(0, 60)}..."`);
+      for (let i = 0; i < activePrompts.length && discoveredSignals.length < TARGET_SIGNALS; i++) {
+        const angle = activePrompts[i];
 
-        // Dedupe by headline similarity first (since we no longer have model-generated URLs)
-        const normalizedHeadline = s.headline?.toLowerCase().trim();
-        if (seenHeadlines.has(normalizedHeadline)) {
-          console.log(`  [SKIP] Duplicate headline`);
-          continue;
-        }
+        // Build dedup clause from already-discovered headlines
+        const dedupClause = seenHeadlines.size > 0
+          ? `\n\nCRITICAL: Do NOT return any of these already-found signals:\n${[...seenHeadlines].map(h => `- "${h}"`).join('\n')}\nFind something DIFFERENT.`
+          : '';
 
-        // ========== FALLBACK MODE: No grounding chunks ==========
-        // If no grounding chunks returned, use the signal directly with a warning
-        if (allGroundingChunks.length === 0) {
-          console.warn(`  [FALLBACK] No grounding chunks available. Using signal with generated URL placeholder.`);
+        const fullPrompt = `SEARCH GROUNDING TASK: ${angle}
+         
+         TIME CONSTRAINT: Only include results from ${dateRange}. Ignore anything older.
+         Identify the key DECISION MAKER (company or person).
+         If you cannot find a real, verifiable result, respond with exactly: {}
+         Do NOT fabricate or guess any URLs. Do NOT include any source URL field.
+         
+         Respond with a JSON object (no markdown backticks) containing these fields:
+         - headline (string): The title of the announcement
+         - summary (string): A brief description of the opportunity
+         - importance (string): Why this matters
+         - decisionMaker (string): The key company or person
+         - urgency (string): One of "STANDARD", "HIGH", or "EMERGENCY"
+         - matchedProducts (array of strings): Which products are relevant
+         - scores (object): Provide numeric scores from 0-100 for the following 4 metrics: "freshness" (how recent), "proximity" (geographic relevance), "intentStrength" (likelihood to buy), "buyerMatch" (how well they fit the profile).
+         ${dedupClause}`;
+
+        try {
+          console.log(`\n[HUNT ${i + 1}/${activePrompts.length}] Searching: "${angle.substring(0, 80)}..."`);
+
+          const response = await withTimeout(
+            ai.models.generateContent({
+              model: 'gemini-3-flash-preview',
+              contents: fullPrompt,
+              config: {
+                tools: [{ googleSearch: {} }],
+                temperature: 0.1
+              }
+            }),
+            45000
+          );
+
+          const rawText = (response.text || '').trim();
+          if (!rawText || rawText === '{}') {
+            console.log(`[HUNT ${i + 1}] No signal found for this angle, skipping.`);
+            continue;
+          }
+
+          // Parse JSON from free-text response (strip markdown code fences if present)
+          let jsonText = rawText;
+          const jsonMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (jsonMatch) jsonText = jsonMatch[1].trim();
+          // Also try to find raw JSON object
+          if (!jsonText.startsWith('{')) {
+            const braceMatch = rawText.match(/\{[\s\S]*\}/);
+            if (braceMatch) jsonText = braceMatch[0];
+          }
+
+          let signal: any;
+          try {
+            signal = JSON.parse(jsonText);
+          } catch (parseErr) {
+            console.warn(`[HUNT ${i + 1}] Failed to parse JSON from response, skipping.`);
+            continue;
+          }
+
+          // Skip empty or invalid signals
+          if (!signal.headline || signal.headline.trim().length === 0) {
+            console.log(`[HUNT ${i + 1}] No signal found for this angle, skipping.`);
+            continue;
+          }
+
+          const normalizedHeadline = signal.headline.toLowerCase().trim();
+          if (seenHeadlines.has(normalizedHeadline)) {
+            console.log(`[HUNT ${i + 1}] Duplicate headline, skipping: "${signal.headline.substring(0, 50)}..."`);
+            continue;
+          }
           seenHeadlines.add(normalizedHeadline);
 
+          // === SOURCE URL: Use ONLY grounding chunk URLs (Google-verified) ===
+          // NEVER trust model-generated URLs — they are hallucinated.
+          let sourceUrl = '';
+          const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+          console.log(`[HUNT ${i + 1}] Grounding chunks: ${chunks.length}`);
+
+          if (chunks.length > 0) {
+            // Find the best URL — prefer actual article URLs over redirect URLs
+            for (const chunk of chunks) {
+              if (chunk.web?.uri) {
+                sourceUrl = chunk.web.uri;
+                console.log(`[HUNT ${i + 1}] Source URL (grounding): ${sourceUrl.substring(0, 100)}`);
+                break;
+              }
+            }
+          }
+
+          const hasSource = sourceUrl.length > 0;
+
+          // Domain whitelist check for sites mode
+          if (runSitesMode && allowedSites.length > 0 && hasSource) {
+            try {
+              const sourceHost = new URL(sourceUrl).hostname;
+              const matchesAllowedSite = allowedSites.some(site =>
+                sourceHost.includes(site) || site.includes(sourceHost)
+              );
+              if (!matchesAllowedSite && !sourceHost.includes('vertexaisearch')) {
+                console.log(`[HUNT ${i + 1}] Domain filter rejected: ${sourceHost}`);
+                continue;
+              }
+            } catch (e) { /* invalid URL, keep signal anyway */ }
+          }
+
+          console.log(`[HUNT ${i + 1}] ✅ "${signal.headline.substring(0, 60)}..."`);
+          console.log(`           Source: ${hasSource ? sourceUrl.substring(0, 120) : '(no grounding URL)'}`);
+
+          const aiScores = signal.scores || {};
           const confidence: SignalConfidence = {
-            freshness: 70, // Lower confidence for unverified signals
-            proximity: 100,
-            intentStrength: 70,
-            buyerMatch: 70,
-            urgency: s.urgency === SignalUrgency.EMERGENCY ? 100 : 60,
+            freshness: typeof aiScores.freshness === 'number' ? aiScores.freshness : 90,
+            proximity: typeof aiScores.proximity === 'number' ? aiScores.proximity : 100,
+            intentStrength: typeof aiScores.intentStrength === 'number' ? aiScores.intentStrength : 95,
+            buyerMatch: typeof aiScores.buyerMatch === 'number' ? aiScores.buyerMatch : 95,
+            urgency: signal.urgency === SignalUrgency.EMERGENCY ? 100 : signal.urgency === SignalUrgency.HIGH ? 90 : 80,
             total: 0
           };
           confidence.total = Math.round((confidence.freshness + confidence.proximity + confidence.intentStrength + confidence.buyerMatch + confidence.urgency) / 5);
 
-          verifiedSignals.push({
-            ...s,
+          const marketSignal: MarketSignal = {
+            ...signal,
             id: `sig-${Date.now()}-${Math.random()}`,
-            timestamp: 'Unverified',
+            timestamp: hasSource ? 'Verified Live' : 'Unverified',
             score: confidence.total,
             confidenceDetails: confidence,
-            sourceUrl: '#unverified', // Placeholder URL
-            sourceTitle: s.headline,
+            sourceUrl: sourceUrl,
+            sourceTitle: signal.headline,
             region: regionContext,
             status: 'New'
-          });
-          continue;
-        }
+          };
 
-        // Map signal to best search result using robust scoring (with debug for first 3)
-        const shouldDebug = verifiedSignals.length < 3;
-        const rankedChunks = allGroundingChunks
-          .map(c => ({
-            chunk: c,
-            score: matchUtils.calculateScore(s, c, shouldDebug)
-          }))
-          .sort((a, b) => b.score - a.score);
+          discoveredSignals.push(marketSignal);
 
-        const bestMatch = rankedChunks[0];
-        const topScores = rankedChunks.slice(0, 3).map(r => r.score);
-        console.log(`  [SCORING] Top 3 chunk scores: [${topScores.join(', ')}]`);
-        console.log(`  [SCORING] Best match: score=${bestMatch?.score || 0}, url="${bestMatch?.chunk.web?.uri?.substring(0, 50) || 'none'}..."`);
-
-        // Check if score meets threshold
-        if (!bestMatch || bestMatch.score < MINIMUM_SCORE_THRESHOLD || !bestMatch.chunk.web?.uri) {
-          console.log(`  [DISCARD] Score ${bestMatch?.score || 0} below threshold ${MINIMUM_SCORE_THRESHOLD}`);
-          continue;
-        }
-
-        // Use grounding metadata as sole source of truth for URLs
-        const verifiedUrl = bestMatch.chunk.web.uri;
-        const verifiedTitle = bestMatch.chunk.web.title || s.headline; // Fallback to headline if no title
-        const verifiedHost = matchUtils.getHostname(verifiedUrl);
-        console.log(`  [VERIFIED] Using URL: ${verifiedUrl}`);
-
-        // ========== DOMAIN WHITELIST FILTER ==========
-        // If sites mode is active, enforce strict domain matching
-        if (runSitesMode && allowedSites.length > 0) {
-          const matchesAllowedSite = allowedSites.some(site =>
-            verifiedHost.includes(site) || site.includes(verifiedHost)
-          );
-          if (!matchesAllowedSite) {
-            console.log(`[DEBUG] Domain Filter: REJECTED ${verifiedHost}. Allowed: [${allowedSites.join(', ')}]`);
-            continue;
-          } else {
-            console.log(`[DEBUG] Domain Filter: PASSED ${verifiedHost}`);
+          // Stream signal to UI immediately
+          if (onSignal) {
+            onSignal(marketSignal);
           }
+
+        } catch (err) {
+          console.warn(`[HUNT ${i + 1}] Failed:`, (err as Error).message);
         }
 
-        // Mark URL and headline as seen
-        seenUrls.add(verifiedHost);
-        seenHeadlines.add(normalizedHeadline);
-
-        const confidence: SignalConfidence = {
-          freshness: 90,
-          proximity: 100,
-          intentStrength: 95,
-          buyerMatch: 95,
-          urgency: s.urgency === SignalUrgency.EMERGENCY ? 100 : 80,
-          total: 0
-        };
-        confidence.total = Math.round((confidence.freshness + confidence.proximity + confidence.intentStrength + confidence.buyerMatch + confidence.urgency) / 5);
-
-        verifiedSignals.push({
-          ...s,
-          id: `sig-${Date.now()}-${Math.random()}`,
-          timestamp: 'Verified Live',
-          score: confidence.total,
-          confidenceDetails: confidence,
-          sourceUrl: verifiedUrl,
-          sourceTitle: verifiedTitle,
-          region: regionContext,
-          status: 'New'
-        });
+        // Small delay between calls to stay within rate limits
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
 
-      return verifiedSignals;
+      console.log(`\n[HUNT] Complete. ${discoveredSignals.length} signals discovered.`);
+      return discoveredSignals;
     });
   },
 
   async generateOutreach(signal: MarketSignal, profile: BusinessProfile): Promise<{ email: string, linkedin: string, call: string }> {
     return withRetry(async () => {
       const ai = getAI();
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Generate multi-channel B2B outreach for ${profile.name} targeting a ${signal.decisionMaker} regarding: "${signal.headline}".
-        Context: ${signal.summary}.
-        Source: ${signal.sourceUrl}.
-        Return JSON with 'email', 'linkedin', and 'call'.`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              email: { type: Type.STRING },
-              linkedin: { type: Type.STRING },
-              call: { type: Type.STRING }
-            },
-            required: ["email", "linkedin", "call"]
+      const response = await withTimeout(
+        ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: `Generate multi-channel B2B outreach for ${profile.name} targeting a ${signal.decisionMaker} regarding: "${signal.headline}".
+          Context: ${signal.summary}.
+          Source: ${signal.sourceUrl}.
+          Return JSON with 'email', 'linkedin', and 'call'.`,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                email: { type: Type.STRING },
+                linkedin: { type: Type.STRING },
+                call: { type: Type.STRING }
+              },
+              required: ["email", "linkedin", "call"]
+            }
           }
-        }
-      });
+        }),
+        30000 // 30 seconds
+      );
       return JSON.parse(response.text || '{}');
     });
   },
@@ -567,56 +527,59 @@ Focus:
 2. Provide strategic advice for ${profile.name} (the SELLER) to win this opportunity
 3. Return as JSON with accountName being the BUYER's company name`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-        config: {
-          tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              accountName: { type: Type.STRING },
-              targetWebsite: { type: Type.STRING },
-              targetLinkedin: { type: Type.STRING },
-              keyPersonName: { type: Type.STRING },
-              keyPersonLinkedin: { type: Type.STRING },
-              executiveSummary: { type: Type.STRING },
-              commercialOpportunity: { type: Type.STRING },
-              recommendedBundle: {
-                type: Type.ARRAY,
-                items: {
+      const response = await withTimeout(
+        ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: prompt,
+          config: {
+            tools: [{ googleSearch: {} }],
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                accountName: { type: Type.STRING },
+                targetWebsite: { type: Type.STRING },
+                targetLinkedin: { type: Type.STRING },
+                keyPersonName: { type: Type.STRING },
+                keyPersonLinkedin: { type: Type.STRING },
+                executiveSummary: { type: Type.STRING },
+                commercialOpportunity: { type: Type.STRING },
+                recommendedBundle: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      sku: { type: Type.STRING },
+                      description: { type: Type.STRING },
+                      quantity: { type: Type.NUMBER }
+                    }
+                  }
+                },
+                pricingStrategy: {
                   type: Type.OBJECT,
                   properties: {
-                    sku: { type: Type.STRING },
-                    description: { type: Type.STRING },
-                    quantity: { type: Type.NUMBER }
+                    logic: { type: Type.STRING },
+                    discount: { type: Type.NUMBER },
+                    estimatedValue: { type: Type.NUMBER }
                   }
-                }
+                },
+                battlecard: {
+                  type: Type.OBJECT,
+                  properties: {
+                    competitorWeakness: { type: Type.STRING },
+                    ourEdge: { type: Type.STRING }
+                  }
+                },
+                callScript: { type: Type.STRING },
+                confidence: { type: Type.STRING, enum: ["Low", "Medium", "High"] },
+                assumptions: { type: Type.ARRAY, items: { type: Type.STRING } }
               },
-              pricingStrategy: {
-                type: Type.OBJECT,
-                properties: {
-                  logic: { type: Type.STRING },
-                  discount: { type: Type.NUMBER },
-                  estimatedValue: { type: Type.NUMBER }
-                }
-              },
-              battlecard: {
-                type: Type.OBJECT,
-                properties: {
-                  competitorWeakness: { type: Type.STRING },
-                  ourEdge: { type: Type.STRING }
-                }
-              },
-              callScript: { type: Type.STRING },
-              confidence: { type: Type.STRING, enum: ["Low", "Medium", "High"] },
-              assumptions: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ["accountName", "executiveSummary", "commercialOpportunity", "recommendedBundle", "pricingStrategy", "battlecard", "callScript", "confidence", "assumptions"]
+              required: ["accountName", "executiveSummary", "commercialOpportunity", "recommendedBundle", "pricingStrategy", "battlecard", "callScript", "confidence", "assumptions"]
+            }
           }
-        }
-      });
+        }),
+        60000 // 60 seconds (Dossiers can be slower due to Grounding)
+      );
 
       const data = JSON.parse(response.text || '{}');
       const baseDossier: DealDossier = {
@@ -787,129 +750,132 @@ INSTRUCTIONS:
 
 Return as JSON.`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-        config: {
-          tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              confidence: { type: Type.STRING, enum: ['low', 'medium', 'high'] },
-              projectType: { type: Type.STRING },
-              projectScale: { type: Type.STRING },
-              assumptions: { type: Type.ARRAY, items: { type: Type.STRING } },
-              materials: {
-                type: Type.OBJECT,
-                properties: {
-                  notes: { type: Type.STRING },
-                  items: {
-                    type: Type.ARRAY,
+      const response = await withTimeout(
+        ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: prompt,
+          config: {
+            tools: [{ googleSearch: {} }],
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                confidence: { type: Type.STRING, enum: ['low', 'medium', 'high'] },
+                projectType: { type: Type.STRING },
+                projectScale: { type: Type.STRING },
+                assumptions: { type: Type.ARRAY, items: { type: Type.STRING } },
+                materials: {
+                  type: Type.OBJECT,
+                  properties: {
+                    notes: { type: Type.STRING },
                     items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        description: { type: Type.STRING },
-                        unit: { type: Type.STRING },
-                        quantity: { type: Type.NUMBER },
-                        unitRate: { type: Type.NUMBER },
-                        amount: { type: Type.NUMBER }
-                      },
-                      required: ['description', 'unit', 'quantity', 'unitRate', 'amount']
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          description: { type: Type.STRING },
+                          unit: { type: Type.STRING },
+                          quantity: { type: Type.NUMBER },
+                          unitRate: { type: Type.NUMBER },
+                          amount: { type: Type.NUMBER }
+                        },
+                        required: ['description', 'unit', 'quantity', 'unitRate', 'amount']
+                      }
                     }
-                  }
+                  },
+                  required: ['items']
                 },
-                required: ['items']
+                labour: {
+                  type: Type.OBJECT,
+                  properties: {
+                    notes: { type: Type.STRING },
+                    items: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          description: { type: Type.STRING },
+                          unit: { type: Type.STRING },
+                          quantity: { type: Type.NUMBER },
+                          unitRate: { type: Type.NUMBER },
+                          amount: { type: Type.NUMBER }
+                        },
+                        required: ['description', 'unit', 'quantity', 'unitRate', 'amount']
+                      }
+                    }
+                  },
+                  required: ['items']
+                },
+                subContractors: {
+                  type: Type.OBJECT,
+                  properties: {
+                    notes: { type: Type.STRING },
+                    items: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          description: { type: Type.STRING },
+                          unit: { type: Type.STRING },
+                          quantity: { type: Type.NUMBER },
+                          unitRate: { type: Type.NUMBER },
+                          amount: { type: Type.NUMBER }
+                        },
+                        required: ['description', 'unit', 'quantity', 'unitRate', 'amount']
+                      }
+                    }
+                  },
+                  required: ['items']
+                },
+                equipment: {
+                  type: Type.OBJECT,
+                  properties: {
+                    notes: { type: Type.STRING },
+                    items: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          description: { type: Type.STRING },
+                          unit: { type: Type.STRING },
+                          quantity: { type: Type.NUMBER },
+                          unitRate: { type: Type.NUMBER },
+                          amount: { type: Type.NUMBER }
+                        },
+                        required: ['description', 'unit', 'quantity', 'unitRate', 'amount']
+                      }
+                    }
+                  },
+                  required: ['items']
+                },
+                overhead: {
+                  type: Type.OBJECT,
+                  properties: {
+                    notes: { type: Type.STRING },
+                    items: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          description: { type: Type.STRING },
+                          unit: { type: Type.STRING },
+                          quantity: { type: Type.NUMBER },
+                          unitRate: { type: Type.NUMBER },
+                          amount: { type: Type.NUMBER }
+                        },
+                        required: ['description', 'unit', 'quantity', 'unitRate', 'amount']
+                      }
+                    }
+                  },
+                  required: ['items']
+                }
               },
-              labour: {
-                type: Type.OBJECT,
-                properties: {
-                  notes: { type: Type.STRING },
-                  items: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        description: { type: Type.STRING },
-                        unit: { type: Type.STRING },
-                        quantity: { type: Type.NUMBER },
-                        unitRate: { type: Type.NUMBER },
-                        amount: { type: Type.NUMBER }
-                      },
-                      required: ['description', 'unit', 'quantity', 'unitRate', 'amount']
-                    }
-                  }
-                },
-                required: ['items']
-              },
-              subContractors: {
-                type: Type.OBJECT,
-                properties: {
-                  notes: { type: Type.STRING },
-                  items: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        description: { type: Type.STRING },
-                        unit: { type: Type.STRING },
-                        quantity: { type: Type.NUMBER },
-                        unitRate: { type: Type.NUMBER },
-                        amount: { type: Type.NUMBER }
-                      },
-                      required: ['description', 'unit', 'quantity', 'unitRate', 'amount']
-                    }
-                  }
-                },
-                required: ['items']
-              },
-              equipment: {
-                type: Type.OBJECT,
-                properties: {
-                  notes: { type: Type.STRING },
-                  items: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        description: { type: Type.STRING },
-                        unit: { type: Type.STRING },
-                        quantity: { type: Type.NUMBER },
-                        unitRate: { type: Type.NUMBER },
-                        amount: { type: Type.NUMBER }
-                      },
-                      required: ['description', 'unit', 'quantity', 'unitRate', 'amount']
-                    }
-                  }
-                },
-                required: ['items']
-              },
-              overhead: {
-                type: Type.OBJECT,
-                properties: {
-                  notes: { type: Type.STRING },
-                  items: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        description: { type: Type.STRING },
-                        unit: { type: Type.STRING },
-                        quantity: { type: Type.NUMBER },
-                        unitRate: { type: Type.NUMBER },
-                        amount: { type: Type.NUMBER }
-                      },
-                      required: ['description', 'unit', 'quantity', 'unitRate', 'amount']
-                    }
-                  }
-                },
-                required: ['items']
-              }
-            },
-            required: ['confidence', 'projectType', 'projectScale', 'assumptions', 'materials', 'labour', 'subContractors', 'equipment', 'overhead']
-          } as any
-        }
-      });
+              required: ['confidence', 'projectType', 'projectScale', 'assumptions', 'materials', 'labour', 'subContractors', 'equipment', 'overhead']
+            } as any
+          }
+        }),
+        60000 // 60 seconds (Heavy computation)
+      );
 
       const data = JSON.parse(response.text || '{}');
 
@@ -964,5 +930,152 @@ Return as JSON.`;
         projectScale: data.projectScale || 'Not specified'
       };
     });
+  },
+
+  async assessMarketActivity(profile: BusinessProfile): Promise<{ level: string, summary: string, colorClass: string }> {
+    return withRetry(async () => {
+      const ai = getAI();
+      const regionContext = profile.geography.join(', ');
+      
+      const prompt = `Analyze the current live web news, tender announcements, and press releases for the past 7 days related to ${profile.industry} (${profile.products.join(', ')}) in ${regionContext}.
+      
+      Based on the volume and velocity of news, evaluate the market activity level for this sector.
+      
+      Respond with a JSON object containing:
+      - level: Must be exactly one of "Surging", "Active", "Cooling", or "Quiet".
+      - summary: A one-sentence explanation of the trend (e.g., "Infrastructure tenders in California are up 45% this week.").
+      - colorClass: A tailwind text color class matching the level (e.g., "text-emerald-500" for Surging, "text-violet-500" for Active, "text-orange-500" for Cooling, "text-slate-500" for Quiet).
+      
+      Return ONLY valid JSON.`;
+
+      const response = await withTimeout(
+        ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: prompt,
+          config: {
+            tools: [{ googleSearch: {} }],
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                level: { type: Type.STRING, enum: ["Surging", "Active", "Cooling", "Quiet"] },
+                summary: { type: Type.STRING },
+                colorClass: { type: Type.STRING }
+              },
+              required: ["level", "summary", "colorClass"]
+            }
+          }
+        }),
+        30000 // 30 seconds for polling
+      );
+
+      const data = JSON.parse(response.text || '{}');
+      return {
+        level: data.level || "Active",
+        summary: data.summary || "Unable to retrieve real-time data.",
+        colorClass: data.colorClass || "text-slate-500"
+      };
+    });
+  },
+
+  async scanTrackedWebsites(profile: BusinessProfile, websites: TrackedWebsite[], onSignal?: (s: MarketSignal) => void): Promise<MarketSignal[]> {
+    const ai = getAI();
+    let discovered: MarketSignal[] = [];
+
+    for (const site of websites) {
+      if (!site.url) continue;
+      console.log(`[SCAN] Scraping tracked website: ${site.url}`);
+      try {
+        const jinaUrl = `https://r.jina.ai/${site.url}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
+        
+        const response = await fetch(jinaUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          console.warn(`[SCAN] Failed to retrieve ${site.url}: ${response.statusText}`);
+          continue;
+        }
+
+        const textContent = await response.text();
+        const truncatedScrape = textContent.substring(0, 15000); // Send up to 15k characters
+
+        const prompt = `You are a sales intelligence system extracting opportunities from a scraped webpage.
+        Target Keywords for this website: ${site.targetKeywords || 'None specified'}
+        Purpose/Context for tracking: ${site.purpose || 'None specified'}
+        Our business profile: Industry: ${profile.industry}, Products: ${profile.products.join(', ')}.
+
+        Extract up to 3 high-priority news/announcement/signals from this scraped text that would be a sales opportunity for our business profile or match the target keywords.
+        Scraped content snippet:
+        ===
+        ${truncatedScrape}
+        ===
+
+        If there are NO strong matches or sales opportunities, return an empty array [].
+        Otherwise, return a JSON array of market signals with these exact fields per object:
+        - headline (string): Concise summary of the signal.
+        - summary (string): Detail of what happened.
+        - importance (string): Why it matters for us.
+        - decisionMaker (string): The company or person involved.
+        - urgency (string): One of "STANDARD", "HIGH", or "EMERGENCY".
+        - matchedProducts (array of strings): Which of our products fit.
+        - scores (object): Provide numeric scores from 0-100 for: "freshness", "proximity", "intentStrength", "buyerMatch".
+
+        ONLY RETURN VALID JSON. Do not return markdown. Do not summarize outside of the JSON. If nothing is found, return: []`;
+
+        const aiResponse = await withTimeout(
+          ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+            config: {
+              temperature: 0.1,
+            }
+          }),
+          45000
+        );
+
+        let jsonText = (aiResponse.text || '').trim();
+        const match = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (match) jsonText = match[1].trim();
+
+        const data = JSON.parse(jsonText);
+        if (Array.isArray(data)) {
+          for (const rawSignal of data) {
+            const aiScores = rawSignal.scores || {};
+            const confidence: SignalConfidence = {
+              freshness: typeof aiScores.freshness === 'number' ? aiScores.freshness : 90,
+              proximity: typeof aiScores.proximity === 'number' ? aiScores.proximity : 100,
+              intentStrength: typeof aiScores.intentStrength === 'number' ? aiScores.intentStrength : 90,
+              buyerMatch: typeof aiScores.buyerMatch === 'number' ? aiScores.buyerMatch : 90,
+              urgency: rawSignal.urgency === SignalUrgency.EMERGENCY ? 100 : rawSignal.urgency === SignalUrgency.HIGH ? 90 : 80,
+              total: 0
+            };
+            confidence.total = Math.round((confidence.freshness + confidence.proximity + confidence.intentStrength + confidence.buyerMatch + confidence.urgency) / 5);
+
+            const completeSignal: MarketSignal = {
+              ...rawSignal,
+              id: `trksig-${Date.now()}-${Math.random()}`,
+              timestamp: 'Just Now',
+              score: confidence.total,
+              confidenceDetails: confidence,
+              sourceUrl: site.url, // Using tracked website URL as fallback
+              sourceTitle: rawSignal.headline || "Website Extraction",
+              region: profile.geography[0] || 'Unknown',
+              status: 'New',
+              relevanceFeedback: 'Unknown',
+              trackedWebsiteId: site.id
+            };
+
+            discovered.push(completeSignal);
+            if (onSignal) onSignal(completeSignal);
+          }
+        }
+      } catch (err) {
+        console.warn(`[SCAN] Error processing tracked website ${site.url}:`, err);
+      }
+    }
+
+    return discovered;
   }
 };

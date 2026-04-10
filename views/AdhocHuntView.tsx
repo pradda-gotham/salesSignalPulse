@@ -27,7 +27,7 @@ const AdhocHuntView: React.FC<AdhocHuntViewProps> = ({ onCalibrationComplete }) 
 
             console.log("[ADHOC] Triggers generated:", triggers.length);
 
-            // 2. Navigate to Strategy for review (consistent with legacy flow)
+            // 2. Navigate to Setup for review (consistent with legacy flow)
             onCalibrationComplete(profile, triggers);
         } catch (e) {
             console.error("[ADHOC] Error generating strategy:", e);

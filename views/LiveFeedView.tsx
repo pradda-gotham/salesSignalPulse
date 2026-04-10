@@ -88,7 +88,7 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
                   <Radio className="w-10 h-10 text-white animate-bounce" />
                </div>
                <div>
-                  <h1 className="text-4xl font-black text-white tracking-tight">Opportunity Command Center</h1>
+                  <h1 className="text-4xl font-black text-white tracking-tight">Leads Command Center</h1>
                   <p className="text-zinc-400 text-lg font-medium">Monitoring <span className="text-[#6C5DD3]">{profile.name}</span>'s market parameters via Google Search Grounding.</p>
                </div>
             </div>
@@ -113,7 +113,7 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
                <div className="flex items-center justify-between px-2">
                   <h2 className={`text-xl font-black flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                      <Activity className="w-5 h-5 text-[#6C5DD3]" />
-                     Opportunity Stream
+                     Lead Stream
                   </h2>
                   <div className={`text-xs font-bold ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Showing {signals.length} latest real-world signals</div>
                </div>
@@ -123,7 +123,7 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
                      <div className={`p-20 text-center border rounded-[2.5rem] space-y-6 animate-pulse ${isDarkMode ? 'bg-[#0f0f0f] border-white/5' : 'bg-gray-50 border-gray-200'
                         }`}>
                         <Radar className={`w-16 h-16 mx-auto animate-spin ${isDarkMode ? 'text-zinc-800' : 'text-gray-400'}`} />
-                        <p className={`font-black uppercase tracking-[0.2em] text-sm ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Crawling Web for Real-Time Opportunities...</p>
+                        <p className={`font-black uppercase tracking-[0.2em] text-sm ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Crawling Web for Real-Time Leads...</p>
                      </div>
                   ) : signals.length === 0 ? (
                      <div className={`p-20 text-center border rounded-[2.5rem] space-y-4 ${isDarkMode ? 'bg-[#0f0f0f] border-white/5' : 'bg-gray-50 border-gray-200'
@@ -136,8 +136,8 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
                         <div
                            key={s.id}
                            className={`group p-6 rounded-[2rem] border transition-all relative overflow-hidden hover:bg-[#6C5DD3]/[0.02] ${isDarkMode
-                                 ? 'bg-[#0f0f0f] border-white/5 hover:border-[#6C5DD3]/30'
-                                 : 'bg-white border-gray-200 hover:border-orange-400/50'
+                              ? 'bg-[#0f0f0f] border-white/5 hover:border-[#6C5DD3]/30'
+                              : 'bg-white border-gray-200 hover:border-orange-400/50'
                               }`}
                            style={{ animationDelay: `${idx * 150}ms` }}
                         >
@@ -145,8 +145,8 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
                            <div className="flex items-start justify-between">
                               <div className="flex gap-6 items-start">
                                  <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center border transition-colors ${isDarkMode
-                                       ? 'bg-white/5 border-white/10 group-hover:border-[#6C5DD3]/30'
-                                       : 'bg-gray-100 border-gray-200 group-hover:border-orange-400/30'
+                                    ? 'bg-white/5 border-white/10 group-hover:border-[#6C5DD3]/30'
+                                    : 'bg-gray-100 border-gray-200 group-hover:border-orange-400/30'
                                     }`}>
                                     <span className="text-[8px] font-black uppercase text-zinc-500">Score</span>
                                     <span className={`text-lg font-black group-hover:text-[#6C5DD3] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{s.score}</span>
@@ -166,23 +166,29 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
                                        <div className="flex items-center gap-1.5 text-[10px] text-[#6C5DD3] font-black uppercase">
                                           <Zap className="w-3 h-3" /> {s.matchedProducts[0]}
                                        </div>
-                                       <a
-                                          href={s.sourceUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className={`flex items-center gap-1.5 text-[10px] transition-colors font-black uppercase ${isDarkMode ? 'text-zinc-500 hover:text-white' : 'text-gray-400 hover:text-gray-900'
-                                             }`}
-                                       >
-                                          <Globe className="w-3 h-3" /> {new URL(s.sourceUrl).hostname.replace('www.', '')}
-                                       </a>
+                                       {s.sourceUrl ? (
+                                          <a
+                                             href={s.sourceUrl}
+                                             target="_blank"
+                                             rel="noopener noreferrer"
+                                             className={`flex items-center gap-1.5 text-[10px] transition-colors font-black uppercase ${isDarkMode ? 'text-zinc-500 hover:text-white' : 'text-gray-400 hover:text-gray-900'
+                                                }`}
+                                          >
+                                             <Globe className="w-3 h-3" /> {(() => { try { const h = new URL(s.sourceUrl).hostname.replace('www.', ''); return h.includes('vertexaisearch') ? 'Google Verified' : h; } catch { return 'Source'; } })()}
+                                          </a>
+                                       ) : (
+                                          <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase ${isDarkMode ? 'text-zinc-600' : 'text-gray-300'}`}>
+                                             <Globe className="w-3 h-3" /> Unpublished
+                                          </div>
+                                       )}
                                     </div>
                                  </div>
                               </div>
                               <button
                                  onClick={() => onViewDossier(s)}
                                  className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-all border group/btn ${isDarkMode
-                                       ? 'bg-white/5 hover:bg-[#6C5DD3] text-zinc-400 hover:text-white border-white/5 hover:border-[#6C5DD3]'
-                                       : 'bg-gray-100 hover:bg-[#6C5DD3] text-gray-500 hover:text-white border-gray-200 hover:border-[#6C5DD3]'
+                                    ? 'bg-white/5 hover:bg-[#6C5DD3] text-zinc-400 hover:text-white border-white/5 hover:border-[#6C5DD3]'
+                                    : 'bg-gray-100 hover:bg-[#6C5DD3] text-gray-500 hover:text-white border-gray-200 hover:border-[#6C5DD3]'
                                     }`}
                               >
                                  <span className="text-[10px] font-black uppercase whitespace-nowrap">Gather Intel</span>
@@ -253,10 +259,10 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
                         <div key={item.label} className="flex items-center justify-between">
                            <span className={`text-sm font-medium ${isDarkMode ? 'text-zinc-400' : 'text-gray-600'}`}>{item.label}</span>
                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${item.status === 'Live'
-                                 ? 'text-green-400 bg-green-500/10 border border-green-500/20'
-                                 : isDarkMode
-                                    ? 'text-zinc-500 bg-zinc-800 border border-white/5'
-                                    : 'text-gray-500 bg-gray-200 border border-gray-300'
+                              ? 'text-green-400 bg-green-500/10 border border-green-500/20'
+                              : isDarkMode
+                                 ? 'text-zinc-500 bg-zinc-800 border border-white/5'
+                                 : 'text-gray-500 bg-gray-200 border border-gray-300'
                               }`}>{item.status}</span>
                         </div>
                      ))}

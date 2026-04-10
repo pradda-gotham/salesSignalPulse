@@ -30,7 +30,7 @@ import {
 import { DealDossier, MarketSignal } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 
-interface OpportunitiesViewProps {
+interface LeadsViewProps {
   signal: MarketSignal | null;
   dossier: DealDossier | null;
   isLoading: boolean;
@@ -47,7 +47,7 @@ const SkeletonPulse: React.FC<{ className?: string }> = ({ className }) => {
   );
 };
 
-const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, isLoading, error, onRetry, onBack, onEstimate }) => {
+const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error, onRetry, onBack, onEstimate }) => {
   const { isDarkMode } = useTheme();
 
   if (error) {
@@ -295,10 +295,17 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
               <div className={`h-px ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`} />
 
               {/* Source Link */}
-              <a href={signal.sourceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-bold text-[#6C5DD3] hover:underline">
-                <ExternalLink className="w-3.5 h-3.5" />
-                Source: {signal.sourceTitle}
-              </a>
+              {signal.sourceUrl ? (
+                <a href={signal.sourceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-bold text-[#6C5DD3] hover:underline">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Source: {signal.sourceTitle}
+                </a>
+              ) : (
+                <div className="flex items-center gap-2 text-xs font-bold text-[#808191]">
+                  <ExternalLink className="w-3.5 h-3.5 opacity-50" />
+                  Source: {signal.sourceTitle} (Unpublished)
+                </div>
+              )}
             </div>
           </section>
 
@@ -432,4 +439,4 @@ const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({ signal, dossier, 
   );
 };
 
-export default OpportunitiesView;
+export default LeadsView;
