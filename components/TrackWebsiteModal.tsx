@@ -69,7 +69,7 @@ export const TrackWebsiteModal: React.FC<TrackWebsiteModalProps> = ({ onClose, o
               <textarea
                 value={targetKeywords}
                 onChange={(e) => setTargetKeywords(e.target.value)}
-                placeholder="Tell the AI exactly what to flag. e.g., 'Flag any mentions of structural upgrades or expansion projects.'"
+                placeholder="Tell Leadpulse exactly what to flag. e.g., 'Flag any mentions of structural upgrades or expansion projects.'"
                 rows={3}
                 className={`w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:ring-[#6C5DD3]/50 focus:border-[#6C5DD3] transition-all outline-none resize-none ${isDarkMode ? 'bg-black/50 border-white/10 text-white placeholder:text-zinc-600' : 'bg-white border-slate-200 text-[#1B1D21] placeholder:text-slate-400'}`}
               />

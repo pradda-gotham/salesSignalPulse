@@ -81,7 +81,7 @@ export const OnboardingOrchestrator: React.FC<OnboardingOrchestratorProps> = ({ 
                     <div className="space-y-3">
                         <h2 className="text-3xl font-black">Calibrating Signal Engine...</h2>
                         <p className="text-lg max-w-md mx-auto text-zinc-500">
-                            Analyzing your products and target segments to generate intelligent sales triggers.
+                            Leadpulse is analyzing your products and target segments to generate intelligent sales triggers.
                         </p>
                     </div>
                 </div>

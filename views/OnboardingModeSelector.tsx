@@ -38,7 +38,7 @@ export const OnboardingModeSelector: React.FC<OnboardingModeSelectorProps> = ({ 
                         Auto-Pilot Setup
                     </h3>
                     <p className={`text-sm leading-relaxed mb-6 ${isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}`}>
-                        Enter your company website URL and let our AI analyze your business, products, and target market automatically.
+                        Enter your company website URL and let Leadpulse analyze your business, products, and target market automatically.
                     </p>
                     <div className="mt-auto flex items-center gap-2 text-[#6C5DD3] font-bold text-sm opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
                         Start Auto-Pilot <ArrowRight className="w-4 h-4" />

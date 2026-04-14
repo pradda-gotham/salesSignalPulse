@@ -193,7 +193,7 @@ const SetupView: React.FC<SetupViewProps> = ({
               className={`text-xs font-medium pb-1 transition-colors flex items-center gap-1 ${activeTab === 'ai_generated' ? 'text-indigo-500 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-600'}`}
             >
               <Sparkles className="w-3 h-3" />
-              AI Generated
+              Leadpulse Generated
               {aiGeneratedTriggers.length > 0 && (
                 <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${activeTab === 'ai_generated' ? 'bg-purple-100 text-purple-600' : 'bg-slate-100 text-slate-500'}`}>
                   {aiGeneratedTriggers.length}
@@ -324,10 +324,10 @@ const SetupView: React.FC<SetupViewProps> = ({
                         <>
                           <Sparkles className="w-8 h-8 text-slate-300" />
                           <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                            No AI-generated triggers yet.
+                            No Leadpulse-generated triggers yet.
                           </p>
                           <p className="text-xs text-slate-400">
-                            Run a <strong>Live Hunt</strong> calibration to generate intelligent triggers.
+                            Run a <strong>Live Hunt</strong> calibration to generate intelligent Leadpulse triggers.
                           </p>
                         </>
                       ) : (
@@ -354,7 +354,7 @@ const SetupView: React.FC<SetupViewProps> = ({
                     <td className="px-6 py-5 align-top">
                       {t.triggerType === 'ai_generated' ? (
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase border bg-purple-500/10 text-purple-500 border-purple-500/20">
-                          AI Suggested
+                          Leadpulse Suggested
                         </span>
                       ) : (
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase border bg-emerald-500/10 text-emerald-500 border-emerald-500/20">

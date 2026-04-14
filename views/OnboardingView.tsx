@@ -83,7 +83,7 @@ const OnboardingView: React.FC<OnboardingViewProps> = ({ onVerified, autoPilotMo
         <div className="space-y-3">
           <h2 className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Profiling Market Presence...</h2>
           <p className={`text-lg max-w-lg mx-auto leading-relaxed ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>
-            Gemini Flash is analyzing <span className="text-[#6C5DD3] font-bold">{url}</span> to extract your product catalog, industry positioning, and primary target segments.
+            Leadpulse is analyzing <span className="text-[#6C5DD3] font-bold">{url}</span> to extract your product catalog, industry positioning, and primary target segments.
           </p>
         </div>
       </div>

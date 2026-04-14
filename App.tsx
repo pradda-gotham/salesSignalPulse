@@ -281,7 +281,7 @@ const AppContent: React.FC = () => {
 
       } catch (e) {
         handleError(e);
-        setDossierError("The AI encountered an issue generating this dossier. This might be due to API rate limits.");
+        setDossierError("Leadpulse encountered an issue generating this dossier. This might be due to API rate limits.");
       } finally {
         setIsGeneratingDossier(false);
       }
@@ -334,7 +334,7 @@ const AppContent: React.FC = () => {
       setSelectedEstimation(estimation);
     } catch (e) {
       handleError(e);
-      setEstimationError('The AI encountered an issue generating the cost estimation. This might be due to API rate limits.');
+      setEstimationError('Leadpulse encountered an issue generating the cost estimation. This might be due to API rate limits.');
     } finally {
       setIsGeneratingEstimation(false);
     }
@@ -599,22 +599,8 @@ const AppContent: React.FC = () => {
         }
       }
 
-      // 3. Create default preset triggers as 'active'
-      console.log('[APP] Creating default preset triggers');
-      await dataService.createTrigger(orgId, {
-        product: 'All Products',
-        event: 'Contract Awarded',
-        source: 'Government Tenders / Industry News',
-        logic: 'Winning bidder enters immediate procurement phase.',
-        trigger_type: 'active',
-      });
-      await dataService.createTrigger(orgId, {
-        product: 'Civil Infrastructure Bundle',
-        event: 'New Project Announcement',
-        source: 'DA Approvals / Building News',
-        logic: 'New facility requires immediate site setup services.',
-        trigger_type: 'active',
-      });
+      // 3. AI-generated triggers from onboarding are already business-specific.
+      //    No hardcoded preset triggers — they would be irrelevant for non-construction businesses.
 
       // 4. LAST: Refresh auth to transition past the onboarding guard.
       //    useOrgData will then load all triggers from DB automatically.

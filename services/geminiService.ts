@@ -84,8 +84,8 @@ async function verifySignalSource(headline: string, companyName: string): Promis
       const response = await withTimeout(
         ai.models.generateContent({
           model: 'gemini-3-flash-preview',
-          contents: `Find the exact URL of the news article, press release, or tender page for this headline: "${headline}".
-          The article is related to construction, architecture, or government in Australia, possibly involving ${companyName}.
+          contents: `Find the exact URL of the news article, press release, or announcement for this headline: "${headline}".
+          The article may involve ${companyName}.
           Respond with ONLY the full URL. Nothing else. No markdown. No explanation.`,
           config: {
             tools: [{ googleSearch: {} }],
@@ -194,7 +194,13 @@ export const geminiService = {
   async generateTriggers(profile: BusinessProfile): Promise<SalesTrigger[]> {
     return withRetry(async () => {
       const ai = getAI();
-      const prompt = `Given these products: ${profile.products.join(', ')} and these target groups: ${profile.targetGroups.join(', ')} for the company ${profile.name}, what real-world events or "sales triggers" create immediate demand? Generate 4 triggers. For each, provide a specific product, a trigger event, a data source, and the sales logic.`;
+      const prompt = `Given these products: ${profile.products.join(', ')} and these target groups: ${profile.targetGroups.join(', ')} for the company ${profile.name} in the ${profile.industry} industry, what real-world events or "sales triggers" create immediate demand? Generate 4 triggers.
+
+For each trigger, provide:
+- product: The specific product or service from the list above
+- event: A concrete, searchable real-world event (e.g., "New government dietary guidelines released", "Major construction project announced", "Back-to-school season begins")
+- source: A specific, searchable source type where this event would be reported (e.g., "Health news outlets", "Government procurement portals", "Industry trade publications", "Google Trends"). Be concrete — not vague categories.
+- logic: Why this event creates buying intent for the product`;
 
       const response = await withTimeout(
         ai.models.generateContent({
@@ -281,22 +287,30 @@ export const geminiService = {
       // JSON schema mode suppresses grounding quality and causes frequent timeouts.
       // Instead we request JSON in the prompt and parse it from free-text response.
 
-      // Build diverse prompt angles for one-signal-per-call
-      const promptAngles = [
-        // Tender/Contract opportunities
-        `Find 1 recently awarded contract or tender in ${regionContext} related to ${profile.industry} or ${profile.products.join(', ')}. Look for "awarded to", "contract signed", "winning bidder". Focus on contracts > $1M.`,
-        `Find 1 government tender or procurement notice in ${regionContext} relevant to companies buying ${profile.products.join(', ')}. Look for official government procurement portals or gazette notices.`,
-        `Find 1 public infrastructure project in ${regionContext} that was recently approved or funded, where ${profile.products.join(', ')} would be needed.`,
-        // Project/Construction announcements
-        `Find 1 recent construction project that just commenced or broke ground in ${regionContext} related to ${profile.industry}. Look for "groundbreaking", "site establishment", "commenced construction".`,
-        `Find 1 major development application that was recently approved in ${regionContext} for a commercial, industrial, or institutional building project.`,
-        `Find 1 recently announced expansion, renovation, or new facility in ${regionContext} that would require ${profile.products.join(', ')}.`,
-        // Industry news & press releases
-        `Find 1 recent press release or news article about a major business expansion or new investment in ${regionContext} relevant to ${profile.name} selling ${profile.products.join(', ')}.`,
-        `Find 1 recent leadership change, merger, or acquisition in ${regionContext} within ${profile.industry} that indicates growth and potential purchasing activity.`,
-        `Find 1 recent news article about a company opening a new office, warehouse, or facility in ${regionContext} that would need ${profile.products.join(', ')}.`,
-        `Find 1 recent real estate or property development announcement in ${regionContext} involving commercial or industrial projects > $5M.`,
-      ];
+      // Build diverse prompt angles dynamically from triggers + profile
+      const productsStr = profile.products.join(', ');
+      const targetGroupsStr = profile.targetGroups.join(', ');
+
+      const promptAngles: string[] = [];
+
+      // 1. Trigger-derived angles — one per active trigger (most specific)
+      const approvedTriggers = activeTriggers.filter(t => t.status === 'Approved');
+      for (const trigger of approvedTriggers) {
+        promptAngles.push(
+          `Find 1 recent news article, announcement, or report in ${regionContext} about: "${trigger.event}". ` +
+          `Look for sources like ${trigger.source}. ` +
+          `This should be relevant to someone selling ${trigger.product} because: ${trigger.logic}. ` +
+          `The result must be a real, verifiable event or trend that creates demand for ${trigger.product}.`
+        );
+      }
+
+      // 2. Profile-derived angles — broader discovery (industry-agnostic)
+      promptAngles.push(
+        `Find 1 recent news or emerging trend in ${regionContext} relevant to the ${profile.industry} industry that would create demand for ${productsStr}. Look for market shifts, regulatory changes, seasonal patterns, or consumer behavior changes.`,
+        `Find 1 recent announcement, partnership, funding round, or expansion in ${regionContext} relevant to companies or individuals who buy ${productsStr}. Target audience: ${targetGroupsStr}.`,
+        `Find 1 recent news article in ${regionContext} about a problem, challenge, or unmet need that ${profile.name}'s products (${productsStr}) could solve. Look for pain points experienced by ${targetGroupsStr}.`,
+        `Find 1 recent industry report, survey result, or market research finding in ${regionContext} that signals growing demand for ${productsStr} within ${profile.industry}.`
+      );
 
       // Add site-specific prompts if sites mode is active
       if (runSitesMode && allowedSites.length > 0) {
@@ -515,17 +529,17 @@ SOURCE: ${signal.sourceUrl}
 REGION: ${signal.region}
 
 CRITICAL RULES FOR accountName:
-1. The accountName MUST be the BUYER/PROSPECT company - the company that would PURCHASE from ${profile.name}
+1. The accountName MUST be the TARGET — the company, organization, or audience segment that would PURCHASE from ${profile.name}
 2. NEVER return "${profile.name}" as the accountName - they are the SELLER
-3. Look for construction companies, developers, contractors, or project owners mentioned in the news
-4. The accountName should be a company that needs ${profile.products.join(' or ')}
+3. Look for the entity in the news that would need ${profile.products.join(' or ')}. This could be a company, government body, organization, or (for B2C businesses) a demographic/audience segment.
+4. The accountName should be whoever benefits from or needs ${profile.products.join(' or ')}
 
-Example: If news says "City of Marion partnered with Blu Built to deliver a project", the accountName should be "Blu Built" (the contractor), NOT the seller company.
+Example: If news says "City of Marion partnered with Blu Built to deliver a project", the accountName should be "Blu Built" (the buyer/contractor), NOT the seller company.
 
 Focus:
-1. Identify the BUYER company from the news (construction company, developer, contractor)
+1. Identify the TARGET from the news — the entity that would purchase or benefit from ${profile.products.join(', ')}
 2. Provide strategic advice for ${profile.name} (the SELLER) to win this opportunity
-3. Return as JSON with accountName being the BUYER's company name`;
+3. Return as JSON with accountName being the TARGET's name`;
 
       const response = await withTimeout(
         ai.models.generateContent({

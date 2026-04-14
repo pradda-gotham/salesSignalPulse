@@ -186,7 +186,7 @@ const EstimationView: React.FC<EstimationViewProps> = ({
                 <div>
                     <h2 className={`text-2xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>Generating Cost Estimation</h2>
                     <p className={`text-sm max-w-md mx-auto ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
-                        AI is analyzing the lead and searching for current regional market rates...
+                        Leadpulse is analyzing the lead and searching for current regional market rates...
                     </p>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-[#6C5DD3] font-bold animate-pulse">
