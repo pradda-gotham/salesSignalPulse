@@ -354,6 +354,190 @@ export async function saveBusinessProfile(
     return true;
 }
 
+// ============ PRODUCT CATALOG ============
+
+export async function getProductCatalog(orgId: string): Promise<any[]> {
+    const { data, error } = await supabase
+        .from('product_catalog')
+        .select('*')
+        .eq('org_id', orgId)
+        .eq('is_active', true)
+        .order('category', { ascending: true });
+
+    if (error) {
+        console.error('[DataService] Error fetching product catalog:', error);
+        return [];
+    }
+    return (data || []).map(row => ({
+        id: row.id,
+        sku: row.sku,
+        name: row.name,
+        description: row.description,
+        category: row.category,
+        unitPrice: Number(row.unit_price),
+        costBasis: row.cost_basis ? Number(row.cost_basis) : undefined,
+        unit: row.unit,
+        isActive: row.is_active,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+    }));
+}
+
+export async function upsertProductCatalogItem(
+    orgId: string,
+    item: { id?: string; sku: string; name: string; description?: string; category?: string; unitPrice: number; costBasis?: number; unit?: string }
+): Promise<any | null> {
+    const payload: any = {
+        org_id: orgId,
+        sku: item.sku,
+        name: item.name,
+        description: item.description || '',
+        category: item.category || 'General',
+        unit_price: item.unitPrice,
+        cost_basis: item.costBasis ?? null,
+        unit: item.unit || 'each',
+        updated_at: new Date().toISOString(),
+    };
+    if (item.id) payload.id = item.id;
+
+    const { data, error } = await supabase
+        .from('product_catalog')
+        .upsert(payload, { onConflict: 'org_id,sku' })
+        .select()
+        .single();
+
+    if (error) {
+        console.error('[DataService] Error upserting catalog item:', error);
+        return null;
+    }
+    return data;
+}
+
+export async function deleteProductCatalogItem(itemId: string): Promise<boolean> {
+    const { error } = await supabase
+        .from('product_catalog')
+        .update({ is_active: false })
+        .eq('id', itemId);
+
+    if (error) {
+        console.error('[DataService] Error deleting catalog item:', error);
+        return false;
+    }
+    return true;
+}
+
+// ============ RATE CARDS ============
+
+export async function getRateCards(orgId: string, category?: string): Promise<any[]> {
+    let query = supabase
+        .from('rate_cards')
+        .select('*')
+        .eq('org_id', orgId)
+        .eq('is_active', true)
+        .order('category', { ascending: true });
+
+    if (category) query = query.eq('category', category);
+
+    const { data, error } = await query;
+
+    if (error) {
+        console.error('[DataService] Error fetching rate cards:', error);
+        return [];
+    }
+    return (data || []).map(row => ({
+        id: row.id,
+        category: row.category,
+        description: row.description,
+        unit: row.unit,
+        defaultRate: Number(row.default_rate),
+        region: row.region,
+        isActive: row.is_active,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+    }));
+}
+
+export async function upsertRateCardEntry(
+    orgId: string,
+    entry: { id?: string; category: string; description: string; unit: string; defaultRate: number; region?: string }
+): Promise<any | null> {
+    const payload: any = {
+        org_id: orgId,
+        category: entry.category,
+        description: entry.description,
+        unit: entry.unit,
+        default_rate: entry.defaultRate,
+        region: entry.region || null,
+        updated_at: new Date().toISOString(),
+    };
+    if (entry.id) payload.id = entry.id;
+
+    const { data, error } = await supabase
+        .from('rate_cards')
+        .upsert(payload)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('[DataService] Error upserting rate card:', error);
+        return null;
+    }
+    return data;
+}
+
+export async function deleteRateCardEntry(entryId: string): Promise<boolean> {
+    const { error } = await supabase
+        .from('rate_cards')
+        .update({ is_active: false })
+        .eq('id', entryId);
+
+    if (error) {
+        console.error('[DataService] Error deleting rate card:', error);
+        return false;
+    }
+    return true;
+}
+
+// ============ ESTIMATE AUDIT LOG ============
+
+export async function logEstimateChange(
+    orgId: string,
+    dossierId: string,
+    fieldPath: string,
+    previousValue: unknown,
+    newValue: unknown,
+    changedBy?: string
+): Promise<void> {
+    const { error } = await supabase
+        .from('estimate_audit_log')
+        .insert({
+            org_id: orgId,
+            dossier_id: dossierId,
+            field_path: fieldPath,
+            previous_value: previousValue,
+            new_value: newValue,
+            changed_by: changedBy || null,
+        });
+
+    if (error) {
+        console.error('[DataService] Error logging estimate change:', error);
+    }
+}
+
+export async function getAuditLog(dossierId: string): Promise<any[]> {
+    const { data, error } = await supabase
+        .from('estimate_audit_log')
+        .select('*')
+        .eq('dossier_id', dossierId)
+        .order('changed_at', { ascending: false });
+
+    if (error) {
+        console.error('[DataService] Error fetching audit log:', error);
+        return [];
+    }
+    return data || [];
+}
+
 // Export all functions as a service object
 export const dataService = {
     getOrganization,
@@ -374,4 +558,12 @@ export const dataService = {
     updateHuntLog,
     getBusinessProfile,
     saveBusinessProfile,
+    getProductCatalog,
+    upsertProductCatalogItem,
+    deleteProductCatalogItem,
+    getRateCards,
+    upsertRateCardEntry,
+    deleteRateCardEntry,
+    logEstimateChange,
+    getAuditLog,
 };

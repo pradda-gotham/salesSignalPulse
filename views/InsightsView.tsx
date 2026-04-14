@@ -22,19 +22,25 @@ import {
 import { BusinessProfile } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 
-const MOCK_MOMENTUM = [
-  { name: 'Mining', value: 850 },
-  { name: 'Gov', value: 420 },
-  { name: 'Civil', value: 680 },
-  { name: 'Power', value: 120 },
-];
+const getMockMomentum = (profile: BusinessProfile) => {
+  const sectors = profile.targetGroups.length > 0 ? profile.targetGroups : ['Market Alpha', 'Market Beta', 'Market Gamma'];
+  return [
+    { name: sectors[0] || 'Primary Sector', value: 850 },
+    { name: sectors[1] || 'Secondary Sector', value: 420 },
+    { name: sectors[2] || 'Tertiary Sector', value: 680 },
+    { name: 'Other', value: 120 },
+  ];
+};
 
-const MOCK_INTENSITY = [
-  { name: 'Western AU', value: 400 },
-  { name: 'Northern Terr.', value: 300 },
-  { name: 'Queensland', value: 200 },
-  { name: 'Victoria', value: 100 },
-];
+const getMockIntensity = (profile: BusinessProfile) => {
+  const regions = profile.geography.length > 0 ? profile.geography : ['Region A', 'Region B', 'Region C'];
+  return [
+    { name: regions[0] || 'Zone 1', value: 400 },
+    { name: regions[1] || 'Zone 2', value: 300 },
+    { name: regions[2] || 'Zone 3', value: 200 },
+    { name: 'International', value: 100 },
+  ];
+};
 
 const COLORS = ['#f97316', '#ea580c', '#c2410c', '#9a3412'];
 
@@ -106,7 +112,7 @@ const InsightsView: React.FC<InsightsViewProps> = ({ profile }) => {
           </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={MOCK_MOMENTUM} layout="vertical">
+              <BarChart data={getMockMomentum(profile)} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#222" : "#e5e7eb"} horizontal={false} />
                 <XAxis type="number" hide />
                 <YAxis dataKey="name" type="category" stroke={isDarkMode ? "#555" : "#9ca3af"} fontSize={11} width={80} tickLine={false} axisLine={false} />
@@ -121,7 +127,7 @@ const InsightsView: React.FC<InsightsViewProps> = ({ profile }) => {
                   }}
                 />
                 <Bar dataKey="value" radius={[0, 6, 6, 0]}>
-                  {MOCK_MOMENTUM.map((entry, index) => (
+                  {getMockMomentum(profile).map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={index === 0 ? '#f97316' : isDarkMode ? '#222' : '#e5e7eb'} />
                   ))}
                 </Bar>
@@ -138,7 +144,7 @@ const InsightsView: React.FC<InsightsViewProps> = ({ profile }) => {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={MOCK_INTENSITY}
+                  data={getMockIntensity(profile)}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -146,7 +152,7 @@ const InsightsView: React.FC<InsightsViewProps> = ({ profile }) => {
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {MOCK_INTENSITY.map((entry, index) => (
+                  {getMockIntensity(profile).map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -161,7 +167,7 @@ const InsightsView: React.FC<InsightsViewProps> = ({ profile }) => {
             </ResponsiveContainer>
           </div>
           <div className="space-y-2">
-            {MOCK_INTENSITY.map((item, i) => (
+            {getMockIntensity(profile).map((item, i) => (
               <div key={item.name} className="flex justify-between items-center text-sm">
                 <span className={`flex items-center gap-2 ${isDarkMode ? 'text-zinc-400' : 'text-gray-600'}`}>
                   <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i] }} /> {item.name}
@@ -193,14 +199,14 @@ const InsightsView: React.FC<InsightsViewProps> = ({ profile }) => {
           <div className="space-y-4">
             <h4 className={`font-bold text-lg ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Signal Calibration Status</h4>
             <p className={`leading-relaxed italic ${isDarkMode ? 'text-zinc-400' : 'text-gray-600'}`}>
-              "Current hunting parameters show a 12% drift from high-margin targets. Your team is engaging with 'Emergency Site Protection' signals at 92% efficiency, but missing 'Competitive Expansion' triggers in the NT region."
+              "Current hunting parameters show a 12% drift from high-margin targets. Your team is engaging with '{profile.targetGroups[0] || 'Primary'} Intent' signals at 92% efficiency, but missing 'Expansion' triggers in the ${profile.geography[1] || profile.geography[0] || 'secondary'} region."
             </p>
           </div>
           <div className={`p-6 rounded-2xl border backdrop-blur-md ${isDarkMode ? 'bg-black/20 border-white/5' : 'bg-white/60 border-gray-200'
             }`}>
             <h4 className="text-[#6C5DD3] font-bold text-xs uppercase mb-4 tracking-widest">Recommended Sales Mandate</h4>
             <p className={`font-medium ${isDarkMode ? 'text-zinc-200' : 'text-gray-800'}`}>
-              Deploy regional reps to Pilbara specifically targeting heavy earthworks tender winners. The 'Competitor Insolvency' trigger is active; increase outbound aggression on Red Earth matched accounts.
+              Deploy regional reps to ${profile.geography[0] || 'active zones'} specifically targeting ${profile.products[0] || 'core solution'} opportunities. The 'Strategic Growth' trigger is active; increase outbound aggression on verified matched accounts.
             </p>
           </div>
         </div>

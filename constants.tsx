@@ -9,12 +9,12 @@ import {
 } from './types';
 
 export const MOCK_BUSINESS_PROFILE: BusinessProfile = {
-  name: "Titan Heavy Rentals",
-  industry: "Heavy Equipment Rental",
-  products: ["Excavators", "Dump Trucks", "Site Equipment"],
-  targetGroups: ["Construction", "Mining", "Government Projects"],
-  geography: ["WA", "NT"],
-  website: "https://titan-heavy.io"
+  name: "CloudScale Analytics",
+  industry: "B2B SaaS / Data Intelligence",
+  products: ["Real-time Dashboards", "Predictive Analytics", "Enterprise API"],
+  targetGroups: ["Tech Companies", "Retail Enterprises", "Fintech Startups"],
+  geography: ["Global", "US", "Europe"],
+  website: "https://cloudscale-example.io"
 };
 
 export const MOCK_TRIGGERS: SalesTrigger[] = [

@@ -13,8 +13,10 @@ import { AuthCallback } from './views/AuthCallback';
 import { OnboardingOrchestrator } from './views/OnboardingOrchestrator';
 import AuthTestPage from './views/AuthTestPage';
 import AdhocHuntView from './views/AdhocHuntView';
+import CatalogView from './views/CatalogView';
 import SettingsView, { getSettings } from './views/SettingsView';
 import { emailService } from './services/emailService';
+import { normalizeDossier } from './utils/normalizeDossier';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useOrgData } from './hooks/useOrgData';
 import { geminiService } from './services/geminiService';
@@ -50,6 +52,8 @@ const AppContent: React.FC = () => {
     triggers: dbTriggers,
     trackedWebsites: dbTrackedWebsites,
     signals: dbSignals,
+    catalog,
+    rateCards,
     addTrigger,
     addTrackedWebsite,
     removeTrackedWebsite,
@@ -64,6 +68,13 @@ const AppContent: React.FC = () => {
     saveDossier: saveDossierToDb,
     loadBusinessProfile,
     saveBusinessProfile,
+    addCatalogItem,
+    updateCatalogItem,
+    removeCatalogItem,
+    addRateCardEntry,
+    updateRateCardEntry,
+    removeRateCardEntry,
+    logEstimateChange,
     loading: orgDataLoading
   } = useOrgData();
 
@@ -222,7 +233,7 @@ const AppContent: React.FC = () => {
 
     setFetchingDossierIds(prev => new Set(prev).add(signal.id));
     try {
-      const dossier = await geminiService.generateDossier(signal, businessProfile);
+      const dossier = await geminiService.generateDossier(signal, businessProfile, catalog);
       setDossierCache(prev => ({ ...prev, [signal.id]: dossier }));
     } catch (e) {
       console.warn(`Background prefetch failed for ${signal.id}`, e);
@@ -260,13 +271,13 @@ const AppContent: React.FC = () => {
         if (existingDossier) {
           console.log('[APP] Found existing dossier in DB');
           // Cast the JSON content to DealDossier type
-          dossierToShow = existingDossier.content as unknown as DealDossier;
+          dossierToShow = normalizeDossier(existingDossier.content as unknown as DealDossier);
           setSelectedDossier(dossierToShow);
           setDossierCache(prev => ({ ...prev, [signal.id]: dossierToShow! }));
         } else {
           // 4. If not found, generate new dossier
           console.log('[APP] No dossier found, generating new one...');
-          dossierToShow = await geminiService.generateDossier(signal, businessProfile);
+          dossierToShow = await geminiService.generateDossier(signal, businessProfile, catalog);
           setSelectedDossier(dossierToShow);
           setDossierCache(prev => ({ ...prev, [signal.id]: dossierToShow! }));
 
@@ -330,8 +341,27 @@ const AppContent: React.FC = () => {
     setIsGeneratingEstimation(true);
     setActiveTab('estimation');
     try {
-      const estimation = await geminiService.generateEstimation(selectedSignal, businessProfile, selectedDossier);
+      const estimation = await geminiService.generateEstimation(selectedSignal, businessProfile, selectedDossier, rateCards);
       setSelectedEstimation(estimation);
+
+      // Reconcile: update dossier estimatedValue to match estimation finalEstimate
+      if (estimation.finalEstimate && selectedDossier) {
+        const reconciled: DealDossier = {
+          ...selectedDossier,
+          estimation,
+          pricingStrategy: {
+            ...selectedDossier.pricingStrategy,
+            estimatedValue: {
+              value: estimation.finalEstimate,
+              source: 'catalog',
+              confidence: 85,
+              sourceDetail: `Reconciled from cost estimation: $${estimation.finalEstimate.toLocaleString()}`,
+            },
+          },
+        };
+        setSelectedDossier(reconciled);
+        setDossierCache(prev => ({ ...prev, [selectedSignal.id]: reconciled }));
+      }
     } catch (e) {
       handleError(e);
       setEstimationError('Leadpulse encountered an issue generating the cost estimation. This might be due to API rate limits.');
@@ -479,7 +509,7 @@ const AppContent: React.FC = () => {
               const dbSignalId = newIdMap[sig.id] || sig.id;
 
               if (!dossierCache[dbSignalId]) {
-                const dossier = await geminiService.generateDossier(sig, businessProfile);
+                const dossier = await geminiService.generateDossier(sig, businessProfile, catalog);
 
                 // Update dossier ID to match signal ID (for clean linkage)
                 const linkedDossier = { ...dossier, signalId: dbSignalId };
@@ -584,10 +614,10 @@ const AppContent: React.FC = () => {
       setCurrentRoute('/');
       setBusinessProfile(profile);
 
-      // 2. Persist AI-generated triggers directly via dataService
+      // 2. Persist Leadpulse-generated triggers directly via dataService
       //    (useOrgData hooks have stale orgId=null at this point)
       if (aiTriggers.length > 0) {
-        console.log('[APP] Persisting', aiTriggers.length, 'AI triggers from onboarding');
+        console.log('[APP] Persisting', aiTriggers.length, 'Leadpulse triggers from onboarding');
         for (const t of aiTriggers) {
           await dataService.createTrigger(orgId, {
             product: t.product,
@@ -650,6 +680,21 @@ const AppContent: React.FC = () => {
       return <SettingsView />;
     }
 
+    if (activeTab === 'catalog') {
+      return (
+        <CatalogView
+          catalog={catalog}
+          rateCards={rateCards}
+          onAddCatalogItem={addCatalogItem}
+          onUpdateCatalogItem={updateCatalogItem}
+          onRemoveCatalogItem={removeCatalogItem}
+          onAddRateCardEntry={addRateCardEntry}
+          onUpdateRateCardEntry={updateRateCardEntry}
+          onRemoveRateCardEntry={removeRateCardEntry}
+        />
+      );
+    }
+
     // For other tabs, require business profile
     if (!businessProfile) {
       return (
@@ -708,8 +753,8 @@ const AppContent: React.FC = () => {
         return (
           <AdhocHuntView
             onCalibrationComplete={async (profile, triggers) => {
-              // Persist AI triggers to DB as 'ai_generated' (deduped)
-              console.log('[APP] Persisting', triggers.length, 'AI triggers from Live Hunt');
+              // Persist intelligent triggers to DB as 'ai_generated' (deduped)
+              console.log('[APP] Persisting', triggers.length, 'Leadpulse triggers from Live Hunt');
               await addAITriggers(triggers.map(t => ({
                 product: t.product,
                 event: t.event,

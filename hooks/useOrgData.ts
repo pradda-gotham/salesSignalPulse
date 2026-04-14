@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { dataService } from '../services/dataService';
-import { SalesTrigger, MarketSignal, SignalUrgency, LeadStatus, TrackedWebsite } from '../types';
+import { SalesTrigger, MarketSignal, SignalUrgency, LeadStatus, TrackedWebsite, ProductCatalogItem, RateCardEntry } from '../types';
 import { Database } from '../src/lib/database.types';
 
 type DbTrigger = Database['public']['Tables']['triggers']['Row'];
@@ -90,6 +90,8 @@ export function useOrgData() {
     const [triggers, setTriggers] = useState<SalesTrigger[]>([]);
     const [trackedWebsites, setTrackedWebsites] = useState<TrackedWebsite[]>([]);
     const [signals, setSignals] = useState<MarketSignal[]>([]);
+    const [catalog, setCatalog] = useState<ProductCatalogItem[]>([]);
+    const [rateCards, setRateCards] = useState<RateCardEntry[]>([]);
     const [loading, setLoading] = useState(true);
 
     const orgId = organization?.id;
@@ -117,18 +119,32 @@ export function useOrgData() {
         setTrackedWebsites(dbTrackedWebsites.map(dbTrackedWebsiteToApp));
     }, [orgId]);
 
+    // Load product catalog
+    const loadCatalog = useCallback(async () => {
+        if (!orgId) return;
+        const items = await dataService.getProductCatalog(orgId);
+        setCatalog(items);
+    }, [orgId]);
+
+    // Load rate cards
+    const loadRateCards = useCallback(async () => {
+        if (!orgId) return;
+        const entries = await dataService.getRateCards(orgId);
+        setRateCards(entries);
+    }, [orgId]);
+
     // Initial load
     useEffect(() => {
         const load = async () => {
             setLoading(true);
-            await Promise.all([loadTriggers(), loadSignals(), loadTrackedWebsites()]);
+            await Promise.all([loadTriggers(), loadSignals(), loadTrackedWebsites(), loadCatalog(), loadRateCards()]);
             setLoading(false);
         };
 
         if (orgId) {
             load();
         }
-    }, [orgId, loadTriggers, loadSignals]);
+    }, [orgId, loadTriggers, loadSignals, loadTrackedWebsites, loadCatalog, loadRateCards]);
 
     // Add a new trigger
     const addTrigger = useCallback(async (trigger: { product: string; event: string; source?: string; logic?: string; trigger_type?: 'active' | 'ai_generated' }) => {
@@ -154,7 +170,7 @@ export function useOrgData() {
         for (const trigger of newTriggers) {
             const fingerprint = `${trigger.event.toLowerCase().trim()}-${trigger.product.toLowerCase().trim()}`;
             if (existingFingerprints.has(fingerprint)) {
-                console.log('[OrgData] Skipping duplicate AI trigger:', fingerprint);
+                console.log('[OrgData] Skipping duplicate Leadpulse trigger:', fingerprint);
                 continue;
             }
             existingFingerprints.add(fingerprint);
@@ -171,7 +187,7 @@ export function useOrgData() {
         if (added.length > 0) {
             setTriggers(prev => [...added, ...prev]);
         }
-        console.log(`[OrgData] Added ${added.length} unique AI triggers (skipped ${newTriggers.length - added.length} duplicates)`);
+        console.log(`[OrgData] Added ${added.length} unique Leadpulse triggers (skipped ${newTriggers.length - added.length} duplicates)`);
         return added;
     }, [orgId, triggers]);
 
@@ -325,16 +341,87 @@ export function useOrgData() {
         return await dataService.saveBusinessProfile(orgId, profile);
     }, [orgId]);
 
+    // ============ PRODUCT CATALOG CRUD ============
+
+    const addCatalogItem = useCallback(async (item: { sku: string; name: string; description?: string; category?: string; unitPrice: number; costBasis?: number; unit?: string }) => {
+        if (!orgId) return null;
+        const created = await dataService.upsertProductCatalogItem(orgId, item);
+        if (created) {
+            await loadCatalog();
+        }
+        return created;
+    }, [orgId, loadCatalog]);
+
+    const updateCatalogItem = useCallback(async (item: { id: string; sku: string; name: string; description?: string; category?: string; unitPrice: number; costBasis?: number; unit?: string }) => {
+        if (!orgId) return null;
+        const updated = await dataService.upsertProductCatalogItem(orgId, item);
+        if (updated) {
+            await loadCatalog();
+        }
+        return updated;
+    }, [orgId, loadCatalog]);
+
+    const removeCatalogItem = useCallback(async (itemId: string) => {
+        const success = await dataService.deleteProductCatalogItem(itemId);
+        if (success) {
+            setCatalog(prev => prev.filter(c => c.id !== itemId));
+        }
+        return success;
+    }, []);
+
+    // ============ RATE CARD CRUD ============
+
+    const addRateCardEntry = useCallback(async (entry: { category: string; description: string; unit: string; defaultRate: number; region?: string }) => {
+        if (!orgId) return null;
+        const created = await dataService.upsertRateCardEntry(orgId, entry);
+        if (created) {
+            await loadRateCards();
+        }
+        return created;
+    }, [orgId, loadRateCards]);
+
+    const updateRateCardEntry = useCallback(async (entry: { id: string; category: string; description: string; unit: string; defaultRate: number; region?: string }) => {
+        if (!orgId) return null;
+        const updated = await dataService.upsertRateCardEntry(orgId, entry);
+        if (updated) {
+            await loadRateCards();
+        }
+        return updated;
+    }, [orgId, loadRateCards]);
+
+    const removeRateCardEntry = useCallback(async (entryId: string) => {
+        const success = await dataService.deleteRateCardEntry(entryId);
+        if (success) {
+            setRateCards(prev => prev.filter(r => r.id !== entryId));
+        }
+        return success;
+    }, []);
+
+    // ============ AUDIT LOG ============
+
+    const logEstimateChange = useCallback(async (dossierId: string, fieldPath: string, previousValue: unknown, newValue: unknown) => {
+        if (!orgId) return;
+        await dataService.logEstimateChange(orgId, dossierId, fieldPath, previousValue, newValue, userProfile?.id);
+    }, [orgId, userProfile]);
+
+    const getAuditLog = useCallback(async (dossierId: string) => {
+        return await dataService.getAuditLog(dossierId);
+    }, []);
+
     return {
         organization,
         userProfile,
         triggers,
         trackedWebsites,
         signals,
+        catalog,
+        rateCards,
         loading,
         loadTriggers,
         loadSignals,
         loadTrackedWebsites,
+        loadCatalog,
+        loadRateCards,
         addTrigger,
         addAITriggers,
         removeTrigger,
@@ -350,5 +437,13 @@ export function useOrgData() {
         loadBusinessProfile,
         saveBusinessProfile,
         setSignals,
+        addCatalogItem,
+        updateCatalogItem,
+        removeCatalogItem,
+        addRateCardEntry,
+        updateRateCardEntry,
+        removeRateCardEntry,
+        logEstimateChange,
+        getAuditLog,
     };
 }

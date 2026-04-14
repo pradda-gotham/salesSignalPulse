@@ -38,7 +38,7 @@ export const OnboardingOrchestrator: React.FC<OnboardingOrchestratorProps> = ({ 
         runCalibration(profile);
     };
 
-    // Run AI calibration to generate triggers
+    // Run Leadpulse calibration to generate triggers
     const runCalibration = async (profile: BusinessProfile) => {
         try {
             console.log('[Onboarding] Running calibration for:', profile.name);
@@ -47,7 +47,7 @@ export const OnboardingOrchestrator: React.FC<OnboardingOrchestratorProps> = ({ 
             onComplete(profile, triggers);
         } catch (e) {
             console.error('[Onboarding] Calibration failed:', e);
-            // Even if calibration fails, let user proceed with no AI triggers
+            // Even if calibration fails, let user proceed with no intelligent triggers
             onComplete(profile, []);
         }
     };

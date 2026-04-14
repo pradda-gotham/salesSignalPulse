@@ -379,7 +379,7 @@ const SetupView: React.FC<SetupViewProps> = ({
                     </td>
                     <td className="px-6 py-5 text-right align-top">
                       <div className="flex items-center justify-end gap-2 transition-opacity">
-                        {/* Show Activate button only for AI Generated triggers */}
+                        {/* Show Activate button only for Leadpulse Generated triggers */}
                         {t.triggerType === 'ai_generated' && onActivateTrigger && (
                           <button
                             onClick={() => handleActivate(t.id)}

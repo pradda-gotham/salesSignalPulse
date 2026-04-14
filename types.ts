@@ -103,11 +103,15 @@ export interface DealDossier {
     sku: string;
     description: string;
     quantity: number;
+    catalogItemId?: string;
+    unitPrice?: number | AuditablePrice;
+    lineTotal?: number;
   }[];
   pricingStrategy: {
     logic: string;
-    discount: number;
-    estimatedValue: number;
+    discount: number | AuditablePrice;
+    estimatedValue: number | AuditablePrice;
+    derivation?: 'catalog_sum' | 'ai_estimate' | 'hybrid';
   };
   battlecard: {
     competitorWeakness: string;
@@ -128,14 +132,68 @@ export interface DealDossier {
   estimation?: CostEstimation;
 }
 
+// ============ PRODUCT CATALOG & RATE CARDS ============
+
+export type PriceSource = 'catalog' | 'rate_card' | 'ai_estimate' | 'manual';
+
+export interface AuditablePrice {
+  value: number;
+  source: PriceSource;
+  confidence: number;             // 0-100: catalog=100, rate_card=95, ai_estimate=40-70, manual=100
+  sourceDetail?: string;          // e.g. "SKU HNG-HD-001 @ $45/each" or "AI estimate via Google Search"
+  overriddenFrom?: {
+    value: number;
+    source: PriceSource;
+  };
+  updatedBy?: string;
+  updatedAt?: string;
+}
+
+export interface ProductCatalogItem {
+  id: string;
+  sku: string;
+  name: string;
+  description: string;
+  category: string;
+  unitPrice: number;
+  costBasis?: number;
+  unit: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RateCardEntry {
+  id: string;
+  category: 'labour' | 'equipment' | 'overhead' | 'subContractors' | 'materials';
+  description: string;
+  unit: string;
+  defaultRate: number;
+  region?: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  dossierId: string;
+  fieldPath: string;
+  previousValue: unknown;
+  newValue: unknown;
+  changedBy?: string;
+  changedAt: string;
+}
+
 // ============ COST ESTIMATION ============
 
 export interface CostLineItem {
   description: string;
   unit: string;            // 'm³', 'hrs', 'days', 'lump sum', '%', 'each', 'tonnes'
   quantity: number;
-  unitRate: number;
-  amount: number;          // quantity × unitRate
+  unitRate: number | AuditablePrice;
+  amount: number;          // quantity × unitRate (or unitRate.value)
+  rateCardEntryId?: string;
   source: 'ai' | 'rate_card' | 'manual';
   isAdjusted: boolean;
 }

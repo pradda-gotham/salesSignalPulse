@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { BusinessProfile, SalesTrigger, MarketSignal, SignalUrgency, SignalConfidence, DealDossier, EnrichedContact, EnrichedCompany, CostEstimation, CostCategory, TrackedWebsite } from "../types";
+import { BusinessProfile, SalesTrigger, MarketSignal, SignalUrgency, SignalConfidence, DealDossier, EnrichedContact, EnrichedCompany, CostEstimation, CostCategory, TrackedWebsite, ProductCatalogItem, RateCardEntry, AuditablePrice } from "../types";
 import { apolloService } from "./apolloService";
 
 const getAI = () => {
@@ -515,9 +515,16 @@ For each trigger, provide:
     });
   },
 
-  async generateDossier(signal: MarketSignal, profile: BusinessProfile): Promise<DealDossier> {
+  async generateDossier(signal: MarketSignal, profile: BusinessProfile, catalog?: ProductCatalogItem[]): Promise<DealDossier> {
     return withRetry(async () => {
       const ai = getAI();
+
+      // Build catalog injection if available
+      const hasCatalog = catalog && catalog.length > 0;
+      const catalogSection = hasCatalog
+        ? `\n\nPRODUCT CATALOG (USE THESE EXACT SKUs AND PRICES):\n${catalog.map(c => `SKU: ${c.sku} | ${c.name} | $${c.unitPrice.toFixed(2)}/${c.unit} | Category: ${c.category}`).join('\n')}\n\nCRITICAL PRICING RULES:\n- Use ONLY SKUs from this catalog for the recommendedBundle.\n- Use exact unitPrice values from the catalog.\n- Calculate lineTotal = quantity × unitPrice for each item.\n- estimatedValue MUST equal sum of all lineTotals minus discount amount.\n- If a product is needed but NOT in the catalog, invent a descriptive SKU prefixed with "AI-" and estimate the price.`
+        : '\n\nNOTE: No product catalog is configured. Generate reasonable SKUs and estimate prices. All prices will be labeled as AI estimates.';
+
       const prompt = `Generate a Deal Dossier for a sales opportunity.
 
 SELLER COMPANY: ${profile.name}
@@ -527,6 +534,7 @@ SELLER TARGET CUSTOMERS: ${profile.targetGroups.join(', ')}
 NEWS/SIGNAL: "${signal.headline}"
 SOURCE: ${signal.sourceUrl}
 REGION: ${signal.region}
+${catalogSection}
 
 CRITICAL RULES FOR accountName:
 1. The accountName MUST be the TARGET — the company, organization, or audience segment that would PURCHASE from ${profile.name}
@@ -539,7 +547,8 @@ Example: If news says "City of Marion partnered with Blu Built to deliver a proj
 Focus:
 1. Identify the TARGET from the news — the entity that would purchase or benefit from ${profile.products.join(', ')}
 2. Provide strategic advice for ${profile.name} (the SELLER) to win this opportunity
-3. Return as JSON with accountName being the TARGET's name`;
+3. For each bundle item, include sku, description, quantity, AND unitPrice
+4. Return as JSON with accountName being the TARGET's name`;
 
       const response = await withTimeout(
         ai.models.generateContent({
@@ -565,7 +574,8 @@ Focus:
                     properties: {
                       sku: { type: Type.STRING },
                       description: { type: Type.STRING },
-                      quantity: { type: Type.NUMBER }
+                      quantity: { type: Type.NUMBER },
+                      unitPrice: { type: Type.NUMBER }
                     }
                   }
                 },
@@ -596,10 +606,87 @@ Focus:
       );
 
       const data = JSON.parse(response.text || '{}');
+
+      // ========== POST-PROCESSING: CATALOG PRICE GROUNDING ==========
+      const catalogMap = new Map<string, ProductCatalogItem>();
+      if (hasCatalog) {
+        catalog.forEach(c => catalogMap.set(c.sku.toLowerCase(), c));
+      }
+
+      // Process bundle items — match against catalog and wrap with AuditablePrice
+      const processedBundle = (data.recommendedBundle || []).map((item: any) => {
+        const catalogMatch = catalogMap.get((item.sku || '').toLowerCase());
+        let unitPrice: AuditablePrice;
+        let catalogItemId: string | undefined;
+
+        if (catalogMatch) {
+          // Real catalog match — override AI price with catalog price
+          unitPrice = {
+            value: catalogMatch.unitPrice,
+            source: 'catalog',
+            confidence: 100,
+            sourceDetail: `Catalog SKU ${catalogMatch.sku} @ $${catalogMatch.unitPrice}/${catalogMatch.unit}`,
+          };
+          catalogItemId = catalogMatch.id;
+        } else {
+          // No catalog match — keep AI price, label as estimate
+          unitPrice = {
+            value: item.unitPrice || 0,
+            source: 'ai_estimate',
+            confidence: 40,
+            sourceDetail: 'AI-generated estimate — no catalog match',
+          };
+        }
+
+        const lineTotal = item.quantity * unitPrice.value;
+        return {
+          sku: item.sku,
+          description: item.description,
+          quantity: item.quantity,
+          catalogItemId,
+          unitPrice,
+          lineTotal,
+        };
+      });
+
+      // Derive estimatedValue from catalog-grounded bundle totals
+      const bundleSubtotal = processedBundle.reduce((sum: number, b: any) => sum + (b.lineTotal || 0), 0);
+      const aiDiscount = data.pricingStrategy?.discount || 0;
+      const discountAmount = bundleSubtotal * (aiDiscount / 100);
+      const derivedEstimatedValue = bundleSubtotal - discountAmount;
+
+      const hasCatalogItems = processedBundle.some((b: any) => b.catalogItemId);
+      const derivation: 'catalog_sum' | 'ai_estimate' | 'hybrid' = hasCatalog
+        ? (hasCatalogItems ? (processedBundle.every((b: any) => b.catalogItemId) ? 'catalog_sum' : 'hybrid') : 'ai_estimate')
+        : 'ai_estimate';
+
+      const processedPricingStrategy = {
+        logic: data.pricingStrategy?.logic || '',
+        discount: {
+          value: aiDiscount,
+          source: 'ai_estimate' as const,
+          confidence: 40,
+          sourceDetail: 'AI-recommended discount percentage',
+        } as AuditablePrice,
+        estimatedValue: {
+          value: bundleSubtotal > 0 ? derivedEstimatedValue : (data.pricingStrategy?.estimatedValue || 0),
+          source: (derivation === 'catalog_sum' ? 'catalog' : derivation === 'hybrid' ? 'catalog' : 'ai_estimate') as AuditablePrice['source'],
+          confidence: derivation === 'catalog_sum' ? 95 : derivation === 'hybrid' ? 70 : 40,
+          sourceDetail: derivation === 'catalog_sum'
+            ? `Derived from catalog pricing: $${bundleSubtotal.toLocaleString()} - ${aiDiscount}% discount`
+            : derivation === 'hybrid'
+              ? `Partially catalog-based: $${bundleSubtotal.toLocaleString()} - ${aiDiscount}% discount`
+              : 'AI-generated estimate — configure product catalog for accurate pricing',
+        } as AuditablePrice,
+        derivation,
+      };
+
       const baseDossier: DealDossier = {
         ...data,
         id: `dos-${Date.now()}`,
-        signalId: signal.id
+        signalId: signal.id,
+        recommendedBundle: processedBundle,
+        pricingStrategy: processedPricingStrategy,
       };
 
       // ========== APOLLO ENRICHMENT ==========
@@ -727,12 +814,28 @@ Focus:
     });
   },
 
-  async generateEstimation(signal: MarketSignal, profile: BusinessProfile, dossier: DealDossier): Promise<CostEstimation> {
+  async generateEstimation(signal: MarketSignal, profile: BusinessProfile, dossier: DealDossier, rateCards?: RateCardEntry[]): Promise<CostEstimation> {
     return withRetry(async () => {
       const ai = getAI();
 
-      const estimatedValue = dossier.pricingStrategy?.estimatedValue || 0;
+      // Extract numeric estimated value from potentially AuditablePrice
+      const rawEstimatedValue = dossier.pricingStrategy?.estimatedValue;
+      const estimatedValue = typeof rawEstimatedValue === 'object' && rawEstimatedValue !== null
+        ? (rawEstimatedValue as AuditablePrice).value
+        : (rawEstimatedValue as number) || 0;
       const bundleDesc = dossier.recommendedBundle?.map(b => `${b.quantity}x ${b.sku} - ${b.description}`).join('\n') || 'Not specified';
+
+      // Build rate card injection if available
+      const hasRateCards = rateCards && rateCards.length > 0;
+      const rateCardSection = hasRateCards
+        ? `\n\nCOMPANY RATE CARD (USE THESE RATES WHERE APPLICABLE):\n${
+          ['labour', 'equipment', 'overhead', 'subContractors', 'materials'].map(cat => {
+            const entries = rateCards.filter(r => r.category === cat);
+            if (entries.length === 0) return '';
+            return `${cat.charAt(0).toUpperCase() + cat.slice(1)}: ${entries.map(e => `${e.description} $${e.defaultRate}/${e.unit}`).join(', ')}`;
+          }).filter(Boolean).join('\n')
+        }\n\nCRITICAL: Where a rate card entry matches a line item, use the EXACT rate from the card. Only use market rates for items NOT covered by the rate card.`
+        : '';
 
       const prompt = `You are an expert cost estimator. Generate a detailed cost estimation breakdown for this project opportunity.
 
@@ -748,6 +851,7 @@ ${bundleDesc}
 SELLER COMPANY: ${profile.name}
 INDUSTRY: ${profile.industry}
 PRODUCTS: ${profile.products.join(', ')}
+${rateCardSection}
 
 INSTRUCTIONS:
 1. Search for CURRENT regional market rates for ${signal.region} to ensure pricing accuracy.
@@ -893,14 +997,67 @@ Return as JSON.`;
 
       const data = JSON.parse(response.text || '{}');
 
-      // Post-process: compute category totals and overall totals
-      const processCategory = (cat: any): CostCategory => {
-        const items = (cat.items || []).map((item: any) => ({
-          ...item,
-          amount: item.amount || (item.quantity * item.unitRate),
-          source: 'ai' as const,
-          isAdjusted: false
-        }));
+      // Build rate card lookup by category
+      const rateCardsByCategory = new Map<string, RateCardEntry[]>();
+      if (hasRateCards) {
+        rateCards.forEach(rc => {
+          const existing = rateCardsByCategory.get(rc.category) || [];
+          existing.push(rc);
+          rateCardsByCategory.set(rc.category, existing);
+        });
+      }
+
+      // Post-process: compute category totals, match against rate cards
+      const processCategory = (cat: any, categoryName: string): CostCategory => {
+        const categoryRates = rateCardsByCategory.get(categoryName) || [];
+
+        const items = (cat.items || []).map((item: any) => {
+          // Try to match this line item against a rate card entry (case-insensitive substring)
+          const descLower = (item.description || '').toLowerCase();
+          const rateMatch = categoryRates.find(rc =>
+            descLower.includes(rc.description.toLowerCase()) ||
+            rc.description.toLowerCase().includes(descLower)
+          );
+
+          let unitRate: number | AuditablePrice;
+          let rateCardEntryId: string | undefined;
+          let source: 'ai' | 'rate_card' | 'manual';
+
+          if (rateMatch) {
+            // Override with rate card value
+            unitRate = {
+              value: rateMatch.defaultRate,
+              source: 'rate_card',
+              confidence: 95,
+              sourceDetail: `Rate card: ${rateMatch.description} @ $${rateMatch.defaultRate}/${rateMatch.unit}`,
+            };
+            rateCardEntryId = rateMatch.id;
+            source = 'rate_card';
+          } else {
+            // Keep AI rate, wrap as AuditablePrice
+            unitRate = {
+              value: item.unitRate || 0,
+              source: 'ai_estimate',
+              confidence: 55,
+              sourceDetail: 'AI estimate via Google Search grounding',
+            };
+            source = 'ai';
+          }
+
+          const rateValue = typeof unitRate === 'number' ? unitRate : unitRate.value;
+          const amount = item.quantity * rateValue;
+
+          return {
+            description: item.description,
+            unit: item.unit,
+            quantity: item.quantity,
+            unitRate,
+            amount,
+            rateCardEntryId,
+            source,
+            isAdjusted: false,
+          };
+        });
         return {
           total: items.reduce((sum: number, item: any) => sum + (item.amount || 0), 0),
           items,
@@ -908,11 +1065,11 @@ Return as JSON.`;
         };
       };
 
-      const materials = processCategory(data.materials);
-      const labour = processCategory(data.labour);
-      const subContractors = processCategory(data.subContractors);
-      const equipment = processCategory(data.equipment);
-      const overhead = processCategory(data.overhead);
+      const materials = processCategory(data.materials, 'materials');
+      const labour = processCategory(data.labour, 'labour');
+      const subContractors = processCategory(data.subContractors, 'subContractors');
+      const equipment = processCategory(data.equipment, 'equipment');
+      const overhead = processCategory(data.overhead, 'overhead');
 
       const totalDirectCosts = materials.total + labour.total + subContractors.total + equipment.total;
       const totalIndirectCosts = overhead.total;

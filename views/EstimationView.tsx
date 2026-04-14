@@ -20,8 +20,9 @@ import {
     Info,
     Calculator
 } from 'lucide-react';
-import { CostEstimation, CostCategory, CostLineItem } from '../types';
+import { CostEstimation, CostCategory, CostLineItem, AuditablePrice } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
+import { lineItemRate, priceSource } from '../utils/normalizeDossier';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 interface EstimationViewProps {
@@ -43,6 +44,19 @@ const CATEGORY_CONFIG = [
 ];
 
 type CategoryKey = typeof CATEGORY_CONFIG[number]['key'];
+
+const EstSourceBadge: React.FC<{ source: string }> = ({ source }) => {
+    const config = source === 'rate_card'
+        ? { label: 'RATE CARD', bg: 'bg-blue-500/10 text-blue-600 border-blue-500/20' }
+        : source === 'manual'
+            ? { label: 'MANUAL', bg: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20' }
+            : { label: 'AI EST.', bg: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' };
+    return (
+        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${config.bg}`}>
+            {config.label}
+        </span>
+    );
+};
 
 const formatCurrency = (value: number): string => {
     if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
@@ -120,8 +134,20 @@ const EstimationView: React.FC<EstimationViewProps> = ({
             const items = [...cat.items];
             const item = { ...items[editingCell.itemIndex] };
 
-            item[editingCell.field] = newValue;
-            item.amount = item.quantity * item.unitRate;
+            if (editingCell.field === 'quantity') {
+                item.quantity = newValue;
+            } else {
+                // unitRate: wrap as manual AuditablePrice
+                item.unitRate = {
+                    value: newValue,
+                    source: 'manual',
+                    confidence: 100,
+                    sourceDetail: 'Manual override',
+                };
+                item.source = 'manual';
+            }
+            const rate = typeof item.unitRate === 'number' ? item.unitRate : item.unitRate.value;
+            item.amount = item.quantity * rate;
             item.isAdjusted = true;
             items[editingCell.itemIndex] = item;
             cat.items = items;
@@ -305,14 +331,19 @@ const EstimationView: React.FC<EstimationViewProps> = ({
                                             <thead className={`font-bold uppercase tracking-wider text-[10px] border-b ${isDarkMode ? 'bg-white/[0.02] text-zinc-600 border-white/5' : 'bg-slate-50/50 text-[#808191] border-slate-100'}`}>
                                                 <tr>
                                                     <th className="px-5 py-3">Description</th>
-                                                    <th className="px-5 py-3 text-right w-20">Unit</th>
-                                                    <th className="px-5 py-3 text-right w-24">Qty</th>
+                                                    <th className="px-5 py-3 text-right w-16">Unit</th>
+                                                    <th className="px-5 py-3 text-right w-20">Qty</th>
                                                     <th className="px-5 py-3 text-right w-28">Rate</th>
-                                                    <th className="px-5 py-3 text-right w-32">Amount</th>
+                                                    <th className="px-5 py-3 text-right w-28">Amount</th>
+                                                    <th className="px-5 py-3 text-center w-20">Source</th>
                                                 </tr>
                                             </thead>
                                             <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-50'}`}>
-                                                {category.items.map((item, idx) => (
+                                                {category.items.map((item, idx) => {
+                                                    const rateVal = lineItemRate(item);
+                                                    const rateSrc = typeof item.unitRate === 'object' ? item.unitRate.source : 'ai_estimate';
+                                                    const rateDetail = typeof item.unitRate === 'object' ? item.unitRate.sourceDetail : undefined;
+                                                    return (
                                                     <tr key={idx} className={`group ${item.isAdjusted ? (isDarkMode ? 'bg-[#6C5DD3]/5' : 'bg-[#6C5DD3]/[0.02]') : ''} ${isDarkMode ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-50/70'}`}>
                                                         <td className={`px-5 py-3 ${isDarkMode ? 'text-zinc-300' : 'text-[#1B1D21]'}`}>
                                                             <div className="flex items-center gap-2">
@@ -365,10 +396,11 @@ const EstimationView: React.FC<EstimationViewProps> = ({
                                                                 </div>
                                                             ) : (
                                                                 <span
-                                                                    onClick={() => startEditing(config.key, idx, 'unitRate', item.unitRate)}
+                                                                    onClick={() => startEditing(config.key, idx, 'unitRate', rateVal)}
                                                                     className={`cursor-pointer group-hover:text-[#6C5DD3] transition-colors font-mono text-xs inline-flex items-center gap-1 ${isDarkMode ? 'text-zinc-300' : 'text-[#1B1D21]'}`}
+                                                                    title={rateDetail || undefined}
                                                                 >
-                                                                    ${item.unitRate.toLocaleString()}
+                                                                    ${rateVal.toLocaleString()}
                                                                     <Edit3 className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" />
                                                                 </span>
                                                             )}
@@ -377,8 +409,13 @@ const EstimationView: React.FC<EstimationViewProps> = ({
                                                         <td className={`px-5 py-3 text-right font-mono font-bold text-xs ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
                                                             {formatFullCurrency(item.amount)}
                                                         </td>
+
+                                                        <td className="px-5 py-3 text-center">
+                                                            <EstSourceBadge source={rateSrc} />
+                                                        </td>
                                                     </tr>
-                                                ))}
+                                                    );
+                                                })}
                                             </tbody>
                                         </table>
                                     </div>

@@ -27,7 +27,8 @@ import {
   Phone,
   Calculator
 } from 'lucide-react';
-import { DealDossier, MarketSignal } from '../types';
+import { DealDossier, MarketSignal, AuditablePrice } from '../types';
+import { priceValue, priceSource, priceConfidence } from '../utils/normalizeDossier';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface LeadsViewProps {
@@ -44,6 +45,22 @@ const SkeletonPulse: React.FC<{ className?: string }> = ({ className }) => {
   const { isDarkMode } = useTheme();
   return (
     <div className={`animate-pulse rounded-md ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'} ${className}`} />
+  );
+};
+
+const SourceBadge: React.FC<{ source: string; confidence?: number }> = ({ source, confidence }) => {
+  const config = source === 'catalog'
+    ? { label: 'CATALOG', bg: 'bg-green-500/10 text-green-600 border-green-500/20' }
+    : source === 'rate_card'
+      ? { label: 'RATE CARD', bg: 'bg-blue-500/10 text-blue-600 border-blue-500/20' }
+      : source === 'manual'
+        ? { label: 'MANUAL', bg: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20' }
+        : { label: 'AI EST.', bg: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' };
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${config.bg}`} title={confidence ? `${confidence}% confidence` : undefined}>
+      {config.label}
+    </span>
   );
 };
 
@@ -147,9 +164,17 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
             Est. Opportunity
           </div>
           {dossier ? (
-            <div className={`text-4xl font-mono font-bold flex items-center justify-end animate-in fade-in zoom-in-95 ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
-              <span className="text-[#6C5DD3] mr-1">$</span>
-              {(dossier.pricingStrategy.estimatedValue / 1000).toFixed(0)}k
+            <div className="animate-in fade-in zoom-in-95">
+              <div className={`text-4xl font-mono font-bold flex items-center justify-end ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
+                <span className="text-[#6C5DD3] mr-1">$</span>
+                {(priceValue(dossier.pricingStrategy.estimatedValue) / 1000).toFixed(0)}k
+              </div>
+              <div className="mt-1 flex justify-end">
+                <SourceBadge
+                  source={priceSource(dossier.pricingStrategy.estimatedValue)}
+                  confidence={priceConfidence(dossier.pricingStrategy.estimatedValue)}
+                />
+              </div>
             </div>
           ) : <SkeletonPulse className="w-32 h-10 ml-auto" />}
         </div>
@@ -189,26 +214,79 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
               <table className="w-full text-left text-sm">
                 <thead className={`font-bold uppercase tracking-wider text-[10px] border-b ${isDarkMode ? 'bg-white/5 text-zinc-500 border-white/5' : 'bg-slate-50/50 text-[#808191] border-slate-100'}`}>
                   <tr>
-                    <th className="px-6 py-4">SKU</th>
-                    <th className="px-6 py-4">Description</th>
-                    <th className="px-6 py-4 text-right">Qty</th>
+                    <th className="px-5 py-4">SKU</th>
+                    <th className="px-5 py-4">Description</th>
+                    <th className="px-5 py-4 text-right">Qty</th>
+                    <th className="px-5 py-4 text-right">Unit Price</th>
+                    <th className="px-5 py-4 text-right">Line Total</th>
+                    <th className="px-5 py-4 text-center">Source</th>
                   </tr>
                 </thead>
                 <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-100'}`}>
-                  {dossier ? dossier.recommendedBundle.map((item, i) => (
-                    <tr key={i} className={`animate-in fade-in slide-in-from-left-2 duration-300 ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`} style={{ animationDelay: `${i * 100}ms` }}>
-                      <td className="px-6 py-4 font-mono text-[#6C5DD3] font-bold text-xs">{item.sku}</td>
-                      <td className={`px-6 py-4 ${isDarkMode ? 'text-zinc-300' : 'text-[#1B1D21]'}`}>{item.description}</td>
-                      <td className={`px-6 py-4 text-right font-bold ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>{item.quantity}</td>
-                    </tr>
-                  )) : Array.from({ length: 3 }).map((_, i) => (
+                  {dossier ? dossier.recommendedBundle.map((item, i) => {
+                    const up = priceValue(item.unitPrice);
+                    const lt = item.lineTotal ?? (item.quantity * up);
+                    const src = priceSource(item.unitPrice);
+                    const conf = priceConfidence(item.unitPrice);
+                    return (
+                      <tr key={i} className={`animate-in fade-in slide-in-from-left-2 duration-300 ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`} style={{ animationDelay: `${i * 100}ms` }}>
+                        <td className="px-5 py-4 font-mono text-[#6C5DD3] font-bold text-xs">{item.sku}</td>
+                        <td className={`px-5 py-4 ${isDarkMode ? 'text-zinc-300' : 'text-[#1B1D21]'}`}>{item.description}</td>
+                        <td className={`px-5 py-4 text-right font-bold ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>{item.quantity}</td>
+                        <td className={`px-5 py-4 text-right font-mono text-xs ${isDarkMode ? 'text-zinc-300' : 'text-[#1B1D21]'}`}>
+                          {up > 0 ? `$${up.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
+                        </td>
+                        <td className={`px-5 py-4 text-right font-mono font-bold text-xs ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
+                          {lt > 0 ? `$${lt.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
+                        </td>
+                        <td className="px-5 py-4 text-center">
+                          {up > 0 ? <SourceBadge source={src} confidence={conf} /> : null}
+                        </td>
+                      </tr>
+                    );
+                  }) : Array.from({ length: 3 }).map((_, i) => (
                     <tr key={i}>
-                      <td className="px-6 py-4"><SkeletonPulse className="w-16 h-4" /></td>
-                      <td className="px-6 py-4"><SkeletonPulse className="w-48 h-4" /></td>
-                      <td className="px-6 py-4 text-right"><SkeletonPulse className="w-8 h-4 ml-auto" /></td>
+                      <td className="px-5 py-4"><SkeletonPulse className="w-16 h-4" /></td>
+                      <td className="px-5 py-4"><SkeletonPulse className="w-48 h-4" /></td>
+                      <td className="px-5 py-4 text-right"><SkeletonPulse className="w-8 h-4 ml-auto" /></td>
+                      <td className="px-5 py-4 text-right"><SkeletonPulse className="w-16 h-4 ml-auto" /></td>
+                      <td className="px-5 py-4 text-right"><SkeletonPulse className="w-16 h-4 ml-auto" /></td>
+                      <td className="px-5 py-4"><SkeletonPulse className="w-12 h-4 mx-auto" /></td>
                     </tr>
                   ))}
                 </tbody>
+                {/* Bundle Summary Footer */}
+                {dossier && dossier.recommendedBundle.some(b => priceValue(b.unitPrice) > 0) && (
+                  <tfoot className={`border-t ${isDarkMode ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50/30'}`}>
+                    <tr>
+                      <td colSpan={4} className={`px-5 py-3 text-right text-xs font-semibold ${isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}`}>Subtotal</td>
+                      <td className={`px-5 py-3 text-right font-mono font-bold text-xs ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
+                        ${dossier.recommendedBundle.reduce((sum, b) => sum + (b.lineTotal ?? (b.quantity * priceValue(b.unitPrice))), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                      <td />
+                    </tr>
+                    {priceValue(dossier.pricingStrategy.discount) > 0 && (
+                      <tr>
+                        <td colSpan={4} className={`px-5 py-3 text-right text-xs font-semibold ${isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}`}>
+                          Discount ({priceValue(dossier.pricingStrategy.discount)}%)
+                        </td>
+                        <td className="px-5 py-3 text-right font-mono font-bold text-xs text-red-400">
+                          -${(dossier.recommendedBundle.reduce((sum, b) => sum + (b.lineTotal ?? (b.quantity * priceValue(b.unitPrice))), 0) * priceValue(dossier.pricingStrategy.discount) / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
+                        <td />
+                      </tr>
+                    )}
+                    <tr className={`border-t ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}>
+                      <td colSpan={4} className={`px-5 py-3 text-right text-xs font-bold ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>Estimated Value</td>
+                      <td className="px-5 py-3 text-right font-mono font-bold text-sm text-[#6C5DD3]">
+                        ${priceValue(dossier.pricingStrategy.estimatedValue).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-5 py-3 text-center">
+                        <SourceBadge source={priceSource(dossier.pricingStrategy.estimatedValue)} confidence={priceConfidence(dossier.pricingStrategy.estimatedValue)} />
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </section>
@@ -224,10 +302,18 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
                 <div className="flex-1">
                   <div className={`text-xs font-semibold mb-1 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Strategy Logic</div>
                   <div className={`text-sm leading-relaxed font-medium ${isDarkMode ? 'text-zinc-300' : 'text-[#1B1D21]'}`}>{dossier.pricingStrategy.logic}</div>
+                  {dossier.pricingStrategy.derivation && (
+                    <div className="mt-2">
+                      <SourceBadge source={dossier.pricingStrategy.derivation === 'catalog_sum' ? 'catalog' : dossier.pricingStrategy.derivation === 'hybrid' ? 'catalog' : 'ai_estimate'} />
+                      <span className={`ml-2 text-[10px] ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
+                        {dossier.pricingStrategy.derivation === 'catalog_sum' ? 'Based on catalog pricing' : dossier.pricingStrategy.derivation === 'hybrid' ? 'Partially catalog-based' : 'AI estimate — set up your product catalog for accurate pricing'}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className={`flex-shrink-0 text-right border-l pl-8 ${isDarkMode ? 'border-white/10' : 'border-slate-100'}`}>
                   <div className={`text-xs font-semibold mb-1 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Max Discount</div>
-                  <div className="text-[#6C5DD3] text-3xl font-bold">{dossier.pricingStrategy.discount}%</div>
+                  <div className="text-[#6C5DD3] text-3xl font-bold">{priceValue(dossier.pricingStrategy.discount)}%</div>
                 </div>
               </div>
             ) : (

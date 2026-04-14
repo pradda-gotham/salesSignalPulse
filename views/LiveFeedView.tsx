@@ -52,11 +52,11 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
             i++;
          } else {
             const randomLogs = [
-               "No signals detected in mining sector. Continuing scan...",
-               "Minor event detected. Confidence below threshold.",
-               "Verifying project award in Pilbara region...",
+               `No signals detected in ${profile.industry} sector. Continuing scan...`,
+               "Minor event detected. Confidence below threshold. Ignoring...",
+               `Verifying intent in ${profile.geography[0] || 'active'} region...`,
                "Scanning new government tender portal updates...",
-               "Analyzing latest ASX-200 corporate filings...",
+               "Analyzing latest corporate filings and PR feeds...",
             ];
             const randomMsg = randomLogs[Math.floor(Math.random() * randomLogs.length)];
             setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${randomMsg}`].slice(-10));

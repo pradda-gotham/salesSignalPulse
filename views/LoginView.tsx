@@ -109,7 +109,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                     {/* Tagline */}
                     <p style={styles.heroSubtitle}>
                         Detect buyer signals in real-time.<br />
-                        Get AI-powered deal dossiers and<br />
+                        Get Leadpulse-powered deal dossiers and<br />
                         close more deals with less effort!
                     </p>
                 </div>

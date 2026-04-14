@@ -13,7 +13,8 @@ import {
   Moon,
   Radar,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  Package
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -31,6 +32,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, onLog
 
   const navItems = [
     { id: 'setup', label: 'Setup', icon: Activity },
+    { id: 'catalog', label: 'Catalog', icon: Package },
     { id: 'live-hunt', label: 'Live Hunt', icon: Radar },
     { id: 'signals', label: 'Signals', icon: Zap },
     { id: 'leads', label: 'Leads', icon: Target },

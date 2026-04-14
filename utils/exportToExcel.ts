@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { MarketSignal, DealDossier } from '../types';
+import { priceValue, priceSource } from './normalizeDossier';
 
 /**
  * Export hunt signals to an Excel file.
@@ -38,10 +39,13 @@ export function exportSignalsToExcel(
             contactDetails = signal.decisionMaker;
         }
 
-        // Format opportunity size
+        // Format opportunity size with provenance
         let opportunitySize = '';
         if (dossier?.pricingStrategy?.estimatedValue !== undefined && dossier.pricingStrategy.estimatedValue !== null) {
-            opportunitySize = `$${dossier.pricingStrategy.estimatedValue.toLocaleString()}`;
+            const val = priceValue(dossier.pricingStrategy.estimatedValue);
+            const src = priceSource(dossier.pricingStrategy.estimatedValue);
+            const srcLabel = src === 'catalog' ? 'catalog-based' : src === 'rate_card' ? 'rate-card-based' : src === 'manual' ? 'manual' : 'AI estimate';
+            opportunitySize = `$${val.toLocaleString()} (${srcLabel})`;
         }
 
         // Format date
