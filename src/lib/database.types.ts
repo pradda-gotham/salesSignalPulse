@@ -53,6 +53,47 @@ export type Database = {
           },
         ]
       }
+      estimate_audit_log: {
+        Row: {
+          changed_at: string | null
+          changed_by: string | null
+          dossier_id: string
+          field_path: string
+          id: string
+          new_value: Json
+          org_id: string
+          previous_value: Json
+        }
+        Insert: {
+          changed_at?: string | null
+          changed_by?: string | null
+          dossier_id: string
+          field_path: string
+          id?: string
+          new_value: Json
+          org_id: string
+          previous_value: Json
+        }
+        Update: {
+          changed_at?: string | null
+          changed_by?: string | null
+          dossier_id?: string
+          field_path?: string
+          id?: string
+          new_value?: Json
+          org_id?: string
+          previous_value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimate_audit_log_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hunt_logs: {
         Row: {
           completed_at: string | null
@@ -127,6 +168,106 @@ export type Database = {
           website_url?: string | null
         }
         Relationships: []
+      }
+      product_catalog: {
+        Row: {
+          category: string
+          cost_basis: number | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          org_id: string
+          sku: string
+          unit: string
+          unit_price: number
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          cost_basis?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          org_id: string
+          sku: string
+          unit?: string
+          unit_price: number
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          cost_basis?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          org_id?: string
+          sku?: string
+          unit?: string
+          unit_price?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_catalog_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rate_cards: {
+        Row: {
+          category: string
+          created_at: string | null
+          default_rate: number
+          description: string
+          id: string
+          is_active: boolean | null
+          org_id: string
+          region: string | null
+          unit: string
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          default_rate: number
+          description: string
+          id?: string
+          is_active?: boolean | null
+          org_id: string
+          region?: string | null
+          unit: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          default_rate?: number
+          description?: string
+          id?: string
+          is_active?: boolean | null
+          org_id?: string
+          region?: string | null
+          unit?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rate_cards_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       signals: {
         Row: {
