@@ -277,7 +277,7 @@ const SetupView: React.FC<SetupViewProps> = ({
                         </span>
                       </td>
                       <td className="px-6 py-5 text-right align-top">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-2 transition-opacity">
                           <button
                             onClick={async () => {
                               if (onScanWebsite) {
@@ -378,7 +378,7 @@ const SetupView: React.FC<SetupViewProps> = ({
                       )}
                     </td>
                     <td className="px-6 py-5 text-right align-top">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-2 transition-opacity">
                         {/* Show Activate button only for AI Generated triggers */}
                         {t.triggerType === 'ai_generated' && onActivateTrigger && (
                           <button

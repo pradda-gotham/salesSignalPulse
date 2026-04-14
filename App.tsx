@@ -135,14 +135,8 @@ const AppContent: React.FC = () => {
 
   // Sync DB data to local state
   useEffect(() => {
-    if (dbTriggers.length > 0) {
-      console.log('[APP] Syncing triggers from DB:', dbTriggers.length);
-      setActiveTriggers(dbTriggers);
-    } // No state for tracked websites needed in App, we just pass down
-    if (dbSignals.length > 0) {
-      console.log('[APP] Syncing signals from DB:', dbSignals.length);
-      setSignals(dbSignals);
-    }
+    setActiveTriggers(dbTriggers);
+    setSignals(dbSignals);
   }, [dbTriggers, dbSignals]);
 
   // Load business profile from Supabase when organization is available
