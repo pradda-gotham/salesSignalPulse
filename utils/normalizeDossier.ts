@@ -96,6 +96,33 @@ export function normalizeDossier(raw: any): DealDossier {
   // Ensure pricingStrategy exists
   if (!raw.pricingStrategy) {
     raw.pricingStrategy = { logic: '', discount: 0, estimatedValue: 0 };
+  } else {
+    // FIX: AI occasionally hallucinates an absolute scalar discount dollar amount instead of a percentage %
+    // If the discount value is absurdly large (e.g. > 100), convert it properly before UI tries to render it.
+    let currentDiscount = 0;
+    if (typeof raw.pricingStrategy.discount === 'number') {
+      currentDiscount = raw.pricingStrategy.discount;
+    } else if (raw.pricingStrategy.discount?.value) {
+      currentDiscount = raw.pricingStrategy.discount.value;
+    }
+
+    if (currentDiscount > 100) {
+      const subtotal = raw.recommendedBundle?.reduce((s: number, b: any) => s + (b.lineTotal || 0), 0) || 0;
+      const truePercent = subtotal > 0 ? (currentDiscount / subtotal) * 100 : 0;
+      const trueEst = subtotal - currentDiscount;
+
+      if (typeof raw.pricingStrategy.discount === 'number') {
+        raw.pricingStrategy.discount = truePercent;
+      } else if (raw.pricingStrategy.discount && raw.pricingStrategy.discount.value !== undefined) {
+        raw.pricingStrategy.discount.value = truePercent;
+      }
+
+      if (typeof raw.pricingStrategy.estimatedValue === 'number') {
+        raw.pricingStrategy.estimatedValue = trueEst;
+      } else if (raw.pricingStrategy.estimatedValue && raw.pricingStrategy.estimatedValue.value !== undefined) {
+        raw.pricingStrategy.estimatedValue.value = trueEst;
+      }
+    }
   }
 
   return raw as DealDossier;

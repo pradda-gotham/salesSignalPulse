@@ -93,6 +93,59 @@ export interface EnrichedCompany {
   source: 'apollo';
 }
 
+// ============ GLASS BOX AI — PROJECT INTELLIGENCE ============
+
+export interface ScaleMetric {
+  metric: string;           // "beds", "floors", "employees", "doors", "sq_meters"
+  value: number;
+  unit: string;             // "beds", "m²", "staff", "units"
+  source: string;           // "Article states 20 new aged care beds"
+  confidence: 'high' | 'medium' | 'low';
+}
+
+export interface ProjectIntelligence {
+  industry: string;
+  projectType: string;
+  scaleMetrics: ScaleMetric[];
+  timeline?: string;
+  location?: string;
+  totalBudget?: { value: number; currency: string; source: string };
+  keyEntities: string[];    // Companies, organizations mentioned
+  extractedAt: string;
+}
+
+// Per-line-item derivation explaining HOW quantity was calculated
+export interface LineItemDerivation {
+  formula: string;                   // "beds × handles_per_door"
+  inputs: Record<string, {
+    label: string;
+    value: number;
+    source: 'signal' | 'catalog' | 'industry_standard' | 'company_rule' | 'ai_inference';
+  }>;
+  result: number;                    // The computed quantity
+  reasoning: string;                 // Human-readable: "20 beds × 1 entry door × 1 handle = 20"
+  confidence: 'high' | 'medium' | 'low';
+}
+
+// Full audit trail for the entire estimation
+export interface EstimationAuditTrail {
+  projectIntelligence: ProjectIntelligence;
+  bundleDerivation: Array<{
+    sku: string;
+    description: string;
+    quantity: number;
+    derivation: LineItemDerivation;
+    unitPrice: AuditablePrice;
+    lineTotal: number;
+  }>;
+  subtotal: number;
+  discount: { percent: number; reasoning: string };
+  estimatedValue: number;
+  assumptions: Array<{ category: string; statement: string; confidence: 'high' | 'medium' | 'low' }>;
+  sourceBreakdown: { catalogPercent: number; rateCardPercent: number; aiEstimatePercent: number };
+  generatedAt: string;
+}
+
 export interface DealDossier {
   id: string;
   signalId: string;
@@ -106,6 +159,7 @@ export interface DealDossier {
     catalogItemId?: string;
     unitPrice?: number | AuditablePrice;
     lineTotal?: number;
+    derivation?: LineItemDerivation;  // Glass Box: why this quantity
   }[];
   pricingStrategy: {
     logic: string;
@@ -128,6 +182,9 @@ export interface DealDossier {
   enrichedContacts?: EnrichedContact[];
   enrichedCompany?: EnrichedCompany;
   isEnriched?: boolean;
+  // Glass Box AI
+  projectIntelligence?: ProjectIntelligence;
+  auditTrail?: EstimationAuditTrail;
   // Cost estimation
   estimation?: CostEstimation;
 }

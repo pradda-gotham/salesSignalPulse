@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ArrowLeft,
   FileText,
@@ -25,11 +25,12 @@ import {
   CheckCircle2,
   Mail,
   Phone,
-  Calculator
+  Info
 } from 'lucide-react';
 import { DealDossier, MarketSignal, AuditablePrice } from '../types';
 import { priceValue, priceSource, priceConfidence } from '../utils/normalizeDossier';
 import { useTheme } from '../contexts/ThemeContext';
+import EstimationBreakdownModal from '../components/EstimationBreakdownModal';
 
 interface LeadsViewProps {
   signal: MarketSignal | null;
@@ -38,7 +39,6 @@ interface LeadsViewProps {
   error?: string | null;
   onRetry: () => void;
   onBack: () => void;
-  onEstimate?: () => void;
 }
 
 const SkeletonPulse: React.FC<{ className?: string }> = ({ className }) => {
@@ -64,8 +64,10 @@ const SourceBadge: React.FC<{ source: string; confidence?: number }> = ({ source
   );
 };
 
-const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error, onRetry, onBack, onEstimate }) => {
+const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error, onRetry, onBack }) => {
   const { isDarkMode } = useTheme();
+  const [showBreakdown, setShowBreakdown] = useState(false);
+  const hasAuditTrail = !!(dossier?.auditTrail);
 
   if (error) {
     return (
@@ -164,16 +166,95 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
             Est. Opportunity
           </div>
           {dossier ? (
-            <div className="animate-in fade-in zoom-in-95">
-              <div className={`text-4xl font-mono font-bold flex items-center justify-end ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
-                <span className="text-[#6C5DD3] mr-1">$</span>
-                {(priceValue(dossier.pricingStrategy.estimatedValue) / 1000).toFixed(0)}k
+            <div className="group relative inline-block">
+              <div
+                className={`animate-in fade-in zoom-in-95 flex flex-col items-end group-hover:opacity-80 transition-opacity ${hasAuditTrail ? 'cursor-pointer' : 'cursor-help'}`}
+                onClick={hasAuditTrail ? () => setShowBreakdown(true) : undefined}
+              >
+                <div className={`text-4xl font-mono font-bold flex items-center justify-end ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
+                  <span className="text-[#6C5DD3] mr-1">$</span>
+                  {(priceValue(dossier.pricingStrategy.estimatedValue) / 1000).toFixed(0)}k
+                </div>
+                <div className="mt-1 flex items-center gap-2 justify-end">
+                  <SourceBadge
+                    source={priceSource(dossier.pricingStrategy.estimatedValue)}
+                    confidence={priceConfidence(dossier.pricingStrategy.estimatedValue)}
+                  />
+                  {hasAuditTrail && (
+                    <span className={`flex items-center gap-1 text-[9px] font-bold text-[#6C5DD3] hover:underline`}>
+                      <Info className="w-3 h-3" /> View Breakdown
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="mt-1 flex justify-end">
-                <SourceBadge
-                  source={priceSource(dossier.pricingStrategy.estimatedValue)}
-                  confidence={priceConfidence(dossier.pricingStrategy.estimatedValue)}
-                />
+
+              {/* Advanced Calculation Popover */}
+              <div className={`absolute top-full right-0 mt-4 hidden group-hover:block w-[400px] z-50 p-6 rounded-2xl border shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 text-left ${isDarkMode ? 'bg-[#141414]/95 border-white/10' : 'bg-white/95 border-slate-200'}`}>
+                <div className="text-[10px] font-black uppercase text-[#6C5DD3] mb-1 tracking-widest">
+                  Process Transparency
+                </div>
+                <h4 className={`text-sm font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
+                  Bottom-Up AI Scope Modeling
+                </h4>
+
+                {/* Scope Definition */}
+                <div className="space-y-4">
+                  <div>
+                    <p className={`text-xs italic leading-relaxed ${isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}`}>
+                      Leadpulse bypassed gross project values to synthesize a purely addressable Component Bill of Materials using explicit project assumptions derived from the signal footprint.
+                    </p>
+                  </div>
+
+                  {dossier.assumptions?.length > 0 && (
+                    <div className={`p-3 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                      <div className={`text-[9px] font-bold uppercase tracking-widest mb-2 ${isDarkMode ? 'text-zinc-500' : 'text-slate-400'}`}>Driven by Context</div>
+                      <ul className="space-y-1.5">
+                        {dossier.assumptions.slice(0, 2).map((asm, idx) => (
+                          <li key={idx} className={`text-xs flex gap-2 ${isDarkMode ? 'text-zinc-300' : 'text-[#1B1D21]'}`}>
+                            <span className="text-[#6C5DD3] font-bold mt-0.5">•</span>
+                            <span className="leading-relaxed">{asm}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Math Breakdown */}
+                  <div className={`border-t pt-4 ${isDarkMode ? 'border-white/10' : 'border-slate-100'}`}>
+                    {/* Reconstruct the Subtotal from the bundle to show exactly how it reached the math */}
+                    {(() => {
+                      const subtotal = dossier.recommendedBundle.reduce((sum, b) => sum + (b.lineTotal ?? (b.quantity * priceValue(b.unitPrice))), 0);
+                      const discountPct = priceValue(dossier.pricingStrategy.discount);
+                      const discountAmt = subtotal * (discountPct / 100);
+                      const finalValue = priceValue(dossier.pricingStrategy.estimatedValue);
+                      
+                      return (
+                        <div className="space-y-2.5 font-mono text-xs">
+                          <div className="flex justify-between items-center">
+                            <span className={isDarkMode ? 'text-zinc-400' : 'text-slate-500'}>Catalog Match Value:</span>
+                            <span className={`font-bold ${isDarkMode ? 'text-zinc-300' : 'text-slate-700'}`}>${subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                          
+                          {discountPct > 0 && (
+                            <div className="flex justify-between items-start text-red-500/80 gap-4">
+                              <span className="flex-1 text-[11px] leading-tight" title={dossier.pricingStrategy.logic}>Applied Strategy ({discountPct.toFixed(2)}%)<br/><span className="text-[9px] italic opacity-70 block mt-0.5 truncate">{dossier.pricingStrategy.logic}</span></span>
+                              <span className="font-bold">-${discountAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                          )}
+                          
+                          <div className={`h-px my-3 ${isDarkMode ? 'bg-white/10' : 'bg-slate-100'}`} />
+                          
+                          <div className="flex justify-between items-center">
+                            <span className={`font-sans text-[10px] uppercase font-black tracking-widest ${isDarkMode ? 'text-zinc-500' : 'text-slate-400'}`}>Net Addressable</span>
+                            <span className={`text-[15px] font-bold text-[#6C5DD3]`}>
+                              ${finalValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
               </div>
             </div>
           ) : <SkeletonPulse className="w-32 h-10 ml-auto" />}
@@ -268,7 +349,7 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
                     {priceValue(dossier.pricingStrategy.discount) > 0 && (
                       <tr>
                         <td colSpan={4} className={`px-5 py-3 text-right text-xs font-semibold ${isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}`}>
-                          Discount ({priceValue(dossier.pricingStrategy.discount)}%)
+                          Discount ({priceValue(dossier.pricingStrategy.discount).toFixed(2)}%)
                         </td>
                         <td className="px-5 py-3 text-right font-mono font-bold text-xs text-red-400">
                           -${(dossier.recommendedBundle.reduce((sum, b) => sum + (b.lineTotal ?? (b.quantity * priceValue(b.unitPrice))), 0) * priceValue(dossier.pricingStrategy.discount) / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -288,6 +369,22 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
                   </tfoot>
                 )}
               </table>
+              {/* Glass Box CTA */}
+              {hasAuditTrail && (
+                <div className={`px-5 py-3 flex items-center justify-between border-t ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
+                  <div className={`flex items-center gap-2 text-[10px] ${isDarkMode ? 'text-zinc-600' : 'text-[#aaa]'}`}>
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#6C5DD3]" />
+                    Glass Box AI — All math computed deterministically
+                  </div>
+                  <button
+                    onClick={() => setShowBreakdown(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-[#6C5DD3] bg-[#6C5DD3]/10 hover:bg-[#6C5DD3]/20 border border-[#6C5DD3]/20 transition-all"
+                  >
+                    <Info className="w-3 h-3" />
+                    How did we calculate this?
+                  </button>
+                </div>
+              )}
             </div>
           </section>
 
@@ -313,7 +410,7 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
                 </div>
                 <div className={`flex-shrink-0 text-right border-l pl-8 ${isDarkMode ? 'border-white/10' : 'border-slate-100'}`}>
                   <div className={`text-xs font-semibold mb-1 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Max Discount</div>
-                  <div className="text-[#6C5DD3] text-3xl font-bold">{priceValue(dossier.pricingStrategy.discount)}%</div>
+                  <div className="text-[#6C5DD3] text-3xl font-bold">{priceValue(dossier.pricingStrategy.discount).toFixed(2)}%</div>
                 </div>
               </div>
             ) : (
@@ -491,16 +588,7 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
             {dossier ? 'Action Ready' : 'Processing...'}
           </div>
 
-          <button
-            disabled={!dossier}
-            onClick={onEstimate}
-            className={`px-5 py-2.5 rounded-full text-xs font-bold border transition-all flex items-center gap-2 ${isDarkMode
-              ? 'border-white/10 hover:bg-white/5 text-white disabled:opacity-50'
-              : 'border-slate-200 hover:bg-slate-50 text-[#1B1D21] disabled:opacity-50'
-              }`}
-          >
-            <Calculator className="w-3.5 h-3.5" /> Estimate Costs
-          </button>
+
 
           <button
             disabled={!dossier}
@@ -520,6 +608,15 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
           </button>
         </div>
       </div>
+
+      {/* Glass Box Estimation Breakdown Modal */}
+      {showBreakdown && dossier?.auditTrail && (
+        <EstimationBreakdownModal
+          auditTrail={dossier.auditTrail}
+          estimatedValue={dossier.pricingStrategy.estimatedValue}
+          onClose={() => setShowBreakdown(false)}
+        />
+      )}
 
     </div>
   );

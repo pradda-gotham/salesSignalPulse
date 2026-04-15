@@ -732,7 +732,6 @@ const AppContent: React.FC = () => {
             error={dossierError}
             onRetry={() => selectedSignal && handleViewDossier(selectedSignal)}
             onBack={handleBackToSignals}
-            onEstimate={handleGenerateEstimation}
           />
         );
       case 'estimation':

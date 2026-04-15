@@ -293,7 +293,7 @@ const EstimationView: React.FC<EstimationViewProps> = ({
                     {CATEGORY_CONFIG.map((config) => {
                         const category = estimation[config.key];
                         const isExpanded = expandedCategories.has(config.key);
-                        const percentage = computedTotals.grand > 0 ? ((category.total / computedTotals.grand) * 100).toFixed(1) : '0';
+                        const percentage = computedTotals.grand > 0 ? ((category.total / computedTotals.grand) * 100).toFixed(2) : '0.00';
 
                         return (
                             <section key={config.key} className={`rounded-2xl border overflow-hidden shadow-sm transition-all ${isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-slate-200/60'}`}>
@@ -472,7 +472,7 @@ const EstimationView: React.FC<EstimationViewProps> = ({
                         <div className="space-y-2 mt-2">
                             {CATEGORY_CONFIG.map(c => {
                                 const cat = estimation[c.key];
-                                const pct = computedTotals.grand > 0 ? ((cat.total / computedTotals.grand) * 100).toFixed(1) : '0';
+                                const pct = computedTotals.grand > 0 ? ((cat.total / computedTotals.grand) * 100).toFixed(2) : '0.00';
                                 return (
                                     <div key={c.key} className="flex items-center justify-between text-xs">
                                         <div className="flex items-center gap-2">

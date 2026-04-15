@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { BusinessProfile, SalesTrigger, MarketSignal, SignalUrgency, SignalConfidence, DealDossier, EnrichedContact, EnrichedCompany, CostEstimation, CostCategory, TrackedWebsite, ProductCatalogItem, RateCardEntry, AuditablePrice } from "../types";
+import { BusinessProfile, SalesTrigger, MarketSignal, SignalUrgency, SignalConfidence, DealDossier, EnrichedContact, EnrichedCompany, CostEstimation, CostCategory, TrackedWebsite, ProductCatalogItem, RateCardEntry, AuditablePrice, ProjectIntelligence, ScaleMetric, LineItemDerivation, EstimationAuditTrail } from "../types";
 import { apolloService } from "./apolloService";
 
 const getAI = () => {
@@ -159,6 +159,72 @@ async function verifySignalSource(headline: string, companyName: string): Promis
       return "unverified";
     }
   });
+}
+
+// Legacy bundle processing (used when no catalog or when Glass Box Stage 2 fails)
+function legacyProcessBundle(
+  data: any,
+  catalogMap: Map<string, ProductCatalogItem>,
+  hasCatalog: boolean
+): { bundle: DealDossier['recommendedBundle']; pricingStrategy: DealDossier['pricingStrategy'] } {
+  const processedBundle = (data.recommendedBundle || []).map((item: any) => {
+    const catalogMatch = catalogMap.get((item.sku || '').toLowerCase());
+    let unitPrice: AuditablePrice;
+    let catalogItemId: string | undefined;
+
+    if (catalogMatch) {
+      unitPrice = {
+        value: catalogMatch.unitPrice,
+        source: 'catalog',
+        confidence: 100,
+        sourceDetail: `Catalog SKU ${catalogMatch.sku} @ $${catalogMatch.unitPrice}/${catalogMatch.unit}`,
+      };
+      catalogItemId = catalogMatch.id;
+    } else {
+      unitPrice = {
+        value: item.unitPrice || 0,
+        source: 'ai_estimate',
+        confidence: 40,
+        sourceDetail: 'AI-generated estimate — no catalog match',
+      };
+    }
+
+    const lineTotal = item.quantity * unitPrice.value;
+    return { sku: item.sku, description: item.description, quantity: item.quantity, catalogItemId, unitPrice, lineTotal };
+  });
+
+  const bundleSubtotal = processedBundle.reduce((sum: number, b: any) => sum + (b.lineTotal || 0), 0);
+  const aiDiscount = data.pricingStrategy?.discount || 0;
+  const discountAmount = bundleSubtotal * (aiDiscount / 100);
+  const derivedEstimatedValue = bundleSubtotal - discountAmount;
+
+  const hasCatalogItems = processedBundle.some((b: any) => b.catalogItemId);
+  const derivation: 'catalog_sum' | 'ai_estimate' | 'hybrid' = hasCatalog
+    ? (hasCatalogItems ? (processedBundle.every((b: any) => b.catalogItemId) ? 'catalog_sum' : 'hybrid') : 'ai_estimate')
+    : 'ai_estimate';
+
+  const processedPricingStrategy = {
+    logic: data.pricingStrategy?.logic || '',
+    discount: {
+      value: aiDiscount,
+      source: 'ai_estimate' as const,
+      confidence: 40,
+      sourceDetail: 'AI-recommended discount percentage',
+    } as AuditablePrice,
+    estimatedValue: {
+      value: bundleSubtotal > 0 ? derivedEstimatedValue : (data.pricingStrategy?.estimatedValue || 0),
+      source: (derivation === 'catalog_sum' ? 'catalog' : derivation === 'hybrid' ? 'catalog' : 'ai_estimate') as AuditablePrice['source'],
+      confidence: derivation === 'catalog_sum' ? 95 : derivation === 'hybrid' ? 70 : 40,
+      sourceDetail: derivation === 'catalog_sum'
+        ? `Derived from catalog pricing: $${bundleSubtotal.toLocaleString()} - ${aiDiscount}% discount`
+        : derivation === 'hybrid'
+          ? `Partially catalog-based: $${bundleSubtotal.toLocaleString()} - ${aiDiscount}% discount`
+          : 'AI-generated estimate — configure product catalog for accurate pricing',
+    } as AuditablePrice,
+    derivation,
+  };
+
+  return { bundle: processedBundle, pricingStrategy: processedPricingStrategy };
 }
 
 export const geminiService = {
@@ -515,6 +581,203 @@ For each trigger, provide:
     });
   },
 
+  // ============ GLASS BOX STAGE 1: Extract Project Intelligence ============
+  async extractProjectIntelligence(signal: MarketSignal, profile: BusinessProfile): Promise<ProjectIntelligence> {
+    return withRetry(async () => {
+      const ai = getAI();
+      const prompt = `You are an expert business analyst. Analyze this news signal and extract structured project intelligence.
+
+NEWS/SIGNAL: "${signal.headline}"
+SUMMARY: ${signal.summary}
+SOURCE: ${signal.sourceUrl}
+REGION: ${signal.region}
+
+OUR COMPANY CONTEXT (for relevance):
+- Company: ${profile.name}
+- Industry: ${profile.industry}
+- Products: ${profile.products.join(', ')}
+
+TASK: Extract ALL quantifiable metrics that indicate the scale and scope of this project/opportunity. Look for:
+1. Physical quantities (beds, floors, units, rooms, sqm, hectares, seats, etc.)
+2. Financial indicators (project budget, contract value, funding amount)
+3. Headcount/capacity metrics (employees, users, attendees, patients)
+4. Timeline indicators (months, phases, completion dates)
+5. Any other measurable indicators of project scale
+
+For each metric, cite the EXACT source text from the article. If the article mentions a total project budget, extract it separately.
+
+Be thorough — extract EVERY quantifiable metric you can find. If a metric is implied rather than stated, mark confidence as "low".`;
+
+      const response = await withTimeout(
+        ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: prompt,
+          config: {
+            tools: [{ googleSearch: {} }],
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                industry: { type: Type.STRING },
+                projectType: { type: Type.STRING },
+                scaleMetrics: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      metric: { type: Type.STRING },
+                      value: { type: Type.NUMBER },
+                      unit: { type: Type.STRING },
+                      source: { type: Type.STRING },
+                      confidence: { type: Type.STRING, enum: ['high', 'medium', 'low'] }
+                    },
+                    required: ['metric', 'value', 'unit', 'source', 'confidence']
+                  }
+                },
+                timeline: { type: Type.STRING },
+                location: { type: Type.STRING },
+                totalBudget: {
+                  type: Type.OBJECT,
+                  properties: {
+                    value: { type: Type.NUMBER },
+                    currency: { type: Type.STRING },
+                    source: { type: Type.STRING }
+                  }
+                },
+                keyEntities: { type: Type.ARRAY, items: { type: Type.STRING } }
+              },
+              required: ['industry', 'projectType', 'scaleMetrics', 'keyEntities']
+            } as any
+          }
+        }),
+        30000
+      );
+
+      const data = JSON.parse(response.text || '{}');
+      console.log('[GLASS BOX] Stage 1 — Extracted project intelligence:', data.scaleMetrics?.length, 'metrics');
+
+      return {
+        ...data,
+        extractedAt: new Date().toISOString(),
+      } as ProjectIntelligence;
+    });
+  },
+
+  // ============ GLASS BOX STAGE 2: Generate BOM with Reasoning ============
+  async generateBOMWithReasoning(
+    signal: MarketSignal,
+    profile: BusinessProfile,
+    intelligence: ProjectIntelligence,
+    catalog: ProductCatalogItem[]
+  ): Promise<{
+    bundle: Array<{ sku: string; description: string; quantity: number; reasoning: string; formula: string; confidence: string; assumption: string }>;
+    discountPercent: number;
+    discountReasoning: string;
+    assumptions: Array<{ category: string; statement: string; confidence: string }>;
+  }> {
+    return withRetry(async () => {
+      const ai = getAI();
+
+      const metricsText = intelligence.scaleMetrics.map(m =>
+        `- ${m.metric}: ${m.value} ${m.unit} (${m.confidence} confidence) — "${m.source}"`
+      ).join('\n');
+
+      const budgetText = intelligence.totalBudget
+        ? `Total Project Budget: ${intelligence.totalBudget.currency} ${intelligence.totalBudget.value.toLocaleString()} (source: "${intelligence.totalBudget.source}")`
+        : 'Total Project Budget: Not specified in article';
+
+      const catalogText = catalog.length > 0
+        ? catalog.map(c => `SKU: ${c.sku} | ${c.name} | ${c.description} | $${c.unitPrice.toFixed(2)}/${c.unit} | Category: ${c.category}`).join('\n')
+        : 'No product catalog configured.';
+
+      const prompt = `You are an expert sales estimator. Given the project intelligence below, create a Bill of Materials (BOM) using ONLY products from the company catalog.
+
+PROJECT INTELLIGENCE:
+- Industry: ${intelligence.industry}
+- Project Type: ${intelligence.projectType}
+- Location: ${intelligence.location || signal.region}
+- Timeline: ${intelligence.timeline || 'Not specified'}
+- Key Entities: ${intelligence.keyEntities.join(', ')}
+
+EXTRACTED SCALE METRICS:
+${metricsText}
+
+${budgetText}
+
+SELLER COMPANY: ${profile.name}
+PRODUCTS WE SELL: ${profile.products.join(', ')}
+
+PRODUCT CATALOG:
+${catalogText}
+
+CRITICAL RULES — READ CAREFULLY:
+1. You must ONLY recommend products from the catalog above. Use exact SKUs.
+2. For each line item, you MUST explain your quantity derivation step by step.
+3. Show the FORMULA: e.g., "20 beds × 1 handle per door = 20 handles"
+4. Cite which scale metric you used and any industry standard/rule of thumb applied.
+5. Do NOT calculate prices or totals — only output SKUs and quantities with reasoning. Our system will look up prices from the database.
+6. If a product category is relevant but no exact SKU matches, use the closest match and note it.
+7. Think about ALL the ways our products would be needed for this type of project.
+8. Include assembly logic: if 1 door needs 3 hinges + 1 handle + 1 closer, list each separately.
+9. Suggest an appropriate volume discount percentage with reasoning.
+10. List ALL assumptions you're making, categorized.
+
+For each bundle item return: sku, description, quantity, reasoning (detailed explanation), formula (mathematical), confidence (high/medium/low), assumption (the key assumption behind this line).`;
+
+      const response = await withTimeout(
+        ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: prompt,
+          config: {
+            tools: [{ googleSearch: {} }],
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                bundle: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      sku: { type: Type.STRING },
+                      description: { type: Type.STRING },
+                      quantity: { type: Type.NUMBER },
+                      reasoning: { type: Type.STRING },
+                      formula: { type: Type.STRING },
+                      confidence: { type: Type.STRING, enum: ['high', 'medium', 'low'] },
+                      assumption: { type: Type.STRING }
+                    },
+                    required: ['sku', 'description', 'quantity', 'reasoning', 'formula', 'confidence', 'assumption']
+                  }
+                },
+                discountPercent: { type: Type.NUMBER },
+                discountReasoning: { type: Type.STRING },
+                assumptions: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      category: { type: Type.STRING },
+                      statement: { type: Type.STRING },
+                      confidence: { type: Type.STRING, enum: ['high', 'medium', 'low'] }
+                    },
+                    required: ['category', 'statement', 'confidence']
+                  }
+                }
+              },
+              required: ['bundle', 'discountPercent', 'discountReasoning', 'assumptions']
+            } as any
+          }
+        }),
+        45000
+      );
+
+      const data = JSON.parse(response.text || '{}');
+      console.log('[GLASS BOX] Stage 2 — BOM generated:', data.bundle?.length, 'line items');
+      return data;
+    });
+  },
+
   async generateDossier(signal: MarketSignal, profile: BusinessProfile, catalog?: ProductCatalogItem[]): Promise<DealDossier> {
     return withRetry(async () => {
       const ai = getAI();
@@ -548,7 +811,8 @@ Focus:
 1. Identify the TARGET from the news — the entity that would purchase or benefit from ${profile.products.join(', ')}
 2. Provide strategic advice for ${profile.name} (the SELLER) to win this opportunity
 3. For each bundle item, include sku, description, quantity, AND unitPrice
-4. Return as JSON with accountName being the TARGET's name`;
+4. Return as JSON with accountName being the TARGET's name
+5. IMPORTANT: pricingStrategy.discount MUST be a percentage (0 to 100), not an absolute dollar amount.`;
 
       const response = await withTimeout(
         ai.models.generateContent({
@@ -583,7 +847,7 @@ Focus:
                   type: Type.OBJECT,
                   properties: {
                     logic: { type: Type.STRING },
-                    discount: { type: Type.NUMBER },
+                    discount: { type: Type.NUMBER, description: "Discount percentage (0-100)" },
                     estimatedValue: { type: Type.NUMBER }
                   }
                 },
@@ -607,79 +871,175 @@ Focus:
 
       const data = JSON.parse(response.text || '{}');
 
-      // ========== POST-PROCESSING: CATALOG PRICE GROUNDING ==========
+      // ========== GLASS BOX vs LEGACY PIPELINE ==========
       const catalogMap = new Map<string, ProductCatalogItem>();
       if (hasCatalog) {
         catalog.forEach(c => catalogMap.set(c.sku.toLowerCase(), c));
       }
 
-      // Process bundle items — match against catalog and wrap with AuditablePrice
-      const processedBundle = (data.recommendedBundle || []).map((item: any) => {
-        const catalogMatch = catalogMap.get((item.sku || '').toLowerCase());
-        let unitPrice: AuditablePrice;
-        let catalogItemId: string | undefined;
+      let processedBundle: DealDossier['recommendedBundle'];
+      let processedPricingStrategy: DealDossier['pricingStrategy'];
+      let projectIntelligence: ProjectIntelligence | undefined;
+      let auditTrail: EstimationAuditTrail | undefined;
 
-        if (catalogMatch) {
-          // Real catalog match — override AI price with catalog price
-          unitPrice = {
-            value: catalogMatch.unitPrice,
-            source: 'catalog',
-            confidence: 100,
-            sourceDetail: `Catalog SKU ${catalogMatch.sku} @ $${catalogMatch.unitPrice}/${catalogMatch.unit}`,
-          };
-          catalogItemId = catalogMatch.id;
-        } else {
-          // No catalog match — keep AI price, label as estimate
-          unitPrice = {
-            value: item.unitPrice || 0,
-            source: 'ai_estimate',
-            confidence: 40,
-            sourceDetail: 'AI-generated estimate — no catalog match',
+      if (hasCatalog && catalog.length > 0) {
+        // ========== GLASS BOX PIPELINE (catalog exists) ==========
+        console.log('[GLASS BOX] Running two-stage auditable pipeline...');
+
+        // Stage 1: Extract project intelligence
+        try {
+          projectIntelligence = await geminiService.extractProjectIntelligence(signal, profile);
+        } catch (e) {
+          console.warn('[GLASS BOX] Stage 1 failed, proceeding with limited intelligence:', e);
+          projectIntelligence = {
+            industry: profile.industry,
+            projectType: 'General',
+            scaleMetrics: [],
+            keyEntities: [],
+            extractedAt: new Date().toISOString(),
           };
         }
 
-        const lineTotal = item.quantity * unitPrice.value;
-        return {
-          sku: item.sku,
-          description: item.description,
-          quantity: item.quantity,
-          catalogItemId,
-          unitPrice,
-          lineTotal,
-        };
-      });
+        // Stage 2: Generate BOM with reasoning
+        let bomResult;
+        try {
+          bomResult = await geminiService.generateBOMWithReasoning(signal, profile, projectIntelligence, catalog);
+        } catch (e) {
+          console.warn('[GLASS BOX] Stage 2 failed, falling back to legacy bundle:', e);
+          bomResult = null;
+        }
 
-      // Derive estimatedValue from catalog-grounded bundle totals
-      const bundleSubtotal = processedBundle.reduce((sum: number, b: any) => sum + (b.lineTotal || 0), 0);
-      const aiDiscount = data.pricingStrategy?.discount || 0;
-      const discountAmount = bundleSubtotal * (aiDiscount / 100);
-      const derivedEstimatedValue = bundleSubtotal - discountAmount;
+        if (bomResult && bomResult.bundle?.length > 0) {
+          // ===== DETERMINISTIC CALCULATION (code does all math) =====
+          processedBundle = bomResult.bundle.map((item: any) => {
+            const catalogMatch = catalogMap.get((item.sku || '').toLowerCase());
+            let unitPrice: AuditablePrice;
+            let catalogItemId: string | undefined;
 
-      const hasCatalogItems = processedBundle.some((b: any) => b.catalogItemId);
-      const derivation: 'catalog_sum' | 'ai_estimate' | 'hybrid' = hasCatalog
-        ? (hasCatalogItems ? (processedBundle.every((b: any) => b.catalogItemId) ? 'catalog_sum' : 'hybrid') : 'ai_estimate')
-        : 'ai_estimate';
+            if (catalogMatch) {
+              unitPrice = {
+                value: catalogMatch.unitPrice,
+                source: 'catalog',
+                confidence: 100,
+                sourceDetail: `Catalog SKU ${catalogMatch.sku} @ $${catalogMatch.unitPrice}/${catalogMatch.unit}`,
+              };
+              catalogItemId = catalogMatch.id;
+            } else {
+              unitPrice = {
+                value: 0,
+                source: 'ai_estimate',
+                confidence: 20,
+                sourceDetail: `No catalog match for SKU "${item.sku}"`,
+              };
+            }
 
-      const processedPricingStrategy = {
-        logic: data.pricingStrategy?.logic || '',
-        discount: {
-          value: aiDiscount,
-          source: 'ai_estimate' as const,
-          confidence: 40,
-          sourceDetail: 'AI-recommended discount percentage',
-        } as AuditablePrice,
-        estimatedValue: {
-          value: bundleSubtotal > 0 ? derivedEstimatedValue : (data.pricingStrategy?.estimatedValue || 0),
-          source: (derivation === 'catalog_sum' ? 'catalog' : derivation === 'hybrid' ? 'catalog' : 'ai_estimate') as AuditablePrice['source'],
-          confidence: derivation === 'catalog_sum' ? 95 : derivation === 'hybrid' ? 70 : 40,
-          sourceDetail: derivation === 'catalog_sum'
-            ? `Derived from catalog pricing: $${bundleSubtotal.toLocaleString()} - ${aiDiscount}% discount`
-            : derivation === 'hybrid'
-              ? `Partially catalog-based: $${bundleSubtotal.toLocaleString()} - ${aiDiscount}% discount`
-              : 'AI-generated estimate — configure product catalog for accurate pricing',
-        } as AuditablePrice,
-        derivation,
-      };
+            // DETERMINISTIC: code multiplies qty × price
+            const lineTotal = item.quantity * unitPrice.value;
+
+            // Build structured derivation
+            const derivation: LineItemDerivation = {
+              formula: item.formula || `${item.quantity} units`,
+              inputs: {},
+              result: item.quantity,
+              reasoning: item.reasoning || '',
+              confidence: item.confidence || 'medium',
+            };
+
+            // Parse formula inputs from scale metrics
+            if (projectIntelligence?.scaleMetrics) {
+              for (const metric of projectIntelligence.scaleMetrics) {
+                if (item.reasoning?.toLowerCase().includes(metric.metric.toLowerCase())) {
+                  derivation.inputs[metric.metric] = {
+                    label: `${metric.metric} (${metric.unit})`,
+                    value: metric.value,
+                    source: 'signal',
+                  };
+                }
+              }
+            }
+
+            return {
+              sku: catalogMatch?.sku || item.sku,
+              description: catalogMatch?.name || item.description,
+              quantity: item.quantity,
+              catalogItemId,
+              unitPrice,
+              lineTotal,
+              derivation,
+            };
+          });
+
+          // DETERMINISTIC: code calculates totals
+          const bundleSubtotal = processedBundle.reduce((sum, b) => sum + (b.lineTotal || 0), 0);
+          const discountPercent = bomResult.discountPercent || 0;
+          const discountAmount = bundleSubtotal * (discountPercent / 100);
+          const derivedEstimatedValue = bundleSubtotal - discountAmount;
+
+          const allCatalogMatched = processedBundle.every(b => b.catalogItemId);
+          const someCatalogMatched = processedBundle.some(b => b.catalogItemId);
+          const derivationType: 'catalog_sum' | 'ai_estimate' | 'hybrid' =
+            allCatalogMatched ? 'catalog_sum' : someCatalogMatched ? 'hybrid' : 'ai_estimate';
+
+          processedPricingStrategy = {
+            logic: bomResult.discountReasoning || data.pricingStrategy?.logic || '',
+            discount: {
+              value: discountPercent,
+              source: 'ai_estimate',
+              confidence: 50,
+              sourceDetail: bomResult.discountReasoning || 'AI-recommended discount',
+            } as AuditablePrice,
+            estimatedValue: {
+              value: derivedEstimatedValue,
+              source: derivationType === 'catalog_sum' ? 'catalog' : derivationType === 'hybrid' ? 'catalog' : 'ai_estimate',
+              confidence: derivationType === 'catalog_sum' ? 95 : derivationType === 'hybrid' ? 75 : 40,
+              sourceDetail: `Glass Box: $${bundleSubtotal.toLocaleString()} subtotal - ${discountPercent}% discount = $${derivedEstimatedValue.toLocaleString()}`,
+            } as AuditablePrice,
+            derivation: derivationType,
+          };
+
+          // Build full audit trail
+          const catalogCount = processedBundle.filter(b => b.catalogItemId).length;
+          const totalItems = processedBundle.length;
+          auditTrail = {
+            projectIntelligence,
+            bundleDerivation: processedBundle.map(b => ({
+              sku: b.sku,
+              description: b.description,
+              quantity: b.quantity,
+              derivation: b.derivation!,
+              unitPrice: b.unitPrice as AuditablePrice,
+              lineTotal: b.lineTotal || 0,
+            })),
+            subtotal: bundleSubtotal,
+            discount: { percent: discountPercent, reasoning: bomResult.discountReasoning || '' },
+            estimatedValue: derivedEstimatedValue,
+            assumptions: (bomResult.assumptions || []).map((a: any) => ({
+              category: a.category || 'general',
+              statement: a.statement || a,
+              confidence: a.confidence || 'medium',
+            })),
+            sourceBreakdown: {
+              catalogPercent: totalItems > 0 ? Math.round((catalogCount / totalItems) * 100) : 0,
+              rateCardPercent: 0,
+              aiEstimatePercent: totalItems > 0 ? Math.round(((totalItems - catalogCount) / totalItems) * 100) : 100,
+            },
+            generatedAt: new Date().toISOString(),
+          };
+
+          console.log('[GLASS BOX] Audit trail complete:', catalogCount, '/', totalItems, 'catalog-matched,', `$${derivedEstimatedValue.toLocaleString()}`);
+        } else {
+          // Glass Box Stage 2 failed — fall back to legacy bundle from the dossier AI call
+          console.log('[GLASS BOX] Falling back to legacy bundle processing');
+          const fallbackResult = legacyProcessBundle(data, catalogMap, hasCatalog);
+          processedBundle = fallbackResult.bundle;
+          processedPricingStrategy = fallbackResult.pricingStrategy;
+        }
+      } else {
+        // ========== LEGACY PIPELINE (no catalog) ==========
+        const fallbackResult = legacyProcessBundle(data, catalogMap, false);
+        processedBundle = fallbackResult.bundle;
+        processedPricingStrategy = fallbackResult.pricingStrategy;
+      }
 
       const baseDossier: DealDossier = {
         ...data,
@@ -687,6 +1047,8 @@ Focus:
         signalId: signal.id,
         recommendedBundle: processedBundle,
         pricingStrategy: processedPricingStrategy,
+        projectIntelligence,
+        auditTrail,
       };
 
       // ========== APOLLO ENRICHMENT ==========
