@@ -3,6 +3,7 @@ import { X, Newspaper, Package, Calculator, AlertTriangle, ChevronDown, ChevronU
 import { useTheme } from '../contexts/ThemeContext';
 import { EstimationAuditTrail, AuditablePrice } from '../types';
 import { priceValue, priceSource } from '../utils/normalizeDossier';
+import { getVL } from '../utils/vesper';
 
 interface EstimationBreakdownModalProps {
   auditTrail: EstimationAuditTrail;
@@ -12,12 +13,12 @@ interface EstimationBreakdownModalProps {
 
 const ConfidenceBadge: React.FC<{ confidence: string }> = ({ confidence }) => {
   const config = confidence === 'high'
-    ? { bg: 'bg-green-500/10 text-green-600 border-green-500/20', label: 'HIGH' }
+    ? { bg: '#10B98110', color: '#10B981', border: '#10B98120', label: 'HIGH' }
     : confidence === 'medium'
-      ? { bg: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20', label: 'MED' }
-      : { bg: 'bg-red-500/10 text-red-500 border-red-500/20', label: 'LOW' };
+      ? { bg: '#EAB30810', color: '#EAB308', border: '#EAB30820', label: 'MED' }
+      : { bg: '#EF444410', color: '#EF4444', border: '#EF444420', label: 'LOW' };
   return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${config.bg}`}>
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider border label-caps tracking-widest" style={{ background: config.bg, color: config.color, borderColor: config.border }}>
       {config.label}
     </span>
   );
@@ -25,14 +26,14 @@ const ConfidenceBadge: React.FC<{ confidence: string }> = ({ confidence }) => {
 
 const SourceBadge: React.FC<{ source: string }> = ({ source }) => {
   const config = source === 'catalog'
-    ? { label: 'CATALOG', bg: 'bg-green-500/10 text-green-600 border-green-500/20' }
+    ? { label: 'CATALOG', bg: '#10B98110', color: '#10B981', border: '#10B98120' }
     : source === 'rate_card'
-      ? { label: 'RATE CARD', bg: 'bg-blue-500/10 text-blue-600 border-blue-500/20' }
+      ? { label: 'RATE CARD', bg: '#3B82F610', color: '#3B82F6', border: '#3B82F620' }
       : source === 'manual'
-        ? { label: 'MANUAL', bg: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20' }
-        : { label: 'AI EST.', bg: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' };
+        ? { label: 'MANUAL', bg: '#06B6D410', color: '#06B6D4', border: '#06B6D420' }
+        : { label: 'AI EST.', bg: '#EAB30810', color: '#EAB308', border: '#EAB30820' };
   return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${config.bg}`}>
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider border label-caps tracking-widest" style={{ background: config.bg, color: config.color, borderColor: config.border }}>
       {config.label}
     </span>
   );
@@ -40,6 +41,7 @@ const SourceBadge: React.FC<{ source: string }> = ({ source }) => {
 
 const EstimationBreakdownModal: React.FC<EstimationBreakdownModalProps> = ({ auditTrail, estimatedValue, onClose }) => {
   const { isDarkMode } = useTheme();
+  const vl = getVL(isDarkMode);
   const [expandedLines, setExpandedLines] = useState<Set<number>>(new Set([0]));
 
   const toggleLine = (idx: number) => {
@@ -51,24 +53,23 @@ const EstimationBreakdownModal: React.FC<EstimationBreakdownModalProps> = ({ aud
   };
 
   const pi = auditTrail.projectIntelligence;
-  const cardBg = isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-slate-200/60';
-  const sectionTitle = `flex items-center gap-2 font-bold uppercase tracking-widest text-[10px] mb-3 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm overflow-y-auto py-8 px-4" onClick={onClose}>
       <div
-        className={`w-full max-w-3xl rounded-2xl border shadow-2xl ${cardBg} animate-in fade-in zoom-in-95 duration-300`}
+        className="w-full max-w-3xl rounded-[6px] border shadow-2xl animate-in fade-in zoom-in-95 duration-300 vl-card"
+        style={{ background: vl.surface, borderColor: vl.border }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className={`flex items-center justify-between p-6 border-b ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
+        <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: vl.borderStrong }}>
           <div>
-            <h2 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>Estimation Breakdown</h2>
-            <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
+            <h2 className="text-2xl font-semibold" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>Estimation Breakdown</h2>
+            <p className="text-[13px] mt-0.5" style={{ color: vl.textBody }}>
               How we calculated ${priceValue(estimatedValue).toLocaleString()} estimated opportunity
             </p>
           </div>
-          <button onClick={onClose} className={`p-2 rounded-xl transition-colors ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}>
+          <button onClick={onClose} className="p-2 rounded-[4px] transition-colors hover:text-red-500" style={{ color: vl.textMuted }}>
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -77,52 +78,52 @@ const EstimationBreakdownModal: React.FC<EstimationBreakdownModalProps> = ({ aud
 
           {/* ===== SIGNAL INTELLIGENCE ===== */}
           <section>
-            <div className={sectionTitle}>
-              <Newspaper className="w-4 h-4 text-[#6C5DD3]" />
+            <div className="flex items-center gap-2 font-bold uppercase tracking-widest text-[11px] mb-3 label-caps" style={{ color: vl.textMuted }}>
+              <Newspaper className="w-4 h-4" style={{ color: vl.primary }} />
               Signal Intelligence
             </div>
-            <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-              <div className="grid grid-cols-2 gap-3 text-xs">
+            <div className="p-4 rounded-[4px] border" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong }}>
+              <div className="grid grid-cols-2 gap-3 text-[13px]">
                 <div>
-                  <span className={isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}>Industry:</span>
-                  <span className={`ml-2 font-medium ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>{pi.industry}</span>
+                  <span style={{ color: vl.textBody }}>Industry:</span>
+                  <span className="ml-2 font-bold" style={{ color: vl.textMain }}>{pi.industry}</span>
                 </div>
                 <div>
-                  <span className={isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}>Project Type:</span>
-                  <span className={`ml-2 font-medium ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>{pi.projectType}</span>
+                  <span style={{ color: vl.textBody }}>Project Type:</span>
+                  <span className="ml-2 font-bold" style={{ color: vl.textMain }}>{pi.projectType}</span>
                 </div>
                 {pi.location && (
                   <div>
-                    <span className={isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}>Location:</span>
-                    <span className={`ml-2 font-medium ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>{pi.location}</span>
+                    <span style={{ color: vl.textBody }}>Location:</span>
+                    <span className="ml-2 font-bold" style={{ color: vl.textMain }}>{pi.location}</span>
                   </div>
                 )}
                 {pi.timeline && (
                   <div>
-                    <span className={isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}>Timeline:</span>
-                    <span className={`ml-2 font-medium ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>{pi.timeline}</span>
+                    <span style={{ color: vl.textBody }}>Timeline:</span>
+                    <span className="ml-2 font-bold" style={{ color: vl.textMain }}>{pi.timeline}</span>
                   </div>
                 )}
                 {pi.totalBudget && (
                   <div className="col-span-2">
-                    <span className={isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}>Project Budget:</span>
-                    <span className={`ml-2 font-bold text-[#6C5DD3]`}>
+                    <span style={{ color: vl.textBody }}>Project Budget:</span>
+                    <span className="ml-2 font-bold font-mono" style={{ color: vl.primary }}>
                       {pi.totalBudget.currency} ${pi.totalBudget.value.toLocaleString()}
                     </span>
-                    <span className={`ml-1 text-[10px] ${isDarkMode ? 'text-zinc-600' : 'text-[#aaa]'}`}>({pi.totalBudget.source})</span>
+                    <span className="ml-1 text-[10px] label-caps tracking-widest" style={{ color: vl.textMuted }}>({pi.totalBudget.source})</span>
                   </div>
                 )}
               </div>
 
               {/* Scale Metrics */}
               {pi.scaleMetrics.length > 0 && (
-                <div className={`mt-3 pt-3 border-t ${isDarkMode ? 'border-white/5' : 'border-slate-200/60'}`}>
-                  <div className={`text-[10px] font-semibold uppercase mb-2 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Extracted Scale Metrics</div>
+                <div className="mt-3 pt-3 border-t" style={{ borderColor: vl.borderStrong }}>
+                  <div className="text-[10px] font-bold uppercase tracking-widest mb-2 label-caps" style={{ color: vl.textMuted }}>Extracted Scale Metrics</div>
                   <div className="flex flex-wrap gap-2">
                     {pi.scaleMetrics.map((m, i) => (
-                      <div key={i} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-slate-200'}`} title={m.source}>
-                        <span className="font-bold text-[#6C5DD3]">{m.value}</span>
-                        <span className={isDarkMode ? 'text-zinc-400' : 'text-[#50515e]'}>{m.unit}</span>
+                      <div key={i} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[4px] border text-[13px]" style={{ background: vl.surface, borderColor: vl.borderStrong }} title={m.source}>
+                        <span className="font-bold" style={{ color: vl.primary }}>{m.value}</span>
+                        <span style={{ color: vl.textBody }}>{m.unit}</span>
                         <ConfidenceBadge confidence={m.confidence} />
                       </div>
                     ))}
@@ -134,13 +135,13 @@ const EstimationBreakdownModal: React.FC<EstimationBreakdownModalProps> = ({ aud
 
           {/* ===== PRODUCT MAPPING (BOM) ===== */}
           <section>
-            <div className={sectionTitle}>
-              <Package className="w-4 h-4 text-[#6C5DD3]" />
+            <div className="flex items-center gap-2 font-bold uppercase tracking-widest text-[11px] mb-3 label-caps" style={{ color: vl.textMuted }}>
+              <Package className="w-4 h-4" style={{ color: vl.primary }} />
               Product Mapping — Bill of Materials
             </div>
-            <div className={`rounded-xl border overflow-hidden ${isDarkMode ? 'border-white/5' : 'border-slate-200/60'}`}>
-              <table className="w-full text-left text-sm">
-                <thead className={`font-bold uppercase tracking-wider text-[10px] border-b ${isDarkMode ? 'bg-white/5 text-zinc-500 border-white/5' : 'bg-slate-50/50 text-[#808191] border-slate-100'}`}>
+            <div className="rounded-[4px] border overflow-hidden" style={{ borderColor: vl.borderStrong }}>
+              <table className="w-full text-left text-[13px]">
+                <thead className="font-bold uppercase tracking-widest text-[10px] border-b label-caps" style={{ background: vl.surfaceMuted, color: vl.textMuted, borderColor: vl.borderStrong }}>
                   <tr>
                     <th className="px-4 py-3 w-8"></th>
                     <th className="px-4 py-3">SKU</th>
@@ -151,31 +152,32 @@ const EstimationBreakdownModal: React.FC<EstimationBreakdownModalProps> = ({ aud
                     <th className="px-4 py-3 text-center">Source</th>
                   </tr>
                 </thead>
-                <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-100'}`}>
+                <tbody className="divide-y" style={{ divideColor: vl.borderStrong }}>
                   {auditTrail.bundleDerivation.map((item, idx) => {
                     const isExpanded = expandedLines.has(idx);
                     return (
                       <React.Fragment key={idx}>
                         <tr
-                          className={`cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-50/70'}`}
+                          className="cursor-pointer transition-colors hover-row"
+                          style={{ background: vl.surface }}
                           onClick={() => toggleLine(idx)}
                         >
                           <td className="px-4 py-3">
                             {isExpanded
-                              ? <ChevronUp className={`w-3.5 h-3.5 ${isDarkMode ? 'text-zinc-500' : 'text-slate-400'}`} />
-                              : <ChevronDown className={`w-3.5 h-3.5 ${isDarkMode ? 'text-zinc-500' : 'text-slate-400'}`} />
+                              ? <ChevronUp className="w-3.5 h-3.5" style={{ color: vl.textMuted }} />
+                              : <ChevronDown className="w-3.5 h-3.5" style={{ color: vl.textMuted }} />
                             }
                           </td>
-                          <td className="px-4 py-3 font-mono text-[#6C5DD3] font-bold text-xs">{item.sku}</td>
-                          <td className={`px-4 py-3 ${isDarkMode ? 'text-zinc-300' : 'text-[#1B1D21]'}`}>{item.description}</td>
-                          <td className={`px-4 py-3 text-right font-bold ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>{item.quantity}</td>
-                          <td className="px-4 py-3 text-right font-mono text-xs">
+                          <td className="px-4 py-3 font-mono font-bold text-[11px]" style={{ color: vl.primary }}>{item.sku}</td>
+                          <td className="px-4 py-3" style={{ color: vl.textMain }}>{item.description}</td>
+                          <td className="px-4 py-3 text-right font-bold font-mono" style={{ color: vl.textMain }}>{item.quantity}</td>
+                          <td className="px-4 py-3 text-right font-mono text-[11px]">
                             {item.unitPrice.value > 0
                               ? `$${item.unitPrice.value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
-                              : <span className={isDarkMode ? 'text-zinc-600' : 'text-slate-300'}>N/A</span>
+                              : <span style={{ color: vl.textMuted, opacity: 0.5 }}>N/A</span>
                             }
                           </td>
-                          <td className={`px-4 py-3 text-right font-mono font-bold text-xs ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
+                          <td className="px-4 py-3 text-right font-mono font-bold text-[11px]" style={{ color: vl.textMain }}>
                             {item.lineTotal > 0
                               ? `$${item.lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
                               : '—'
@@ -187,39 +189,39 @@ const EstimationBreakdownModal: React.FC<EstimationBreakdownModalProps> = ({ aud
                         </tr>
                         {/* Expanded reasoning row */}
                         {isExpanded && (
-                          <tr className={isDarkMode ? 'bg-[#6C5DD3]/5' : 'bg-[#6C5DD3]/[0.02]'}>
+                          <tr style={{ background: vl.primarySoft }}>
                             <td></td>
-                            <td colSpan={6} className="px-4 py-3">
-                              <div className="space-y-2">
+                            <td colSpan={6} className="px-4 py-3 border-l-2" style={{ borderLeftColor: vl.primary }}>
+                              <div className="space-y-3">
                                 {/* Reasoning */}
                                 <div className="flex items-start gap-2">
-                                  <Lightbulb className="w-3.5 h-3.5 text-[#6C5DD3] mt-0.5 flex-shrink-0" />
+                                  <Lightbulb className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: vl.primary }} />
                                   <div>
-                                    <div className={`text-[10px] font-semibold uppercase mb-0.5 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>AI Reasoning</div>
-                                    <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-zinc-300' : 'text-[#50515e]'}`}>
+                                    <div className="text-[10px] font-bold uppercase tracking-widest mb-0.5 label-caps" style={{ color: vl.textMuted }}>AI Reasoning</div>
+                                    <p className="text-[13px] leading-relaxed" style={{ color: vl.textBody }}>
                                       {item.derivation.reasoning}
                                     </p>
                                   </div>
                                 </div>
                                 {/* Formula */}
                                 <div className="flex items-start gap-2">
-                                  <Calculator className="w-3.5 h-3.5 text-[#00C4FF] mt-0.5 flex-shrink-0" />
+                                  <Calculator className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-[#00C4FF]" />
                                   <div>
-                                    <div className={`text-[10px] font-semibold uppercase mb-0.5 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Formula</div>
-                                    <p className={`text-xs font-mono ${isDarkMode ? 'text-zinc-300' : 'text-[#1B1D21]'}`}>
+                                    <div className="text-[10px] font-bold uppercase tracking-widest mb-0.5 label-caps" style={{ color: vl.textMuted }}>Formula</div>
+                                    <p className="text-[13px] font-mono font-bold" style={{ color: vl.textMain }}>
                                       {item.derivation.formula} = {item.quantity}
                                     </p>
                                   </div>
                                 </div>
                                 {/* Confidence + Price source */}
-                                <div className="flex items-center gap-4 text-xs">
+                                <div className="flex items-center gap-4 text-[11px]">
                                   <div className="flex items-center gap-1.5">
-                                    <span className={isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}>Qty Confidence:</span>
+                                    <span className="font-bold label-caps tracking-widest" style={{ color: vl.textMuted }}>Qty Confidence:</span>
                                     <ConfidenceBadge confidence={item.derivation.confidence} />
                                   </div>
                                   <div className="flex items-center gap-1.5">
-                                    <span className={isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}>Price:</span>
-                                    <span className={isDarkMode ? 'text-zinc-400' : 'text-[#50515e]'}>{item.unitPrice.sourceDetail}</span>
+                                    <span className="font-bold label-caps tracking-widest" style={{ color: vl.textMuted }}>Price:</span>
+                                    <span style={{ color: vl.textBody }}>{item.unitPrice.sourceDetail}</span>
                                   </div>
                                 </div>
                               </div>
@@ -236,62 +238,62 @@ const EstimationBreakdownModal: React.FC<EstimationBreakdownModalProps> = ({ aud
 
           {/* ===== CALCULATION SUMMARY ===== */}
           <section>
-            <div className={sectionTitle}>
-              <Calculator className="w-4 h-4 text-[#6C5DD3]" />
+            <div className="flex items-center gap-2 font-bold uppercase tracking-widest text-[11px] mb-3 label-caps" style={{ color: vl.textMuted }}>
+              <Calculator className="w-4 h-4" style={{ color: vl.primary }} />
               Deterministic Calculation
             </div>
-            <div className={`p-4 rounded-xl border space-y-3 ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-              <div className="flex justify-between text-sm">
-                <span className={isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}>Bundle Subtotal ({auditTrail.bundleDerivation.length} items)</span>
-                <span className={`font-mono font-bold ${isDarkMode ? 'text-zinc-200' : 'text-[#1B1D21]'}`}>
+            <div className="p-4 rounded-[4px] border space-y-3" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong }}>
+              <div className="flex justify-between text-[13px]">
+                <span className="font-bold" style={{ color: vl.textBody }}>Bundle Subtotal ({auditTrail.bundleDerivation.length} items)</span>
+                <span className="font-mono font-bold" style={{ color: vl.textMain }}>
                   ${auditTrail.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </span>
               </div>
               {auditTrail.discount.percent > 0 && (
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-[13px]">
                   <div>
-                    <span className={isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}>Discount ({auditTrail.discount.percent}%)</span>
+                    <span className="font-bold" style={{ color: vl.textBody }}>Discount ({auditTrail.discount.percent}%)</span>
                     {auditTrail.discount.reasoning && (
-                      <p className={`text-[10px] mt-0.5 max-w-md ${isDarkMode ? 'text-zinc-600' : 'text-[#aaa]'}`}>
+                      <p className="text-[11px] mt-0.5 max-w-md" style={{ color: vl.textMuted }}>
                         {auditTrail.discount.reasoning}
                       </p>
                     )}
                   </div>
-                  <span className="font-mono font-bold text-red-400">
+                  <span className="font-mono font-bold text-red-500">
                     -${(auditTrail.subtotal * auditTrail.discount.percent / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               )}
-              <div className={`h-px ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`} />
-              <div className={`flex justify-between items-center p-3 -mx-1 rounded-xl ${isDarkMode ? 'bg-[#6C5DD3]/10' : 'bg-[#6C5DD3]/5'}`}>
-                <span className="text-sm font-bold text-[#6C5DD3]">Estimated Opportunity</span>
-                <span className={`text-xl font-mono font-black ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
+              <div className="h-px w-full" style={{ background: vl.borderStrong }} />
+              <div className="flex justify-between items-center p-3 -mx-1 rounded-[4px]" style={{ background: vl.primarySoft, border: `1px solid ${isDarkMode ? 'rgba(99,91,255,0.2)' : 'rgba(99,91,255,0.1)'}` }}>
+                <span className="text-[13px] font-bold" style={{ color: vl.primary }}>Estimated Opportunity</span>
+                <span className="text-xl font-mono font-bold" style={{ color: vl.textMain }}>
                   ${auditTrail.estimatedValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </span>
               </div>
               {/* Source breakdown bar */}
-              <div className="space-y-1.5">
-                <div className={`text-[10px] font-semibold ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Price Source Breakdown</div>
-                <div className="flex h-2 rounded-full overflow-hidden">
+              <div className="space-y-1.5 pt-2">
+                <div className="text-[10px] font-bold uppercase tracking-widest label-caps" style={{ color: vl.textMuted }}>Price Source Breakdown</div>
+                <div className="flex h-2 rounded-[2px] overflow-hidden bg-black/10">
                   {auditTrail.sourceBreakdown.catalogPercent > 0 && (
-                    <div className="bg-green-500" style={{ width: `${auditTrail.sourceBreakdown.catalogPercent}%` }} title={`Catalog: ${auditTrail.sourceBreakdown.catalogPercent}%`} />
+                    <div className="bg-[#10B981]" style={{ width: `${auditTrail.sourceBreakdown.catalogPercent}%` }} title={`Catalog: ${auditTrail.sourceBreakdown.catalogPercent}%`} />
                   )}
                   {auditTrail.sourceBreakdown.rateCardPercent > 0 && (
-                    <div className="bg-blue-500" style={{ width: `${auditTrail.sourceBreakdown.rateCardPercent}%` }} title={`Rate Card: ${auditTrail.sourceBreakdown.rateCardPercent}%`} />
+                    <div className="bg-[#3B82F6]" style={{ width: `${auditTrail.sourceBreakdown.rateCardPercent}%` }} title={`Rate Card: ${auditTrail.sourceBreakdown.rateCardPercent}%`} />
                   )}
                   {auditTrail.sourceBreakdown.aiEstimatePercent > 0 && (
-                    <div className="bg-yellow-500" style={{ width: `${auditTrail.sourceBreakdown.aiEstimatePercent}%` }} title={`AI Estimate: ${auditTrail.sourceBreakdown.aiEstimatePercent}%`} />
+                    <div className="bg-[#EAB308]" style={{ width: `${auditTrail.sourceBreakdown.aiEstimatePercent}%` }} title={`AI Estimate: ${auditTrail.sourceBreakdown.aiEstimatePercent}%`} />
                   )}
                 </div>
-                <div className="flex items-center gap-4 text-[10px]">
+                <div className="flex items-center gap-4 text-[10px] font-bold label-caps mt-1 tracking-wider" style={{ color: vl.textBody }}>
                   {auditTrail.sourceBreakdown.catalogPercent > 0 && (
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /> Catalog {auditTrail.sourceBreakdown.catalogPercent}%</span>
+                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" /> Catalog {auditTrail.sourceBreakdown.catalogPercent}%</span>
                   )}
                   {auditTrail.sourceBreakdown.rateCardPercent > 0 && (
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /> Rate Card {auditTrail.sourceBreakdown.rateCardPercent}%</span>
+                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6]" /> Rate Card {auditTrail.sourceBreakdown.rateCardPercent}%</span>
                   )}
                   {auditTrail.sourceBreakdown.aiEstimatePercent > 0 && (
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500" /> AI Est. {auditTrail.sourceBreakdown.aiEstimatePercent}%</span>
+                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[#EAB308]" /> AI Est. {auditTrail.sourceBreakdown.aiEstimatePercent}%</span>
                   )}
                 </div>
               </div>
@@ -301,26 +303,26 @@ const EstimationBreakdownModal: React.FC<EstimationBreakdownModalProps> = ({ aud
           {/* ===== ASSUMPTIONS ===== */}
           {auditTrail.assumptions.length > 0 && (
             <section>
-              <div className={sectionTitle}>
-                <AlertTriangle className="w-4 h-4 text-yellow-500" />
+              <div className="flex items-center gap-2 font-bold uppercase tracking-widest text-[11px] mb-3 label-caps" style={{ color: vl.textMuted }}>
+                <AlertTriangle className="w-4 h-4 text-[#EAB308]" />
                 Key Assumptions ({auditTrail.assumptions.length})
               </div>
-              <div className={`rounded-xl border overflow-hidden ${isDarkMode ? 'border-white/5' : 'border-slate-200/60'}`}>
-                <table className="w-full text-left text-xs">
-                  <thead className={`font-bold uppercase tracking-wider text-[10px] border-b ${isDarkMode ? 'bg-white/5 text-zinc-500 border-white/5' : 'bg-slate-50/50 text-[#808191] border-slate-100'}`}>
+              <div className="rounded-[4px] border overflow-hidden" style={{ borderColor: vl.borderStrong }}>
+                <table className="w-full text-left text-[13px]">
+                  <thead className="font-bold uppercase tracking-widest text-[10px] border-b label-caps" style={{ background: vl.surfaceMuted, color: vl.textMuted, borderColor: vl.borderStrong }}>
                     <tr>
                       <th className="px-4 py-2">Category</th>
                       <th className="px-4 py-2">Assumption</th>
                       <th className="px-4 py-2 text-center">Confidence</th>
                     </tr>
                   </thead>
-                  <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-50'}`}>
+                  <tbody className="divide-y" style={{ divideColor: vl.borderStrong, background: vl.surface }}>
                     {auditTrail.assumptions.map((a, i) => (
                       <tr key={i}>
-                        <td className={`px-4 py-2.5 ${isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}`}>
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-semibold ${isDarkMode ? 'bg-white/5' : 'bg-gray-100'}`}>{a.category}</span>
+                        <td className="px-4 py-2.5">
+                          <span className="px-2 py-0.5 rounded-[4px] text-[9px] font-bold tracking-wider label-caps border" style={{ background: vl.chipBg, color: vl.textBody, borderColor: vl.borderStrong }}>{a.category}</span>
                         </td>
-                        <td className={`px-4 py-2.5 ${isDarkMode ? 'text-zinc-300' : 'text-[#50515e]'}`}>{a.statement}</td>
+                        <td className="px-4 py-2.5" style={{ color: vl.textMain }}>{a.statement}</td>
                         <td className="px-4 py-2.5 text-center"><ConfidenceBadge confidence={a.confidence} /></td>
                       </tr>
                     ))}
@@ -332,12 +334,12 @@ const EstimationBreakdownModal: React.FC<EstimationBreakdownModalProps> = ({ aud
         </div>
 
         {/* Footer */}
-        <div className={`px-6 py-4 border-t flex items-center justify-between ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
-          <div className={`flex items-center gap-2 text-[10px] ${isDarkMode ? 'text-zinc-600' : 'text-[#aaa]'}`}>
-            <ShieldCheck className="w-3.5 h-3.5" />
+        <div className="px-6 py-4 border-t flex items-center justify-between" style={{ borderColor: vl.borderStrong }}>
+          <div className="flex items-center gap-2 text-[10px] font-bold label-caps tracking-wider" style={{ color: vl.textMuted }}>
+            <ShieldCheck className="w-4 h-4" />
             Glass Box AI — All math computed deterministically from catalog prices
           </div>
-          <button onClick={onClose} className="px-4 py-2 bg-[#6C5DD3] hover:bg-[#5B4EC2] text-white rounded-xl text-sm font-medium transition-all">
+          <button onClick={onClose} className="btn-primary w-fit px-6 py-2.5 text-xs font-bold label-caps tracking-wider">
             Close
           </button>
         </div>

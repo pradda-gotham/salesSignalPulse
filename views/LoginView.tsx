@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { getVL } from '../utils/vesper';
 
 interface LoginViewProps {
     onSuccess?: () => void;
@@ -7,6 +9,9 @@ interface LoginViewProps {
 
 export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
     const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
+    const { isDarkMode } = useTheme();
+    const vl = getVL(isDarkMode);
+    
     const [isSignUp, setIsSignUp] = useState(false);
     const [isForgotPassword, setIsForgotPassword] = useState(false);
     const [email, setEmail] = useState('');
@@ -93,21 +98,30 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
     };
 
     return (
-        <div style={styles.container}>
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'row', background: vl.bg }}>
             {/* Left Panel - Branding */}
-            <div style={styles.leftPanel}>
-                <div style={styles.leftContent}>
+            <div style={{
+                flex: '1',
+                background: vl.primary,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+                overflow: 'hidden',
+                padding: '60px',
+            }}>
+                <div style={{ position: 'relative', zIndex: 2, maxWidth: '480px' }}>
                     {/* Logo */}
-                    <div style={styles.logoIcon}>⚡</div>
+                    <div style={{ fontSize: '48px', marginBottom: '40px', filter: 'brightness(0) invert(1)' }}>⚡</div>
 
                     {/* Headline */}
-                    <h1 style={styles.heroTitle}>
+                    <h1 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '56px', fontWeight: '700', color: '#ffffff', lineHeight: '1.1', marginBottom: '24px' }}>
                         Hello<br />
-                        Leadpulse!<span style={styles.waveEmoji}>👋</span>
+                        Leadpulse!<span style={{ display: 'inline-block', marginLeft: '8px', animation: 'wave 1.5s ease-in-out infinite' }}>👋</span>
                     </h1>
 
                     {/* Tagline */}
-                    <p style={styles.heroSubtitle}>
+                    <p style={{ fontSize: '15px', color: 'rgba(255, 255, 255, 0.85)', lineHeight: '1.6', fontWeight: '400' }}>
                         Detect buyer signals in real-time.<br />
                         Get Leadpulse-powered deal dossiers and<br />
                         close more deals with less effort!
@@ -115,63 +129,71 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                 </div>
 
                 {/* Decorative grid lines */}
-                <div style={styles.gridOverlay}></div>
+                <div style={{
+                    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundImage: `
+                        linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)
+                    `,
+                    backgroundSize: '60px 60px',
+                    zIndex: 1,
+                }}></div>
             </div>
 
             {/* Right Panel - Form */}
-            <div style={styles.rightPanel}>
-                <div style={styles.formContainer}>
+            <div style={{ flex: '1', backgroundColor: vl.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px' }}>
+                <div style={{ width: '100%', maxWidth: '400px' }}>
                     {/* Brand name */}
-                    <h2 style={styles.brandName}>Leadpulse</h2>
+                    <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '20px', fontWeight: '700', color: vl.textMain, marginBottom: '48px' }}>Leadpulse</h2>
 
                     {/* Welcome text */}
-                    <div style={styles.welcomeSection}>
-                        <h3 style={styles.welcomeTitle}>
+                    <div style={{ marginBottom: '32px' }}>
+                        <h3 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '32px', fontWeight: '700', color: vl.textMain, marginBottom: '12px' }}>
                             {isForgotPassword ? 'Reset Password' : (isSignUp ? 'Get Started!' : 'Welcome Back!')}
                         </h3>
                         {isForgotPassword && (
-                            <p style={styles.welcomeSubtitle}>
+                            <p style={{ fontSize: '13px', color: vl.textBody, lineHeight: '1.6' }}>
                                 Enter your email and we'll send you a reset link.
                             </p>
                         )}
                     </div>
 
                     {/* Form */}
-                    <form onSubmit={isForgotPassword ? handleForgotPassword : handleSubmit} style={styles.form}>
-                        <div style={styles.inputGroup}>
+                    <form onSubmit={isForgotPassword ? handleForgotPassword : handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             <input
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 placeholder="you@company.com"
-                                style={styles.input}
+                                style={{ padding: '16px 0', fontSize: '13px', borderRadius: '0', border: 'none', borderBottom: `1px solid ${vl.borderStrong}`, backgroundColor: 'transparent', color: vl.textMain, outline: 'none', transition: 'border-color 0.2s' }}
                                 disabled={loading}
                             />
                         </div>
 
                         {!isForgotPassword && (
                             <>
-                                <div style={styles.inputGroup}>
-                                    <label style={styles.inputLabel}>Password</label>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <label style={{ fontSize: '11px', color: vl.textMuted, fontWeight: '700' }} className="label-caps">Password</label>
                                     <input
                                         type="password"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         placeholder="••••••••"
-                                        style={styles.input}
+                                        style={{ padding: '16px 0', fontSize: '13px', borderRadius: '0', border: 'none', borderBottom: `1px solid ${vl.borderStrong}`, backgroundColor: 'transparent', color: vl.textMain, outline: 'none', transition: 'border-color 0.2s' }}
                                         disabled={loading}
                                     />
                                 </div>
 
                                 {isSignUp && (
-                                    <div style={styles.inputGroup}>
-                                        <label style={styles.inputLabel}>Confirm Password</label>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <label style={{ fontSize: '11px', color: vl.textMuted, fontWeight: '700' }} className="label-caps">Confirm Password</label>
                                         <input
                                             type="password"
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
                                             placeholder="••••••••"
-                                            style={styles.input}
+                                            style={{ padding: '16px 0', fontSize: '13px', borderRadius: '0', border: 'none', borderBottom: `1px solid ${vl.borderStrong}`, backgroundColor: 'transparent', color: vl.textMain, outline: 'none', transition: 'border-color 0.2s' }}
                                             disabled={loading}
                                         />
                                     </div>
@@ -181,9 +203,14 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
 
                         {message && (
                             <div style={{
-                                ...styles.message,
-                                backgroundColor: message.type === 'success' ? 'rgba(76, 227, 100, 0.1)' : 'rgba(255, 95, 95, 0.1)',
-                                color: message.type === 'success' ? '#4CE364' : '#FF5F5F',
+                                padding: '14px 18px',
+                                borderRadius: '4px',
+                                fontSize: '13px',
+                                textAlign: 'center',
+                                backgroundColor: message.type === 'success' ? '#10B98110' : '#EF444410',
+                                color: message.type === 'success' ? '#10B981' : '#EF4444',
+                                border: `1px solid ${message.type === 'success' ? '#10B98130' : '#EF444430'}`,
+                                fontWeight: '700'
                             }}>
                                 {message.text}
                             </div>
@@ -191,9 +218,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
 
                         <button
                             type="submit"
+                            className="btn-primary"
                             style={{
-                                ...styles.primaryButton,
+                                width: '100%',
                                 opacity: loading ? 0.7 : 1,
+                                marginTop: '8px',
                             }}
                             disabled={loading}
                         >
@@ -204,15 +233,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
 
                         {/* Forgot Password / Back to Login */}
                         {!isSignUp && !isForgotPassword && (
-                            <div style={styles.forgotPassword}>
+                            <div style={{ textAlign: 'center', fontSize: '13px', color: vl.textMuted, marginTop: '8px' }}>
                                 Forget password?{' '}
                                 <button
                                     type="button"
-                                    style={styles.linkButton}
                                     onClick={() => {
                                         setIsForgotPassword(true);
                                         setMessage(null);
                                     }}
+                                    style={{ background: 'none', border: 'none', color: vl.primary, textDecoration: 'none', cursor: 'pointer', padding: 0, fontSize: '13px', fontWeight: '700' }}
                                 >
                                     Click here
                                 </button>
@@ -220,15 +249,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                         )}
 
                         {isForgotPassword && (
-                            <div style={styles.forgotPassword}>
+                            <div style={{ textAlign: 'center', fontSize: '13px', color: vl.textMuted, marginTop: '8px' }}>
                                 Remember your password?{' '}
                                 <button
                                     type="button"
-                                    style={styles.linkButton}
                                     onClick={() => {
                                         setIsForgotPassword(false);
                                         setMessage(null);
                                     }}
+                                    style={{ background: 'none', border: 'none', color: vl.primary, textDecoration: 'none', cursor: 'pointer', padding: 0, fontSize: '13px', fontWeight: '700' }}
                                 >
                                     Back to Login
                                 </button>
@@ -237,16 +266,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
 
                         {/* Toggle Sign Up / Sign In */}
                         {!isForgotPassword && (
-                            <div style={styles.toggleAuth}>
+                            <div style={{ textAlign: 'center', fontSize: '13px', color: vl.textMuted, marginTop: '16px', paddingTop: '16px', borderTop: `1px solid ${vl.borderStrong}` }}>
                                 {isSignUp ? "Already have an account? " : "Don't have an account? "}
                                 <button
                                     type="button"
-                                    style={styles.linkButton}
                                     onClick={() => {
                                         setIsSignUp(!isSignUp);
                                         setMessage(null);
                                         setConfirmPassword('');
                                     }}
+                                    style={{ background: 'none', border: 'none', color: vl.primary, textDecoration: 'none', cursor: 'pointer', padding: 0, fontSize: '13px', fontWeight: '700' }}
                                 >
                                     {isSignUp ? 'Sign In' : 'Sign Up'}
                                 </button>
@@ -255,190 +284,17 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                     </form>
                 </div>
             </div>
+            
+            {/* Inject wave styles */}
+            <style dangerouslySetInnerHTML={{__html: `
+                @keyframes wave {
+                    0%, 100% { transform: rotate(0deg); }
+                    25% { transform: rotate(20deg); }
+                    75% { transform: rotate(-10deg); }
+                }
+            `}} />
         </div>
     );
 };
 
-const styles: { [key: string]: React.CSSProperties } = {
-    container: {
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'row',
-    },
-    leftPanel: {
-        flex: '1',
-        background: 'linear-gradient(135deg, #6C5DD3 0%, #5A4DBF 50%, #4838AB 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'relative',
-        overflow: 'hidden',
-        padding: '60px',
-    },
-    leftContent: {
-        position: 'relative',
-        zIndex: 2,
-        maxWidth: '480px',
-    },
-    logoIcon: {
-        fontSize: '48px',
-        marginBottom: '40px',
-        filter: 'brightness(0) invert(1)',
-    },
-    heroTitle: {
-        fontSize: '56px',
-        fontWeight: '700',
-        color: '#ffffff',
-        lineHeight: '1.1',
-        marginBottom: '24px',
-    },
-    waveEmoji: {
-        display: 'inline-block',
-        marginLeft: '8px',
-        animation: 'wave 1.5s ease-in-out infinite',
-    },
-    heroSubtitle: {
-        fontSize: '18px',
-        color: 'rgba(255, 255, 255, 0.85)',
-        lineHeight: '1.6',
-        fontWeight: '400',
-    },
-    gridOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundImage: `
-            linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)
-        `,
-        backgroundSize: '60px 60px',
-        zIndex: 1,
-    },
-    rightPanel: {
-        flex: '1',
-        backgroundColor: '#ffffff',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '60px',
-    },
-    formContainer: {
-        width: '100%',
-        maxWidth: '400px',
-    },
-    brandName: {
-        fontSize: '20px',
-        fontWeight: '700',
-        color: '#1B1D21',
-        marginBottom: '48px',
-    },
-    welcomeSection: {
-        marginBottom: '32px',
-    },
-    welcomeTitle: {
-        fontSize: '32px',
-        fontWeight: '700',
-        color: '#1B1D21',
-        marginBottom: '12px',
-    },
-    welcomeSubtitle: {
-        fontSize: '14px',
-        color: '#808191',
-        lineHeight: '1.6',
-    },
-    linkButton: {
-        background: 'none',
-        border: 'none',
-        color: '#1B1D21',
-        textDecoration: 'underline',
-        cursor: 'pointer',
-        padding: 0,
-        fontSize: '14px',
-        fontWeight: '500',
-    },
-    form: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '20px',
-    },
-    inputGroup: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '6px',
-    },
-    inputLabel: {
-        fontSize: '14px',
-        color: '#808191',
-        fontWeight: '400',
-    },
-    input: {
-        padding: '16px 0',
-        fontSize: '15px',
-        borderRadius: '0',
-        border: 'none',
-        borderBottom: '1px solid #E8E8F0',
-        backgroundColor: 'transparent',
-        color: '#1B1D21',
-        outline: 'none',
-        transition: 'border-color 0.2s',
-    },
-    message: {
-        padding: '14px 18px',
-        borderRadius: '12px',
-        fontSize: '14px',
-        textAlign: 'center',
-    },
-    primaryButton: {
-        padding: '18px 24px',
-        fontSize: '15px',
-        fontWeight: '600',
-        borderRadius: '30px',
-        border: 'none',
-        backgroundColor: '#1B1D21',
-        color: '#ffffff',
-        cursor: 'pointer',
-        transition: 'transform 0.2s, box-shadow 0.2s',
-        marginTop: '8px',
-    },
-    googleButton: {
-        padding: '16px 24px',
-        fontSize: '15px',
-        fontWeight: '500',
-        borderRadius: '30px',
-        border: '1px solid #E8E8F0',
-        backgroundColor: '#ffffff',
-        color: '#1B1D21',
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        transition: 'background-color 0.2s',
-    },
-    forgotPassword: {
-        textAlign: 'center',
-        fontSize: '14px',
-        color: '#808191',
-        marginTop: '8px',
-    },
-    toggleAuth: {
-        textAlign: 'center',
-        fontSize: '14px',
-        color: '#808191',
-        marginTop: '16px',
-        paddingTop: '16px',
-        borderTop: '1px solid #E8E8F0',
-    },
-};
-
-// Add CSS animation for wave emoji
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-    @keyframes wave {
-        0%, 100% { transform: rotate(0deg); }
-        25% { transform: rotate(20deg); }
-        75% { transform: rotate(-10deg); }
-    }
-`;
-document.head.appendChild(styleSheet);
+export default LoginView;

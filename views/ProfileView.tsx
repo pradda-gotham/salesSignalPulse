@@ -18,17 +18,20 @@ import {
   BestCustomerExample,
   CompetitorEntry,
 } from '../types';
+import { getVL } from '../utils/vesper';
 
 // ============ COMPLETION RING ============
 
 const CompletionRing: React.FC<{ percent: number; size?: number }> = ({ percent, size = 36 }) => {
+  const { isDarkMode } = useTheme();
+  const vl = getVL(isDarkMode);
   const r = (size - 4) / 2;
   const circ = 2 * Math.PI * r;
   const filled = circ * (percent / 100);
-  const color = percent === 0 ? '#3f3f46' : percent < 50 ? '#f59e0b' : percent < 100 ? '#6C5DD3' : '#10B981';
+  const color = percent === 0 ? vl.textMuted : percent < 50 ? '#f59e0b' : percent < 100 ? vl.primary : '#10B981';
   return (
     <svg width={size} height={size} className="flex-shrink-0">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={3} className="text-zinc-800/20 dark:text-white/5" />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={3} style={{ color: vl.border }} />
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={3}
         strokeDasharray={`${filled} ${circ - filled}`} strokeDashoffset={circ / 4}
         strokeLinecap="round" className="transition-all duration-700" />
@@ -47,22 +50,36 @@ const ArrayField: React.FC<{
   placeholder?: string;
   isDarkMode: boolean;
 }> = ({ items, onChange, placeholder, isDarkMode }) => {
+  const vl = getVL(isDarkMode);
   const add = () => onChange([...items, '']);
   const remove = (i: number) => { if (items.length > 1) onChange(items.filter((_, idx) => idx !== i)); else onChange(['']); };
   const update = (i: number, v: string) => { const n = [...items]; n[i] = v; onChange(n); };
-  const inputCls = `w-full px-3 py-2 rounded-xl text-sm border transition-all focus:outline-none focus:ring-2 focus:ring-[#6C5DD3]/30 focus:border-[#6C5DD3] ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder-zinc-600' : 'bg-white border-slate-200 text-[#1B1D21] placeholder-slate-400'}`;
-
+  
   return (
     <div className="space-y-2">
       {items.map((item, i) => (
         <div key={i} className="flex items-center gap-2">
-          <input value={item} onChange={e => update(i, e.target.value)} placeholder={placeholder} className={inputCls} />
-          <button onClick={() => remove(i)} className={`p-1.5 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-white/10 text-zinc-500' : 'hover:bg-red-50 text-slate-400'}`}>
+          <input 
+            value={item} 
+            onChange={e => update(i, e.target.value)} 
+            placeholder={placeholder} 
+            className="w-full px-3 py-2 rounded-[4px] text-[13px] border transition-all focus:outline-none focus:border-[#635BFF]"
+            style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong, color: vl.textMain }}
+          />
+          <button 
+            onClick={() => remove(i)} 
+            className="p-1.5 rounded-[4px] transition-colors border border-transparent hover:border-red-500/20"
+            style={{ color: vl.textMuted }}
+          >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
       ))}
-      <button onClick={add} className="flex items-center gap-1.5 text-xs font-semibold text-[#6C5DD3] hover:text-[#5B4EC2] transition-colors">
+      <button 
+        onClick={add} 
+        className="flex items-center gap-1.5 text-xs font-bold transition-colors"
+        style={{ color: vl.primary }}
+      >
         <Plus className="w-3.5 h-3.5" /> Add another
       </button>
     </div>
@@ -76,9 +93,11 @@ const TextField: React.FC<{
   multiline?: boolean;
   isDarkMode: boolean;
 }> = ({ value, onChange, placeholder, multiline, isDarkMode }) => {
-  const cls = `w-full px-3 py-2 rounded-xl text-sm border transition-all focus:outline-none focus:ring-2 focus:ring-[#6C5DD3]/30 focus:border-[#6C5DD3] ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder-zinc-600' : 'bg-white border-slate-200 text-[#1B1D21] placeholder-slate-400'}`;
-  if (multiline) return <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={3} className={`${cls} resize-none`} />;
-  return <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className={cls} />;
+  const vl = getVL(isDarkMode);
+  const cls = "w-full px-3 py-2 rounded-[4px] text-[13px] border transition-all focus:outline-none focus:border-[#635BFF]";
+  const style = { background: vl.surfaceMuted, borderColor: vl.borderStrong, color: vl.textMain };
+  if (multiline) return <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={3} className={`${cls} resize-none`} style={style} />;
+  return <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className={cls} style={style} />;
 };
 
 const SelectField: React.FC<{
@@ -87,52 +106,67 @@ const SelectField: React.FC<{
   options: { value: string; label: string }[];
   placeholder?: string;
   isDarkMode: boolean;
-}> = ({ value, onChange, options, placeholder, isDarkMode }) => (
-  <select
-    value={value}
-    onChange={e => onChange(e.target.value)}
-    className={`w-full px-3 py-2 rounded-xl text-sm border transition-all focus:outline-none focus:ring-2 focus:ring-[#6C5DD3]/30 focus:border-[#6C5DD3] ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-white border-slate-200 text-[#1B1D21]'}`}
-  >
-    {placeholder && <option value="">{placeholder}</option>}
-    {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-  </select>
-);
+}> = ({ value, onChange, options, placeholder, isDarkMode }) => {
+  const vl = getVL(isDarkMode);
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      className="w-full px-3 py-2 rounded-[4px] text-[13px] font-semibold border transition-all focus:outline-none focus:border-[#635BFF]"
+      style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong, color: vl.textMain }}
+    >
+      {placeholder && <option value="">{placeholder}</option>}
+      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+    </select>
+  );
+};
 
-const FieldLabel: React.FC<{ label: string; hint?: string; isDarkMode: boolean }> = ({ label, hint, isDarkMode }) => (
-  <div className="mb-1.5">
-    <label className={`text-xs font-semibold ${isDarkMode ? 'text-zinc-400' : 'text-[#50515e]'}`}>{label}</label>
-    {hint && <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-zinc-600' : 'text-[#aaa]'}`}>{hint}</p>}
-  </div>
-);
+const FieldLabel: React.FC<{ label: string; hint?: string; isDarkMode: boolean }> = ({ label, hint, isDarkMode }) => {
+  const vl = getVL(isDarkMode);
+  return (
+    <div className="mb-1.5">
+      <label className="text-[11px] font-bold label-caps" style={{ color: vl.textMuted }}>{label}</label>
+      {hint && <p className="text-[10px] mt-0.5" style={{ color: vl.textBody }}>{hint}</p>}
+    </div>
+  );
+};
 
 const ChipSelect: React.FC<{
   options: string[];
   selected: string[];
   onChange: (selected: string[]) => void;
   isDarkMode: boolean;
-}> = ({ options, selected, onChange, isDarkMode }) => (
-  <div className="flex flex-wrap gap-2">
-    {options.map(opt => {
-      const isActive = selected.includes(opt);
-      return (
-        <button key={opt} onClick={() => onChange(isActive ? selected.filter(s => s !== opt) : [...selected, opt])}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${isActive
-            ? 'bg-[#6C5DD3]/10 text-[#6C5DD3] border-[#6C5DD3]/30'
-            : isDarkMode ? 'bg-white/5 text-zinc-400 border-white/10 hover:border-white/20' : 'bg-white text-[#808191] border-slate-200 hover:border-slate-300'
-          }`}>
-          {opt}
-        </button>
-      );
-    })}
-  </div>
-);
+}> = ({ options, selected, onChange, isDarkMode }) => {
+  const vl = getVL(isDarkMode);
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map(opt => {
+        const isActive = selected.includes(opt);
+        return (
+          <button 
+            key={opt} 
+            onClick={() => onChange(isActive ? selected.filter(s => s !== opt) : [...selected, opt])}
+            className="px-3 py-1.5 rounded-[4px] text-[11px] font-bold border transition-all label-caps"
+            style={{
+              background: isActive ? vl.primarySoft : vl.chipBg,
+              color: isActive ? vl.primary : vl.textMuted,
+              borderColor: isActive ? (isDarkMode ? 'rgba(99,91,255,0.2)' : 'rgba(99,91,255,0.1)') : vl.borderStrong
+            }}
+          >
+            {opt}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
 
 // ============ SECTION DEFINITIONS ============
 
 interface SectionDef {
   id: string;
   title: string;
-  icon: React.FC<{ className?: string }>;
+  icon: React.FC<{ className?: string, style?: any }>;
   aiImpact: string;
   nudge: string;
 }
@@ -263,6 +297,7 @@ interface SectionFormProps {
 }
 
 const ICPForm: React.FC<SectionFormProps> = ({ profile, onChange, isDarkMode }) => {
+  const vl = getVL(isDarkMode);
   const s = profile.icp || {};
   const set = (patch: Partial<ICPSection>) => onChange({ ...profile, icp: { ...s, ...patch } });
 
@@ -328,23 +363,23 @@ const ICPForm: React.FC<SectionFormProps> = ({ profile, onChange, isDarkMode }) 
       <div>
         <FieldLabel label="Best Customers" hint="Describe your top 3 best customers and why they're ideal" isDarkMode={isDarkMode} />
         {(s.bestCustomers?.length ? s.bestCustomers : [{ name: '', whyIdeal: '' }]).map((c, i) => (
-          <div key={i} className={`p-3 rounded-xl border mb-2 ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+          <div key={i} className="p-3 rounded-[6px] border mb-2" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong }}>
             <div className="flex gap-2 items-start">
               <div className="flex-1 space-y-2">
                 <input value={c.name} onChange={e => {
                   const list = [...(s.bestCustomers || [{ name: '', whyIdeal: '' }])];
                   list[i] = { ...list[i], name: e.target.value };
                   set({ bestCustomers: list });
-                }} placeholder="Customer name" className={`w-full px-3 py-2 rounded-xl text-sm border transition-all focus:outline-none focus:ring-2 focus:ring-[#6C5DD3]/30 focus:border-[#6C5DD3] ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder-zinc-600' : 'bg-white border-slate-200 text-[#1B1D21] placeholder-slate-400'}`} />
+                }} placeholder="Customer name" className="w-full px-3 py-2 rounded-[4px] text-[13px] border focus:outline-none focus:border-[#635BFF]" style={{ background: vl.surface, borderColor: vl.borderStrong, color: vl.textMain }} />
                 <input value={c.whyIdeal} onChange={e => {
                   const list = [...(s.bestCustomers || [{ name: '', whyIdeal: '' }])];
                   list[i] = { ...list[i], whyIdeal: e.target.value };
                   set({ bestCustomers: list });
-                }} placeholder="Why are they ideal?" className={`w-full px-3 py-2 rounded-xl text-sm border transition-all focus:outline-none focus:ring-2 focus:ring-[#6C5DD3]/30 focus:border-[#6C5DD3] ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder-zinc-600' : 'bg-white border-slate-200 text-[#1B1D21] placeholder-slate-400'}`} />
+                }} placeholder="Why are they ideal?" className="w-full px-3 py-2 rounded-[4px] text-[13px] border focus:outline-none focus:border-[#635BFF]" style={{ background: vl.surface, borderColor: vl.borderStrong, color: vl.textMain }} />
               </div>
               {(s.bestCustomers?.length || 1) > 1 && (
                 <button onClick={() => set({ bestCustomers: (s.bestCustomers || []).filter((_, idx) => idx !== i) })}
-                  className={`p-1.5 rounded-lg mt-1 ${isDarkMode ? 'hover:bg-white/10 text-zinc-500' : 'hover:bg-red-50 text-slate-400'}`}>
+                  className="p-1.5 rounded-[4px] mt-1 hover:border-red-500/20" style={{ color: vl.textMuted }}>
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -353,7 +388,7 @@ const ICPForm: React.FC<SectionFormProps> = ({ profile, onChange, isDarkMode }) 
         ))}
         {(s.bestCustomers?.length || 1) < 3 && (
           <button onClick={() => set({ bestCustomers: [...(s.bestCustomers || []), { name: '', whyIdeal: '' }] })}
-            className="flex items-center gap-1.5 text-xs font-semibold text-[#6C5DD3] hover:text-[#5B4EC2] transition-colors">
+            className="flex items-center gap-1.5 text-xs font-bold transition-colors" style={{ color: vl.primary }}>
             <Plus className="w-3.5 h-3.5" /> Add customer example
           </button>
         )}
@@ -363,8 +398,8 @@ const ICPForm: React.FC<SectionFormProps> = ({ profile, onChange, isDarkMode }) 
         <div className="flex items-center gap-3">
           <input type="range" min={0} max={100} value={s.bestCustomerRevenuePercent ?? 0}
             onChange={e => set({ bestCustomerRevenuePercent: Number(e.target.value) })}
-            className="flex-1 accent-[#6C5DD3]" />
-          <span className={`text-sm font-bold min-w-[40px] text-right ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>{s.bestCustomerRevenuePercent ?? 0}%</span>
+            className="flex-1" />
+          <span className="text-sm font-bold min-w-[40px] text-right" style={{ color: vl.textMain }}>{s.bestCustomerRevenuePercent ?? 0}%</span>
         </div>
       </div>
     </div>
@@ -438,6 +473,7 @@ const USPForm: React.FC<SectionFormProps> = ({ profile, onChange, isDarkMode }) 
 };
 
 const DealForm: React.FC<SectionFormProps> = ({ profile, onChange, isDarkMode }) => {
+  const vl = getVL(isDarkMode);
   const s = profile.dealCharacteristics || {};
   const set = (patch: Partial<DealCharacteristicsSection>) => onChange({ ...profile, dealCharacteristics: { ...s, ...patch } });
 
@@ -484,16 +520,16 @@ const DealForm: React.FC<SectionFormProps> = ({ profile, onChange, isDarkMode })
       <div>
         <FieldLabel label="Competitors" hint="Top competitors: why you win and lose against them" isDarkMode={isDarkMode} />
         {(s.competitors?.length ? s.competitors : [{ name: '', whyWeWin: '', whyWeLose: '' }]).map((c, i) => (
-          <div key={i} className={`p-3 rounded-xl border mb-2 space-y-2 ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+          <div key={i} className="p-3 rounded-[6px] border mb-2 space-y-2" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong }}>
             <div className="flex gap-2 items-center">
               <input value={c.name} onChange={e => {
                 const list = [...(s.competitors || [{ name: '' }])];
                 list[i] = { ...list[i], name: e.target.value };
                 set({ competitors: list });
-              }} placeholder="Competitor name" className={`flex-1 px-3 py-2 rounded-xl text-sm border transition-all focus:outline-none focus:ring-2 focus:ring-[#6C5DD3]/30 ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder-zinc-600' : 'bg-white border-slate-200 text-[#1B1D21] placeholder-slate-400'}`} />
+              }} placeholder="Competitor name" className="flex-1 px-3 py-2 rounded-[4px] text-[13px] border focus:outline-none focus:border-[#635BFF]" style={{ background: vl.surface, borderColor: vl.borderStrong, color: vl.textMain }} />
               {(s.competitors?.length || 1) > 1 && (
                 <button onClick={() => set({ competitors: (s.competitors || []).filter((_, idx) => idx !== i) })}
-                  className={`p-1.5 rounded-lg ${isDarkMode ? 'hover:bg-white/10 text-zinc-500' : 'hover:bg-red-50 text-slate-400'}`}>
+                  className="p-1.5 rounded-[4px]" style={{ color: vl.textMuted }}>
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -502,17 +538,17 @@ const DealForm: React.FC<SectionFormProps> = ({ profile, onChange, isDarkMode })
               const list = [...(s.competitors || [{ name: '' }])];
               list[i] = { ...list[i], whyWeWin: e.target.value };
               set({ competitors: list });
-            }} placeholder="Why do you win against them?" className={`w-full px-3 py-2 rounded-xl text-sm border transition-all focus:outline-none focus:ring-2 focus:ring-[#6C5DD3]/30 ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder-zinc-600' : 'bg-white border-slate-200 text-[#1B1D21] placeholder-slate-400'}`} />
+            }} placeholder="Why do you win against them?" className="w-full px-3 py-2 rounded-[4px] text-[13px] border focus:outline-none focus:border-[#635BFF]" style={{ background: vl.surface, borderColor: vl.borderStrong, color: vl.textMain }} />
             <input value={c.whyWeLose || ''} onChange={e => {
               const list = [...(s.competitors || [{ name: '' }])];
               list[i] = { ...list[i], whyWeLose: e.target.value };
               set({ competitors: list });
-            }} placeholder="Why do you lose?" className={`w-full px-3 py-2 rounded-xl text-sm border transition-all focus:outline-none focus:ring-2 focus:ring-[#6C5DD3]/30 ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder-zinc-600' : 'bg-white border-slate-200 text-[#1B1D21] placeholder-slate-400'}`} />
+            }} placeholder="Why do you lose?" className="w-full px-3 py-2 rounded-[4px] text-[13px] border focus:outline-none focus:border-[#635BFF]" style={{ background: vl.surface, borderColor: vl.borderStrong, color: vl.textMain }} />
           </div>
         ))}
         {(s.competitors?.length || 1) < 5 && (
           <button onClick={() => set({ competitors: [...(s.competitors || []), { name: '' }] })}
-            className="flex items-center gap-1.5 text-xs font-semibold text-[#6C5DD3] hover:text-[#5B4EC2] transition-colors">
+            className="flex items-center gap-1.5 text-xs font-bold transition-colors" style={{ color: vl.primary }}>
             <Plus className="w-3.5 h-3.5" /> Add competitor
           </button>
         )}
@@ -673,6 +709,7 @@ interface ProfileViewProps {
 
 const ProfileView: React.FC<ProfileViewProps> = ({ profile: initialProfile, onSave }) => {
   const { isDarkMode } = useTheme();
+  const vl = getVL(isDarkMode);
   const [profile, setProfile] = useState<BusinessProfile>(initialProfile || { name: '', industry: '', products: [], targetGroups: [], geography: [], website: '' });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -706,28 +743,29 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile: initialProfile, onSa
   const overallCompletion = Math.round(SECTIONS.reduce((sum, s) => sum + sectionCompletion(s.id, profile), 0) / SECTIONS.length);
   const filledSections = SECTIONS.filter(s => sectionCompletion(s.id, profile) > 0).length;
 
-  const cardBg = isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-slate-200/60';
-
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-40 animate-in fade-in duration-500">
 
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className={`text-3xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
+          <h1 className="text-3xl font-semibold tracking-tight" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>
             Business Intelligence Profile
           </h1>
-          <p className={`text-sm mt-1 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
+          <p className="text-[13px] mt-1" style={{ color: vl.textBody }}>
             The more Leadpulse knows about your business, the sharper your signals become. All fields are optional.
           </p>
         </div>
 
         {/* Save status */}
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-          saveStatus === 'saving' ? 'border-yellow-500/30 text-yellow-500 bg-yellow-500/10' :
-          saveStatus === 'saved' ? 'border-green-500/30 text-green-500 bg-green-500/10' :
-          isDarkMode ? 'border-white/10 text-zinc-500 bg-white/5' : 'border-slate-200 text-[#808191] bg-slate-50'
-        }`}>
+        <div 
+          className="flex items-center gap-2 px-3 py-1.5 rounded-[4px] text-[10px] font-bold border transition-all uppercase tracking-wider label-caps"
+          style={{
+            background: saveStatus === 'saving' ? '#F59E0B10' : saveStatus === 'saved' ? '#10B98110' : vl.chipBg,
+            borderColor: saveStatus === 'saving' ? '#F59E0B30' : saveStatus === 'saved' ? '#10B98130' : vl.borderStrong,
+            color: saveStatus === 'saving' ? '#F59E0B' : saveStatus === 'saved' ? '#10B981' : vl.textMuted
+          }}
+        >
           {saveStatus === 'saving' && <><Save className="w-3 h-3 animate-pulse" /> Saving...</>}
           {saveStatus === 'saved' && <><CheckCircle2 className="w-3 h-3" /> Saved</>}
           {saveStatus === 'idle' && <><Save className="w-3 h-3" /> Auto-save</>}
@@ -735,13 +773,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile: initialProfile, onSa
       </div>
 
       {/* Overall Progress */}
-      <div className={`p-6 rounded-2xl border ${cardBg} flex items-center gap-6`}>
+      <div className="p-6 rounded-[6px] border flex items-center gap-6 vl-card" style={{ background: vl.surface, borderColor: vl.border }}>
         <CompletionRing percent={overallCompletion} size={64} />
         <div className="flex-1">
-          <div className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
+          <div className="text-[15px] font-bold" style={{ color: vl.textMain }}>
             Profile Intelligence: {overallCompletion}% complete
           </div>
-          <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
+          <p className="text-[13px] mt-0.5" style={{ color: vl.textMuted }}>
             {filledSections} of {SECTIONS.length} sections started
             {overallCompletion < 30 && ' — completing even 2-3 sections significantly improves signal accuracy'}
           </p>
@@ -749,10 +787,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile: initialProfile, onSa
             {SECTIONS.map(s => {
               const pct = sectionCompletion(s.id, profile);
               return (
-                <div key={s.id} className="flex-1 h-1.5 rounded-full overflow-hidden"
-                  style={{ backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                <div key={s.id} className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: vl.borderStrong }}>
                   <div className="h-full rounded-full transition-all duration-700"
-                    style={{ width: `${pct}%`, backgroundColor: pct === 0 ? 'transparent' : pct < 50 ? '#f59e0b' : pct < 100 ? '#6C5DD3' : '#10B981' }} />
+                    style={{ width: `${pct}%`, backgroundColor: pct === 0 ? 'transparent' : pct < 50 ? '#f59e0b' : pct < 100 ? vl.primary : '#10B981' }} />
                 </div>
               );
             })}
@@ -761,7 +798,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile: initialProfile, onSa
       </div>
 
       {/* Accordion Sections */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         {SECTIONS.map(section => {
           const isOpen = expanded.has(section.id);
           const pct = sectionCompletion(section.id, profile);
@@ -769,36 +806,37 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile: initialProfile, onSa
           const Icon = section.icon;
 
           return (
-            <div key={section.id} className={`rounded-2xl border overflow-hidden transition-all duration-300 ${cardBg} ${isOpen ? 'shadow-lg' : ''}`}>
+            <div key={section.id} className={`rounded-[6px] border overflow-hidden transition-all duration-300 vl-card ${isOpen ? 'shadow-md' : ''}`} style={{ background: vl.surface, borderColor: vl.border }}>
               {/* Section Header */}
               <button
                 onClick={() => toggle(section.id)}
-                className={`w-full px-6 py-4 flex items-center gap-4 transition-colors ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/50'}`}
+                className="w-full px-6 py-4 flex items-center gap-4 transition-colors"
+                style={{ background: isOpen ? vl.surface : 'transparent' }}
               >
                 <CompletionRing percent={pct} size={36} />
-                <Icon className="w-5 h-5 text-[#6C5DD3] flex-shrink-0" />
+                <Icon className="w-5 h-5 flex-shrink-0" style={{ color: vl.primary }} />
                 <div className="flex-1 text-left">
-                  <div className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>{section.title}</div>
-                  <div className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-zinc-600' : 'text-[#aaa]'}`}>
+                  <div className="text-[13px] font-bold" style={{ color: vl.textMain }}>{section.title}</div>
+                  <div className="text-[11px] mt-0.5" style={{ color: vl.textMuted }}>
                     Powers: {section.aiImpact}
                   </div>
                 </div>
                 {pct === 0 && (
-                  <span className={`hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold ${isDarkMode ? 'bg-[#6C5DD3]/10 text-[#6C5DD3]' : 'bg-[#6C5DD3]/5 text-[#6C5DD3]'}`}>
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[10px] font-bold border label-caps tracking-wider" style={{ background: vl.primarySoft, color: vl.primary, borderColor: isDarkMode ? 'rgba(99,91,255,0.2)' : 'rgba(99,91,255,0.1)' }}>
                     <Info className="w-3 h-3" /> Recommended
                   </span>
                 )}
-                {isOpen ? <ChevronUp className={`w-5 h-5 ${isDarkMode ? 'text-zinc-500' : 'text-slate-400'}`} /> : <ChevronDown className={`w-5 h-5 ${isDarkMode ? 'text-zinc-500' : 'text-slate-400'}`} />}
+                {isOpen ? <ChevronUp className="w-5 h-5" style={{ color: vl.textMuted }} /> : <ChevronDown className="w-5 h-5" style={{ color: vl.textMuted }} />}
               </button>
 
               {/* Section Body */}
               {isOpen && (
-                <div className={`px-6 pb-6 border-t animate-in fade-in slide-in-from-top-2 duration-300 ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
+                <div className="px-6 pb-6 border-t animate-in fade-in slide-in-from-top-2 duration-300" style={{ borderColor: vl.borderStrong }}>
                   {/* Nudge */}
                   {pct === 0 && (
-                    <div className={`mt-4 mb-5 p-3 rounded-xl text-xs flex items-start gap-2 ${isDarkMode ? 'bg-[#6C5DD3]/5 text-[#6C5DD3]' : 'bg-[#6C5DD3]/5 text-[#6C5DD3]'}`}>
-                      <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                      {section.nudge}
+                    <div className="mt-4 mb-5 p-3 rounded-[6px] text-xs font-medium flex items-start gap-2 border" style={{ background: vl.primarySoft, color: vl.textMain, borderColor: isDarkMode ? 'rgba(99,91,255,0.2)' : 'rgba(99,91,255,0.1)' }}>
+                      <Info className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: vl.primary }} />
+                      <span style={{ color: vl.primary }}>{section.nudge}</span>
                     </div>
                   )}
                   <div className="mt-4">

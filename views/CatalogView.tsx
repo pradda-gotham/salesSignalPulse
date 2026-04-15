@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Pencil, Trash2, Package, DollarSign, Save, X, Upload } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { ProductCatalogItem, RateCardEntry } from '../types';
+import { getVL } from '../utils/vesper';
 
 interface CatalogViewProps {
   catalog: ProductCatalogItem[];
@@ -33,6 +34,8 @@ const CatalogView: React.FC<CatalogViewProps> = ({
   onAddRateCardEntry, onUpdateRateCardEntry, onRemoveRateCardEntry,
 }) => {
   const { isDarkMode } = useTheme();
+  const vl = getVL(isDarkMode);
+  
   const [subTab, setSubTab] = useState<SubTab>('products');
 
   // Product form state
@@ -170,14 +173,6 @@ const CatalogView: React.FC<CatalogViewProps> = ({
     e.target.value = '';
   };
 
-  // ============ STYLE HELPERS ============
-
-  const cardBg = isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-gray-200';
-  const inputCls = `w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-1 focus:ring-[#6C5DD3]/50 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`;
-  const labelCls = `block text-xs font-medium mb-1 ${isDarkMode ? 'text-zinc-400' : 'text-gray-500'}`;
-
-  // ============ SUB TAB RENDERING ============
-
   const groupedRateCards = RATE_CARD_CATEGORIES.map(cat => ({
     ...cat,
     entries: rateCards.filter(r => r.category === cat.value),
@@ -188,15 +183,15 @@ const CatalogView: React.FC<CatalogViewProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Product Catalog & Rate Cards</h1>
-          <p className={`text-sm mt-1 ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>
+          <h1 className="text-3xl font-semibold" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>Product Catalog & Rate Cards</h1>
+          <p className="text-[13px] mt-1" style={{ color: vl.textBody }}>
             Manage your product SKUs and standard rates for accurate, auditable pricing
           </p>
         </div>
       </div>
 
       {/* Sub-tab Toggle */}
-      <div className={`flex gap-1 p-1 rounded-xl w-fit ${isDarkMode ? 'bg-white/5' : 'bg-gray-100'}`}>
+      <div className="flex gap-1 p-1 rounded-[6px] w-fit border" style={{ background: vl.surfaceMuted, borderColor: vl.border }}>
         {[
           { id: 'products' as SubTab, label: 'Products', icon: Package, count: catalog.length },
           { id: 'rate-cards' as SubTab, label: 'Rate Cards', icon: DollarSign, count: rateCards.length },
@@ -204,23 +199,22 @@ const CatalogView: React.FC<CatalogViewProps> = ({
           <button
             key={tab.id}
             onClick={() => setSubTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            className="flex items-center gap-2 px-4 py-2 text-[13px] font-bold transition-all rounded-[4px]"
+            style={
               subTab === tab.id
-                ? isDarkMode
-                  ? 'bg-[#6C5DD3]/20 text-[#6C5DD3]'
-                  : 'bg-white text-[#6C5DD3] shadow-sm'
-                : isDarkMode
-                  ? 'text-zinc-500 hover:text-zinc-300'
-                  : 'text-gray-500 hover:text-gray-700'
-            }`}
+                ? { background: vl.surface, color: vl.primary, boxShadow: vl.shadow }
+                : { color: vl.textMuted }
+            }
           >
             <tab.icon className="w-4 h-4" />
             {tab.label}
-            <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-              subTab === tab.id
-                ? 'bg-[#6C5DD3]/20 text-[#6C5DD3]'
-                : isDarkMode ? 'bg-white/5 text-zinc-500' : 'bg-gray-200 text-gray-500'
-            }`}>{tab.count}</span>
+            <span className="text-[11px] px-1.5 py-0.5 rounded-[4px] border font-bold" style={{
+              background: subTab === tab.id ? vl.primarySoft : vl.chipBg,
+              color: subTab === tab.id ? vl.primary : vl.textMuted,
+              borderColor: subTab === tab.id ? 'transparent' : vl.borderStrong
+            }}>
+              {tab.count}
+            </span>
           </button>
         ))}
       </div>
@@ -232,13 +226,11 @@ const CatalogView: React.FC<CatalogViewProps> = ({
           <div className="flex items-center gap-3">
             <button
               onClick={() => handleOpenProductForm()}
-              className="flex items-center gap-2 px-4 py-2 bg-[#6C5DD3] hover:bg-[#5B4EC2] text-white rounded-xl text-sm font-medium transition-all"
+              className="btn-primary flex items-center gap-2 px-4 py-2 text-xs font-bold"
             >
               <Plus className="w-4 h-4" /> Add Product
             </button>
-            <label className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition-all ${
-              isDarkMode ? 'bg-white/5 hover:bg-white/10 text-zinc-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-            }`}>
+            <label className="flex items-center gap-2 px-4 py-2 rounded-[6px] text-xs font-bold cursor-pointer transition-all border" style={{ background: vl.surface, color: vl.textMain, borderColor: vl.borderStrong }}>
               <Upload className="w-4 h-4" />
               {isImporting ? 'Importing...' : 'Import CSV'}
               <input type="file" accept=".csv" className="hidden" onChange={handleCSVImport} disabled={isImporting} />
@@ -247,54 +239,56 @@ const CatalogView: React.FC<CatalogViewProps> = ({
 
           {/* Product table */}
           {catalog.length === 0 ? (
-            <div className={`border rounded-2xl p-12 text-center ${cardBg}`}>
-              <Package className={`w-12 h-12 mx-auto mb-4 ${isDarkMode ? 'text-zinc-600' : 'text-gray-300'}`} />
-              <h3 className="text-lg font-semibold mb-2">No products yet</h3>
-              <p className={`text-sm mb-4 ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>
+            <div className="border rounded-[6px] p-12 text-center vl-card" style={{ background: vl.surface, borderColor: vl.border }}>
+              <div className="w-12 h-12 rounded-[6px] flex items-center justify-center mx-auto mb-4" style={{ background: vl.chipBg, color: vl.textMuted }}>
+                <Package className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>No products yet</h3>
+              <p className="text-[13px] mb-4" style={{ color: vl.textBody }}>
                 Add your product catalog so AI-generated bundles use real SKUs and prices
               </p>
               <button
                 onClick={() => handleOpenProductForm()}
-                className="px-4 py-2 bg-[#6C5DD3] hover:bg-[#5B4EC2] text-white rounded-xl text-sm font-medium"
+                className="btn-primary px-4 py-2 text-xs font-bold"
               >
                 Add First Product
               </button>
             </div>
           ) : (
-            <div className={`border rounded-2xl overflow-hidden ${cardBg}`}>
-              <table className="w-full">
-                <thead>
-                  <tr className={isDarkMode ? 'bg-white/5' : 'bg-gray-50'}>
-                    <th className={`text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>SKU</th>
-                    <th className={`text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Name</th>
-                    <th className={`text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Category</th>
-                    <th className={`text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Unit Price</th>
-                    <th className={`text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Cost Basis</th>
-                    <th className={`text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Unit</th>
-                    <th className={`text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Actions</th>
+            <div className="border rounded-[6px] overflow-hidden vl-card" style={{ background: vl.surface, borderColor: vl.border }}>
+              <table className="w-full text-left">
+                <thead className="label-caps border-b" style={{ background: vl.tableHeader, borderColor: vl.borderStrong, color: vl.textMuted }}>
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">SKU</th>
+                    <th className="px-4 py-3 font-semibold">Name</th>
+                    <th className="px-4 py-3 font-semibold">Category</th>
+                    <th className="text-right px-4 py-3 font-semibold">Unit Price</th>
+                    <th className="text-right px-4 py-3 font-semibold">Cost Basis</th>
+                    <th className="px-4 py-3 font-semibold">Unit</th>
+                    <th className="text-right px-4 py-3 font-semibold">Actions</th>
                   </tr>
                 </thead>
-                <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
+                <tbody className="divide-y" style={{ divideColor: vl.borderStrong }}>
                   {catalog.map(item => (
-                    <tr key={item.id} className={`transition-colors ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-gray-50/50'}`}>
-                      <td className="px-4 py-3 text-sm font-mono">{item.sku}</td>
-                      <td className="px-4 py-3 text-sm font-medium">{item.name}</td>
+                    <tr key={item.id} className="transition-colors hover-row">
+                      <td className="px-4 py-3 text-xs font-mono font-bold" style={{ color: vl.primary }}>{item.sku}</td>
+                      <td className="px-4 py-3 text-[13px] font-semibold" style={{ color: vl.textMain }}>{item.name}</td>
                       <td className="px-4 py-3 text-sm">
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${isDarkMode ? 'bg-white/5 text-zinc-400' : 'bg-gray-100 text-gray-600'}`}>
+                        <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-bold border label-caps" style={{ background: vl.chipBg, color: vl.textMuted, borderColor: vl.borderStrong }}>
                           {item.category}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-right font-medium">${item.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                      <td className={`px-4 py-3 text-sm text-right ${isDarkMode ? 'text-zinc-500' : 'text-gray-400'}`}>
+                      <td className="px-4 py-3 text-[13px] text-right font-mono font-bold" style={{ color: vl.textMain }}>${item.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                      <td className="px-4 py-3 text-[13px] text-right font-mono font-bold" style={{ color: vl.textMuted }}>
                         {item.costBasis ? `$${item.costBasis.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
                       </td>
-                      <td className="px-4 py-3 text-sm">{item.unit}</td>
+                      <td className="px-4 py-3 text-[13px]" style={{ color: vl.textBody }}>{item.unit}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => handleOpenProductForm(item)} className={`p-1.5 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-white/10 text-zinc-400' : 'hover:bg-gray-100 text-gray-400'}`}>
+                          <button onClick={() => handleOpenProductForm(item)} className="p-1.5 rounded-[4px] transition-colors" style={{ color: vl.textMuted }}>
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => handleDeleteProduct(item.id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-400 transition-colors">
+                          <button onClick={() => handleDeleteProduct(item.id)} className="p-1.5 rounded-[4px] hover:bg-red-500/10 text-[#EF4444] transition-colors border border-transparent hover:border-red-500/20">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -309,53 +303,53 @@ const CatalogView: React.FC<CatalogViewProps> = ({
           {/* Product Form Modal */}
           {showProductForm && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowProductForm(false)}>
-              <div className={`w-full max-w-lg rounded-2xl border p-6 shadow-2xl ${cardBg}`} onClick={e => e.stopPropagation()}>
+              <div className="w-full max-w-lg rounded-[6px] border p-6 shadow-2xl vl-card" style={{ background: vl.surface, borderColor: vl.border }} onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold">{editingProduct ? 'Edit Product' : 'Add Product'}</h3>
-                  <button onClick={() => setShowProductForm(false)} className={`p-1 rounded-lg ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}>
+                  <h3 className="text-xl font-semibold" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>{editingProduct ? 'Edit Product' : 'Add Product'}</h3>
+                  <button onClick={() => setShowProductForm(false)} className="p-1 rounded-[4px]" style={{ color: vl.textMuted }}>
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={labelCls}>SKU *</label>
-                    <input className={inputCls} value={productForm.sku} onChange={e => setProductForm(f => ({ ...f, sku: e.target.value }))} placeholder="e.g. HNG-HD-001" />
+                    <label className="block text-[11px] font-bold mb-1 label-caps" style={{ color: vl.textMuted }}>SKU *</label>
+                    <input className="w-full px-3 py-2 rounded-[4px] border text-[13px] font-mono focus:outline-none focus:border-[#635BFF]" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong, color: vl.textMain }} value={productForm.sku} onChange={e => setProductForm(f => ({ ...f, sku: e.target.value }))} placeholder="e.g. HNG-HD-001" />
                   </div>
                   <div>
-                    <label className={labelCls}>Name *</label>
-                    <input className={inputCls} value={productForm.name} onChange={e => setProductForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Heavy Duty Hinge" />
+                    <label className="block text-[11px] font-bold mb-1 label-caps" style={{ color: vl.textMuted }}>Name *</label>
+                    <input className="w-full px-3 py-2 rounded-[4px] border text-[13px] focus:outline-none focus:border-[#635BFF]" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong, color: vl.textMain }} value={productForm.name} onChange={e => setProductForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Heavy Duty Hinge" />
                   </div>
                   <div className="col-span-2">
-                    <label className={labelCls}>Description</label>
-                    <input className={inputCls} value={productForm.description} onChange={e => setProductForm(f => ({ ...f, description: e.target.value }))} placeholder="Brief description" />
+                    <label className="block text-[11px] font-bold mb-1 label-caps" style={{ color: vl.textMuted }}>Description</label>
+                    <input className="w-full px-3 py-2 rounded-[4px] border text-[13px] focus:outline-none focus:border-[#635BFF]" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong, color: vl.textMain }} value={productForm.description} onChange={e => setProductForm(f => ({ ...f, description: e.target.value }))} placeholder="Brief description" />
                   </div>
                   <div>
-                    <label className={labelCls}>Category</label>
-                    <input className={inputCls} value={productForm.category} onChange={e => setProductForm(f => ({ ...f, category: e.target.value }))} placeholder="e.g. Hinges" />
+                    <label className="block text-[11px] font-bold mb-1 label-caps" style={{ color: vl.textMuted }}>Category</label>
+                    <input className="w-full px-3 py-2 rounded-[4px] border text-[13px] focus:outline-none focus:border-[#635BFF]" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong, color: vl.textMain }} value={productForm.category} onChange={e => setProductForm(f => ({ ...f, category: e.target.value }))} placeholder="e.g. Hinges" />
                   </div>
                   <div>
-                    <label className={labelCls}>Unit</label>
-                    <input className={inputCls} value={productForm.unit} onChange={e => setProductForm(f => ({ ...f, unit: e.target.value }))} placeholder="e.g. each, box, m" />
+                    <label className="block text-[11px] font-bold mb-1 label-caps" style={{ color: vl.textMuted }}>Unit</label>
+                    <input className="w-full px-3 py-2 rounded-[4px] border text-[13px] font-mono focus:outline-none focus:border-[#635BFF]" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong, color: vl.textMain }} value={productForm.unit} onChange={e => setProductForm(f => ({ ...f, unit: e.target.value }))} placeholder="e.g. each, box, m" />
                   </div>
                   <div>
-                    <label className={labelCls}>Unit Price ($) *</label>
-                    <input type="number" step="0.01" min="0" className={inputCls} value={productForm.unitPrice || ''} onChange={e => setProductForm(f => ({ ...f, unitPrice: parseFloat(e.target.value) || 0 }))} />
+                    <label className="block text-[11px] font-bold mb-1 label-caps" style={{ color: vl.textMuted }}>Unit Price ($) *</label>
+                    <input type="number" step="0.01" min="0" className="w-full px-3 py-2 rounded-[4px] border text-[13px] font-mono focus:outline-none focus:border-[#635BFF]" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong, color: vl.textMain }} value={productForm.unitPrice || ''} onChange={e => setProductForm(f => ({ ...f, unitPrice: parseFloat(e.target.value) || 0 }))} />
                   </div>
                   <div>
-                    <label className={labelCls}>Cost Basis ($)</label>
-                    <input type="number" step="0.01" min="0" className={inputCls} value={productForm.costBasis || ''} onChange={e => setProductForm(f => ({ ...f, costBasis: parseFloat(e.target.value) || 0 }))} />
+                    <label className="block text-[11px] font-bold mb-1 label-caps" style={{ color: vl.textMuted }}>Cost Basis ($)</label>
+                    <input type="number" step="0.01" min="0" className="w-full px-3 py-2 rounded-[4px] border text-[13px] font-mono focus:outline-none focus:border-[#635BFF]" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong, color: vl.textMain }} value={productForm.costBasis || ''} onChange={e => setProductForm(f => ({ ...f, costBasis: parseFloat(e.target.value) || 0 }))} />
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 mt-6">
-                  <button onClick={() => setShowProductForm(false)} className={`px-4 py-2 rounded-xl text-sm font-medium ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-100 hover:bg-gray-200'}`}>
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t" style={{ borderColor: vl.borderStrong }}>
+                  <button onClick={() => setShowProductForm(false)} className="px-4 py-2 rounded-[6px] text-xs font-bold border" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong, color: vl.textBody }}>
                     Cancel
                   </button>
                   <button
                     onClick={handleSaveProduct}
                     disabled={!productForm.sku || !productForm.name || productForm.unitPrice <= 0 || productSaving}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#6C5DD3] hover:bg-[#5B4EC2] text-white rounded-xl text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="btn-primary flex items-center gap-2 px-4 py-2 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Save className="w-4 h-4" /> {productSaving ? 'Saving...' : 'Save'}
                   </button>
@@ -373,57 +367,59 @@ const CatalogView: React.FC<CatalogViewProps> = ({
           <div className="flex items-center gap-3">
             <button
               onClick={() => handleOpenRateForm()}
-              className="flex items-center gap-2 px-4 py-2 bg-[#6C5DD3] hover:bg-[#5B4EC2] text-white rounded-xl text-sm font-medium transition-all"
+              className="btn-primary flex items-center gap-2 px-4 py-2 text-xs font-bold"
             >
               <Plus className="w-4 h-4" /> Add Rate
             </button>
           </div>
 
           {rateCards.length === 0 ? (
-            <div className={`border rounded-2xl p-12 text-center ${cardBg}`}>
-              <DollarSign className={`w-12 h-12 mx-auto mb-4 ${isDarkMode ? 'text-zinc-600' : 'text-gray-300'}`} />
-              <h3 className="text-lg font-semibold mb-2">No rate cards yet</h3>
-              <p className={`text-sm mb-4 ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>
+            <div className="border rounded-[6px] p-12 text-center vl-card" style={{ background: vl.surface, borderColor: vl.border }}>
+              <div className="w-12 h-12 rounded-[6px] flex items-center justify-center mx-auto mb-4" style={{ background: vl.chipBg, color: vl.textMuted }}>
+                <DollarSign className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>No rate cards yet</h3>
+              <p className="text-[13px] mb-4" style={{ color: vl.textBody }}>
                 Add your standard rates (labour, equipment, etc.) for accurate cost estimations
               </p>
               <button
                 onClick={() => handleOpenRateForm()}
-                className="px-4 py-2 bg-[#6C5DD3] hover:bg-[#5B4EC2] text-white rounded-xl text-sm font-medium"
+                className="btn-primary px-4 py-2 text-xs font-bold"
               >
                 Add First Rate
               </button>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {groupedRateCards.map(group => (
                 group.entries.length > 0 && (
-                  <div key={group.value} className={`border rounded-2xl overflow-hidden ${cardBg}`}>
-                    <div className={`px-4 py-3 ${isDarkMode ? 'bg-white/5' : 'bg-gray-50'}`}>
-                      <h3 className="text-sm font-semibold">{group.label}</h3>
+                  <div key={group.value} className="border rounded-[6px] overflow-hidden vl-card" style={{ background: vl.surface, borderColor: vl.border }}>
+                    <div className="px-5 py-3 border-b" style={{ background: vl.tableHeader, borderColor: vl.borderStrong }}>
+                      <h3 className="text-[13px] font-bold" style={{ color: vl.textMain }}>{group.label}</h3>
                     </div>
-                    <table className="w-full">
+                    <table className="w-full text-left">
                       <thead>
-                        <tr className={isDarkMode ? 'bg-white/[0.02]' : 'bg-gray-50/50'}>
-                          <th className={`text-left px-4 py-2 text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Description</th>
-                          <th className={`text-left px-4 py-2 text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Unit</th>
-                          <th className={`text-right px-4 py-2 text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Default Rate</th>
-                          <th className={`text-left px-4 py-2 text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Region</th>
-                          <th className={`text-right px-4 py-2 text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Actions</th>
+                        <tr className="label-caps border-b" style={{ borderColor: vl.borderStrong, color: vl.textMuted }}>
+                          <th className="px-5 py-3 font-semibold">Description</th>
+                          <th className="px-5 py-3 font-semibold">Unit</th>
+                          <th className="text-right px-5 py-3 font-semibold">Default Rate</th>
+                          <th className="px-5 py-3 font-semibold">Region</th>
+                          <th className="text-right px-5 py-3 font-semibold">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
+                      <tbody className="divide-y" style={{ divideColor: vl.borderStrong }}>
                         {group.entries.map(entry => (
-                          <tr key={entry.id} className={`transition-colors ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-gray-50/50'}`}>
-                            <td className="px-4 py-3 text-sm">{entry.description}</td>
-                            <td className="px-4 py-3 text-sm font-mono">{entry.unit}</td>
-                            <td className="px-4 py-3 text-sm text-right font-medium">${entry.defaultRate.toLocaleString(undefined, { minimumFractionDigits: 2 })}/{entry.unit}</td>
-                            <td className={`px-4 py-3 text-sm ${isDarkMode ? 'text-zinc-500' : 'text-gray-400'}`}>{entry.region || '—'}</td>
-                            <td className="px-4 py-3 text-right">
+                          <tr key={entry.id} className="transition-colors hover-row">
+                            <td className="px-5 py-3 text-[13px] font-semibold" style={{ color: vl.textMain }}>{entry.description}</td>
+                            <td className="px-5 py-3 text-xs font-mono" style={{ color: vl.textBody }}>{entry.unit}</td>
+                            <td className="px-5 py-3 text-[13px] text-right font-mono font-bold" style={{ color: vl.textMain }}>${entry.defaultRate.toLocaleString(undefined, { minimumFractionDigits: 2 })}/{entry.unit}</td>
+                            <td className="px-5 py-3 text-[13px]" style={{ color: vl.textMuted }}>{entry.region || '—'}</td>
+                            <td className="px-5 py-3 text-right">
                               <div className="flex items-center justify-end gap-1">
-                                <button onClick={() => handleOpenRateForm(entry)} className={`p-1.5 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-white/10 text-zinc-400' : 'hover:bg-gray-100 text-gray-400'}`}>
+                                <button onClick={() => handleOpenRateForm(entry)} className="p-1.5 rounded-[4px] transition-colors" style={{ color: vl.textMuted }}>
                                   <Pencil className="w-3.5 h-3.5" />
                                 </button>
-                                <button onClick={() => handleDeleteRate(entry.id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-400 transition-colors">
+                                <button onClick={() => handleDeleteRate(entry.id)} className="p-1.5 rounded-[4px] hover:bg-red-500/10 text-[#EF4444] transition-colors border border-transparent hover:border-red-500/20">
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </div>
@@ -440,50 +436,50 @@ const CatalogView: React.FC<CatalogViewProps> = ({
 
           {/* Rate Card Form Modal */}
           {showRateForm && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowRateForm(false)}>
-              <div className={`w-full max-w-lg rounded-2xl border p-6 shadow-2xl ${cardBg}`} onClick={e => e.stopPropagation()}>
+             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowRateForm(false)}>
+              <div className="w-full max-w-lg rounded-[6px] border p-6 shadow-2xl vl-card" style={{ background: vl.surface, borderColor: vl.border }} onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold">{editingRate ? 'Edit Rate' : 'Add Rate'}</h3>
-                  <button onClick={() => setShowRateForm(false)} className={`p-1 rounded-lg ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}>
+                  <h3 className="text-xl font-semibold" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>{editingRate ? 'Edit Rate' : 'Add Rate'}</h3>
+                  <button onClick={() => setShowRateForm(false)} className="p-1 rounded-[4px]" style={{ color: vl.textMuted }}>
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={labelCls}>Category *</label>
-                    <select className={inputCls} value={rateForm.category} onChange={e => setRateForm(f => ({ ...f, category: e.target.value }))}>
+                    <label className="block text-[11px] font-bold mb-1 label-caps" style={{ color: vl.textMuted }}>Category *</label>
+                    <select className="w-full px-3 py-2 rounded-[4px] border text-[13px] focus:outline-none focus:border-[#635BFF]" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong, color: vl.textMain }} value={rateForm.category} onChange={e => setRateForm(f => ({ ...f, category: e.target.value }))}>
                       {RATE_CARD_CATEGORIES.map(c => (
                         <option key={c.value} value={c.value}>{c.label}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className={labelCls}>Unit *</label>
-                    <input className={inputCls} value={rateForm.unit} onChange={e => setRateForm(f => ({ ...f, unit: e.target.value }))} placeholder="e.g. hr, day, each" />
+                    <label className="block text-[11px] font-bold mb-1 label-caps" style={{ color: vl.textMuted }}>Unit *</label>
+                    <input className="w-full px-3 py-2 rounded-[4px] border text-[13px] font-mono focus:outline-none focus:border-[#635BFF]" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong, color: vl.textMain }} value={rateForm.unit} onChange={e => setRateForm(f => ({ ...f, unit: e.target.value }))} placeholder="e.g. hr, day, each" />
                   </div>
                   <div className="col-span-2">
-                    <label className={labelCls}>Description *</label>
-                    <input className={inputCls} value={rateForm.description} onChange={e => setRateForm(f => ({ ...f, description: e.target.value }))} placeholder="e.g. Electrician - Journeyman" />
+                    <label className="block text-[11px] font-bold mb-1 label-caps" style={{ color: vl.textMuted }}>Description *</label>
+                    <input className="w-full px-3 py-2 rounded-[4px] border text-[13px] focus:outline-none focus:border-[#635BFF]" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong, color: vl.textMain }} value={rateForm.description} onChange={e => setRateForm(f => ({ ...f, description: e.target.value }))} placeholder="e.g. Electrician - Journeyman" />
                   </div>
                   <div>
-                    <label className={labelCls}>Default Rate ($) *</label>
-                    <input type="number" step="0.01" min="0" className={inputCls} value={rateForm.defaultRate || ''} onChange={e => setRateForm(f => ({ ...f, defaultRate: parseFloat(e.target.value) || 0 }))} />
+                    <label className="block text-[11px] font-bold mb-1 label-caps" style={{ color: vl.textMuted }}>Default Rate ($) *</label>
+                    <input type="number" step="0.01" min="0" className="w-full px-3 py-2 rounded-[4px] border text-[13px] font-mono focus:outline-none focus:border-[#635BFF]" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong, color: vl.textMain }} value={rateForm.defaultRate || ''} onChange={e => setRateForm(f => ({ ...f, defaultRate: parseFloat(e.target.value) || 0 }))} />
                   </div>
                   <div>
-                    <label className={labelCls}>Region (optional)</label>
-                    <input className={inputCls} value={rateForm.region} onChange={e => setRateForm(f => ({ ...f, region: e.target.value }))} placeholder="e.g. NSW, VIC" />
+                    <label className="block text-[11px] font-bold mb-1 label-caps" style={{ color: vl.textMuted }}>Region (optional)</label>
+                    <input className="w-full px-3 py-2 rounded-[4px] border text-[13px] focus:outline-none focus:border-[#635BFF]" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong, color: vl.textMain }} value={rateForm.region} onChange={e => setRateForm(f => ({ ...f, region: e.target.value }))} placeholder="e.g. NSW, VIC" />
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 mt-6">
-                  <button onClick={() => setShowRateForm(false)} className={`px-4 py-2 rounded-xl text-sm font-medium ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-100 hover:bg-gray-200'}`}>
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t" style={{ borderColor: vl.borderStrong }}>
+                  <button onClick={() => setShowRateForm(false)} className="px-4 py-2 rounded-[6px] text-xs font-bold border" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong, color: vl.textBody }}>
                     Cancel
                   </button>
                   <button
                     onClick={handleSaveRate}
                     disabled={!rateForm.description || rateForm.defaultRate <= 0 || rateSaving}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#6C5DD3] hover:bg-[#5B4EC2] text-white rounded-xl text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="btn-primary flex items-center gap-2 px-4 py-2 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Save className="w-4 h-4" /> {rateSaving ? 'Saving...' : 'Save'}
                   </button>

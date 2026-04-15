@@ -1,30 +1,25 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Plus,
   Trash2,
-  CheckCircle2,
   Building2,
   Target,
   Activity,
   Box,
   Globe,
   RefreshCw,
-  Search,
-  Filter,
   Monitor,
-  LayoutGrid,
   Zap,
   TrendingUp,
   ArrowRight,
   Sparkles,
-  MoreHorizontal
 } from 'lucide-react';
 import { SalesTrigger, BusinessProfile, MarketSignal, TrackedWebsite } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
-import { geminiService } from '../services/geminiService';
 import { CustomTriggerModal } from '../components/CustomTriggerModal';
 import { TrackWebsiteModal } from '../components/TrackWebsiteModal';
+import { getVL } from '../utils/vesper';
 
 interface SetupViewProps {
   profile: BusinessProfile | null;
@@ -63,16 +58,14 @@ const SetupView: React.FC<SetupViewProps> = ({
   marketActivity,
   isAssessing,
   onGenerateAITriggers,
-  isGeneratingAITriggers
+  isGeneratingAITriggers,
 }) => {
   const { isDarkMode } = useTheme();
+  const vl = getVL(isDarkMode);
   const [activeTab, setActiveTab] = useState<TabType>('active');
   const [showCustomTriggerModal, setShowCustomTriggerModal] = useState(false);
   const [showTrackWebsiteModal, setShowTrackWebsiteModal] = useState(false);
   const [scanningSiteId, setScanningSiteId] = useState<string | null>(null);
-
-  // NOTE: Default presets are created in App.tsx during onboarding.
-  // Do NOT create them here — it caused duplication on every mount/remount.
 
   // Filter triggers by tab
   const activeTriggers = triggers.filter(t => !t.triggerType || t.triggerType === 'active');
@@ -99,67 +92,212 @@ const SetupView: React.FC<SetupViewProps> = ({
       label: 'Base Profile',
       value: profile?.name || 'Not Set',
       icon: Building2,
-      color: 'text-slate-400'
     },
     {
       label: 'Active Products',
       value: `${profile?.products?.length || 0} Active SKUs`,
       icon: Box,
-      color: 'text-slate-400'
     },
     {
       label: 'Targeting',
       value: `${profile?.targetGroups?.length || 0} Priority Segments`,
       icon: Target,
-      color: 'text-slate-400'
     },
-
     {
       label: 'Activity Level',
       value: isAssessing ? 'Polling Trend...' : (marketActivity?.level || 'Assessing...'),
       icon: isAssessing ? RefreshCw : (marketActivity ? Activity : TrendingUp),
-      color: 'text-accent-purple',
-      valueColor: isAssessing ? 'text-slate-400' : (marketActivity?.colorClass || 'text-violet-500'),
+      valueColor: isAssessing ? vl.textMuted : vl.primary,
       summary: marketActivity?.summary,
-      isSpinning: isAssessing
+      isSpinning: isAssessing,
     },
   ];
 
-  return (
-    <div className="max-w-7xl mx-auto space-y-10 animate-in fade-in duration-500 pb-32">
+  // ── Tab button styles ──────────────────────────────────────────────────────
+  const tabStyle = (tab: TabType) => ({
+    fontSize: '13px',
+    fontWeight: activeTab === tab ? 600 : 500,
+    color: activeTab === tab ? vl.primary : vl.textMuted,
+    borderBottom: activeTab === tab ? `2px solid ${vl.primary}` : '2px solid transparent',
+    paddingBottom: '10px',
+    transition: 'all 0.15s',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px',
+    background: 'none',
+    cursor: 'pointer',
+  } as React.CSSProperties);
 
-      {/* Header Section */}
-      <header className="flex items-center justify-between">
+  const badgeStyle = (tab: TabType, color: 'indigo' | 'purple' | 'emerald') => {
+    const isActive = activeTab === tab;
+    const colors = {
+      indigo: { bg: isActive ? (isDarkMode ? 'rgba(99,91,255,0.18)' : '#EEF2FF') : vl.chipBg, text: isActive ? vl.primary : vl.textMuted },
+      purple: { bg: isActive ? (isDarkMode ? 'rgba(139,92,246,0.18)' : '#F3F4FF') : vl.chipBg, text: isActive ? '#8B5CF6' : vl.textMuted },
+      emerald: { bg: isActive ? (isDarkMode ? 'rgba(16,185,129,0.15)' : '#ECFDF5') : vl.chipBg, text: isActive ? '#10B981' : vl.textMuted },
+    };
+    return {
+      marginLeft: '6px',
+      padding: '1px 6px',
+      borderRadius: '9999px',
+      fontSize: '10px',
+      fontWeight: 700,
+      background: colors[color].bg,
+      color: colors[color].text,
+    } as React.CSSProperties;
+  };
+
+  // ── Status badge ────────────────────────────────────────────────────────────
+  const StatusBadge = ({ type }: { type: 'active' | 'ai' | 'verified' }) => {
+    const configs = {
+      active: { label: 'Active', bg: isDarkMode ? 'rgba(16,185,129,0.15)' : '#ECFDF5', color: '#10B981', border: isDarkMode ? 'rgba(16,185,129,0.25)' : '#A7F3D0' },
+      ai: { label: 'Leadpulse Suggested', bg: isDarkMode ? 'rgba(139,92,246,0.12)' : '#F3F4FF', color: '#8B5CF6', border: isDarkMode ? 'rgba(139,92,246,0.22)' : '#DDD6FE' },
+      verified: { label: 'Verified', bg: isDarkMode ? 'rgba(16,185,129,0.12)' : '#ECFDF5', color: '#10B981', border: isDarkMode ? 'rgba(16,185,129,0.22)' : '#A7F3D0' },
+    };
+    const c = configs[type];
+    return (
+      <span style={{
+        padding: '2px 8px',
+        borderRadius: '4px',
+        fontSize: '11px',
+        fontWeight: 700,
+        textTransform: 'uppercase',
+        letterSpacing: '0.04em',
+        background: c.bg,
+        color: c.color,
+        border: `1px solid ${c.border}`,
+        display: 'inline-block',
+      }}>
+        {c.label}
+      </span>
+    );
+  };
+
+  return (
+    <div style={{ maxWidth: '1200px', margin: '0 auto', paddingBottom: '96px' }}>
+
+      {/* ── Page Header ──────────────────────────────────────────────────────── */}
+      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div>
-          <h1 className={`text-xl font-semibold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+          <h1 style={{
+            fontFamily: "'Newsreader', Georgia, serif",
+            fontSize: '28px',
+            fontWeight: 600,
+            letterSpacing: '-0.01em',
+            color: vl.textMain,
+            margin: 0,
+            lineHeight: 1.2,
+          }}>
             Signal Engine Setup
           </h1>
-          <p className="text-sm text-slate-500 mt-1 font-normal">
+          <p style={{
+            fontSize: '14px',
+            color: vl.textBody,
+            marginTop: '6px',
+            lineHeight: '20px',
+          }}>
             Configure and refine automated market intelligence triggers.
           </p>
         </div>
-        <div className="flex items-center gap-3">
 
-          <button 
-            onClick={() => setShowTrackWebsiteModal(true)}
-            className={`px-4 py-1.5 rounded-md text-xs font-medium hover:opacity-90 transition-all flex items-center gap-2 ${isDarkMode ? 'bg-slate-100 text-slate-900' : 'bg-slate-900 text-white'}`}>
-            <Globe className="w-3.5 h-3.5" />
-            Track Website
-          </button>
-        </div>
+        <button
+          onClick={() => setShowTrackWebsiteModal(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 16px',
+            borderRadius: '6px',
+            fontSize: '13px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.15s',
+            background: vl.primary,
+            color: '#fff',
+            border: 'none',
+            boxShadow: '0 1px 4px rgba(99,91,255,0.3)',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = vl.primaryHover; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = vl.primary; }}
+        >
+          <Globe style={{ width: '14px', height: '14px' }} />
+          Track Website
+        </button>
       </header>
 
-      {/* Metrics Row */}
-      <div className={`rounded-xl flex ${isDarkMode ? 'bg-slate-900 border border-slate-800/60' : 'bg-white border border-slate-200/60'}`}>
+      {/* ── Metrics Row ──────────────────────────────────────────────────────── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        background: vl.surface,
+        border: `1px solid ${vl.border}`,
+        borderRadius: '6px',
+        boxShadow: vl.shadow,
+        marginBottom: '24px',
+        overflow: 'hidden',
+      }}>
         {metrics.map((m, i) => (
-          <div key={i} className={`flex-1 flex items-center gap-3 px-6 py-4 relative group ${i !== metrics.length - 1 ? (isDarkMode ? 'border-r border-slate-800/50' : 'border-r border-slate-100') : ''}`}>
-            <m.icon className={`w-5 h-5 ${m.isSpinning ? 'animate-spin' : ''} ${m.color === 'text-accent-green' ? 'text-emerald-500' : m.color === 'text-accent-purple' ? 'text-violet-500' : 'text-slate-400'}`} />
-            <div>
-              <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider leading-none mb-1">{m.label}</p>
-              <p className={`text-sm font-medium ${m.valueColor || (isDarkMode ? 'text-slate-200' : 'text-slate-900')}`}>{m.value}</p>
+          <div
+            key={i}
+            className="relative group"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '16px 20px',
+              borderRight: i < metrics.length - 1 ? `1px solid ${vl.border}` : 'none',
+            }}
+          >
+            <div style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '6px',
+              background: vl.primarySoft,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <m.icon
+                style={{
+                  width: '16px',
+                  height: '16px',
+                  color: vl.primary,
+                }}
+                className={m.isSpinning ? 'animate-spin' : ''}
+              />
             </div>
+            <div>
+              <p style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                color: vl.textMuted,
+                margin: '0 0 3px 0',
+                lineHeight: 1,
+              }}>
+                {m.label}
+              </p>
+              <p style={{
+                fontSize: '14px',
+                fontWeight: 600,
+                color: m.valueColor || vl.textMain,
+                margin: 0,
+                lineHeight: '20px',
+              }}>
+                {m.value}
+              </p>
+            </div>
+
+            {/* Tooltip */}
             {m.summary && (
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-8 opacity-0 group-hover:opacity-100 group-hover:translate-y-4 transition-all z-20 pointer-events-none w-56 p-2 text-xs rounded shadow-lg bg-slate-800 text-white border border-slate-700 text-center leading-relaxed">
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20 w-56 p-3 text-xs rounded-[6px] shadow-lg leading-relaxed text-center"
+                style={{
+                  background: isDarkMode ? '#1E293B' : '#191C1E',
+                  color: '#F8FAFC',
+                  border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.08)' : 'transparent'}`,
+                }}
+              >
                 {m.summary}
               </div>
             )}
@@ -167,105 +305,200 @@ const SetupView: React.FC<SetupViewProps> = ({
         ))}
       </div>
 
-      {/* Main Content Area */}
-      <section className="space-y-4">
-        {/* Table Header with Tabs */}
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-4">
-            <h2 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>Active Configurations</h2>
-            
+      {/* ── Main Table Section ───────────────────────────────────────────────── */}
+      <section>
+        {/* Table Header */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '12px',
+        }}>
+          {/* Left: Title + Action Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h2 style={{
+              fontFamily: "'Newsreader', Georgia, serif",
+              fontSize: '18px',
+              fontWeight: 600,
+              letterSpacing: '-0.01em',
+              color: vl.textMain,
+              margin: 0,
+            }}>
+              Active Configurations
+            </h2>
+
             {activeTab === 'ai_generated' && onGenerateAITriggers && (
               <button
                 onClick={onGenerateAITriggers}
                 disabled={isGeneratingAITriggers}
-                className={`px-3 py-1 rounded border text-xs font-medium flex items-center gap-1.5 transition-all ${isDarkMode ? 'bg-purple-500/10 border-purple-500/20 text-purple-400 hover:bg-purple-500/20' : 'bg-purple-50 border-purple-200 text-purple-600 hover:bg-purple-100'} ${isGeneratingAITriggers ? 'opacity-50 cursor-not-allowed' : ''}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: isGeneratingAITriggers ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s',
+                  background: isDarkMode ? 'rgba(99,91,255,0.12)' : '#F0F1FF',
+                  color: vl.primary,
+                  border: `1px solid ${isDarkMode ? 'rgba(99,91,255,0.2)' : 'rgba(99,91,255,0.2)'}`,
+                  opacity: isGeneratingAITriggers ? 0.6 : 1,
+                }}
               >
-                {isGeneratingAITriggers ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                {isGeneratingAITriggers ? 'Generating...' : 'Auto-Generate Triggers'}
+                {isGeneratingAITriggers ? <RefreshCw style={{ width: '12px', height: '12px' }} className="animate-spin" /> : <Sparkles style={{ width: '12px', height: '12px' }} />}
+                {isGeneratingAITriggers ? 'Generating...' : 'Auto-Generate'}
               </button>
             )}
 
             <button
               onClick={() => setShowCustomTriggerModal(true)}
-              className={`px-3 py-1 rounded border text-xs font-medium flex items-center gap-1.5 transition-all ${isDarkMode ? 'bg-[#141414] border-white/10 text-white hover:border-[#6C5DD3]/50 hover:text-[#6C5DD3]' : 'bg-white border-slate-200 text-[#1B1D21] hover:border-[#6C5DD3]/50 hover:text-[#6C5DD3]'}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+                background: vl.surface,
+                color: vl.textBody,
+                border: `1px solid ${vl.borderStrong}`,
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = vl.primary;
+                (e.currentTarget as HTMLButtonElement).style.color = vl.primary;
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = vl.borderStrong;
+                (e.currentTarget as HTMLButtonElement).style.color = vl.textBody;
+              }}
             >
-              <Plus className="w-3.5 h-3.5" /> Create Trigger
+              <Plus style={{ width: '12px', height: '12px' }} />
+              Create Trigger
             </button>
           </div>
-          <div className="flex gap-4">
+
+          {/* Right: Tabs */}
+          <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
             <button
               onClick={() => setActiveTab('active')}
-              className={`text-xs font-medium pb-1 transition-colors ${activeTab === 'active' ? 'text-indigo-500 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-600'}`}
+              style={tabStyle('active')}
+              id="tab-active-triggers"
             >
               Active Triggers
               {activeTriggers.length > 0 && (
-                <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${activeTab === 'active' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
-                  {activeTriggers.length}
-                </span>
+                <span style={badgeStyle('active', 'indigo')}>{activeTriggers.length}</span>
               )}
             </button>
             <button
               onClick={() => setActiveTab('ai_generated')}
-              className={`text-xs font-medium pb-1 transition-colors flex items-center gap-1 ${activeTab === 'ai_generated' ? 'text-indigo-500 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-600'}`}
+              style={tabStyle('ai_generated')}
+              id="tab-ai-triggers"
             >
-              <Sparkles className="w-3 h-3" />
+              <Sparkles style={{ width: '11px', height: '11px' }} />
               Leadpulse Generated
               {aiGeneratedTriggers.length > 0 && (
-                <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${activeTab === 'ai_generated' ? 'bg-purple-100 text-purple-600' : 'bg-slate-100 text-slate-500'}`}>
-                  {aiGeneratedTriggers.length}
-                </span>
+                <span style={badgeStyle('ai_generated', 'purple')}>{aiGeneratedTriggers.length}</span>
               )}
             </button>
             <button
               onClick={() => setActiveTab('tracked_sites')}
-              className={`text-xs font-medium pb-1 transition-colors flex items-center gap-1 ${activeTab === 'tracked_sites' ? 'text-indigo-500 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-600'}`}
+              style={tabStyle('tracked_sites')}
+              id="tab-tracked-sites"
             >
-              <Globe className="w-3 h-3" />
+              <Globe style={{ width: '11px', height: '11px' }} />
               Tracked Sites
               {trackedWebsites.length > 0 && (
-                <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${activeTab === 'tracked_sites' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
-                  {trackedWebsites.length}
-                </span>
+                <span style={badgeStyle('tracked_sites', 'emerald')}>{trackedWebsites.length}</span>
               )}
             </button>
           </div>
         </div>
 
-        {/* Table Container */}
-        <div className={`rounded-xl overflow-hidden border ${isDarkMode ? 'bg-slate-900 border-slate-800/60' : 'bg-white border-slate-200/60'}`}>
-          <table className="w-full text-left">
+        {/* ── Table Container ──────────────────────────────────────────────── */}
+        <div style={{
+          background: vl.surface,
+          border: `1px solid ${vl.border}`,
+          borderRadius: '6px',
+          boxShadow: vl.shadow,
+          overflow: 'hidden',
+        }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
             <thead>
               {activeTab === 'tracked_sites' ? (
-                <tr className={`border-b ${isDarkMode ? 'border-slate-800 bg-slate-800/30' : 'border-slate-100 bg-slate-50/50'}`}>
-                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Website URL</th>
-                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Tracking Purpose & Keywords</th>
-                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</th>
-                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Last Scanned</th>
-                  <th className="px-6 py-3 text-right"></th>
+                <tr style={{ background: vl.tableHeader, borderBottom: `1px solid ${vl.border}` }}>
+                  {['Website URL', 'Tracking Purpose & Keywords', 'Status', 'Last Scanned', ''].map((header, i) => (
+                    <th
+                      key={i}
+                      style={{
+                        padding: '10px 20px',
+                        textAlign: 'left',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        color: vl.textMuted,
+                        width: i === 4 ? '100px' : 'auto',
+                      }}
+                    >
+                      {header}
+                    </th>
+                  ))}
                 </tr>
               ) : (
-                <tr className={`border-b ${isDarkMode ? 'border-slate-800 bg-slate-800/30' : 'border-slate-100 bg-slate-50/50'}`}>
-                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Trigger Event</th>
-                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Logic & Intent</th>
-                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</th>
-                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Category</th>
-                  <th className="px-6 py-3 text-right"></th>
+                <tr style={{ background: vl.tableHeader, borderBottom: `1px solid ${vl.border}` }}>
+                  {['Trigger Event', 'Logic & Intent', 'Status', 'Category', ''].map((header, i) => (
+                    <th
+                      key={i}
+                      style={{
+                        padding: '10px 20px',
+                        textAlign: 'left',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        color: vl.textMuted,
+                        width: i === 4 ? '120px' : 'auto',
+                      }}
+                    >
+                      {header}
+                    </th>
+                  ))}
                 </tr>
               )}
             </thead>
-            <tbody className={`divide-y ${isDarkMode ? 'divide-slate-800' : 'divide-slate-100'}`}>
+
+            <tbody>
               {activeTab === 'tracked_sites' ? (
                 trackedWebsites.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center">
-                      <div className="flex flex-col items-center gap-3">
-                        <Globe className="w-8 h-8 text-slate-300" />
-                        <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <td colSpan={5}>
+                      <div style={{
+                        padding: '48px 24px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '10px',
+                      }}>
+                        <Globe style={{ width: '28px', height: '28px', color: vl.textMuted }} />
+                        <p style={{ fontSize: '14px', color: vl.textBody, margin: 0 }}>
                           No websites are currently being tracked.
                         </p>
                         <button
                           onClick={() => setShowTrackWebsiteModal(true)}
-                          className="mt-2 text-xs font-semibold text-indigo-500 hover:text-indigo-600"
+                          style={{
+                            marginTop: '4px',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            color: vl.primary,
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                          }}
                         >
                           + Track a Website
                         </button>
@@ -274,26 +507,45 @@ const SetupView: React.FC<SetupViewProps> = ({
                   </tr>
                 ) : (
                   trackedWebsites.map((site) => (
-                    <tr key={site.id} className={`group transition-colors ${isDarkMode ? 'hover:bg-slate-800/20' : 'hover:bg-slate-50/50'}`}>
-                      <td className="px-6 py-5 align-top">
-                        <p className={`text-sm font-semibold max-w-xs truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{site.url}</p>
+                    <tr
+                      key={site.id}
+                      style={{ borderBottom: `1px solid ${vl.border}`, transition: 'background 0.1s' }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = vl.rowHover}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+                    >
+                      <td style={{ padding: '16px 20px', verticalAlign: 'top' }}>
+                        <p style={{ fontSize: '14px', fontWeight: 600, color: vl.textMain, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {site.url}
+                        </p>
                       </td>
-                      <td className="px-6 py-5 align-top">
-                        {site.purpose && <p className={`text-xs font-medium mb-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>{site.purpose}</p>}
-                        <p className={`text-xs max-w-xs italic leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>"{site.targetKeywords || 'Any interesting signals'}"</p>
+                      <td style={{ padding: '16px 20px', verticalAlign: 'top' }}>
+                        {site.purpose && (
+                          <p style={{ fontSize: '13px', fontWeight: 500, color: vl.textBody, margin: '0 0 4px 0' }}>{site.purpose}</p>
+                        )}
+                        <p style={{ fontSize: '12px', color: vl.textMuted, margin: 0, fontStyle: 'italic' }}>
+                          "{site.targetKeywords || 'Any interesting signals'}"
+                        </p>
                       </td>
-                      <td className="px-6 py-5 align-top">
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase border bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-                          Active
+                      <td style={{ padding: '16px 20px', verticalAlign: 'top' }}>
+                        <StatusBadge type="active" />
+                      </td>
+                      <td style={{ padding: '16px 20px', verticalAlign: 'top' }}>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          fontSize: '12px',
+                          color: vl.textMuted,
+                          background: vl.chipBg,
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                        }}>
+                          <Monitor style={{ width: '11px', height: '11px' }} />
+                          {site.lastScannedAt ? new Date(site.lastScannedAt).toLocaleDateString() : 'Never'}
                         </span>
                       </td>
-                      <td className="px-6 py-5 align-top">
-                        <span className={`text-xs px-2 py-1 rounded inline-flex items-center gap-1.5 ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-600'}`}>
-                          <Monitor className="w-3 h-3" /> {site.lastScannedAt ? new Date(site.lastScannedAt).toLocaleDateString() : 'Never'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5 text-right align-top">
-                        <div className="flex items-center justify-end gap-2 transition-opacity">
+                      <td style={{ padding: '16px 20px', verticalAlign: 'top', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
                           <button
                             onClick={async () => {
                               if (onScanWebsite) {
@@ -303,29 +555,46 @@ const SetupView: React.FC<SetupViewProps> = ({
                               }
                             }}
                             disabled={scanningSiteId !== null}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold transition-all ${
-                              scanningSiteId === site.id
-                                ? 'bg-indigo-500/20 text-indigo-400 cursor-not-allowed'
-                                : 'bg-indigo-500 text-white hover:bg-indigo-600'
-                            }`}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              padding: '5px 10px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              cursor: scanningSiteId !== null ? 'not-allowed' : 'pointer',
+                              transition: 'all 0.15s',
+                              background: scanningSiteId === site.id ? vl.primarySoft : vl.primary,
+                              color: scanningSiteId === site.id ? vl.primary : '#fff',
+                              border: 'none',
+                            }}
                           >
                             {scanningSiteId === site.id ? (
-                              <>
-                                <RefreshCw className="w-3 h-3 animate-spin" />
-                                Scanning...
-                              </>
+                              <><RefreshCw style={{ width: '11px', height: '11px' }} className="animate-spin" /> Scanning...</>
                             ) : (
-                              <>
-                                <Zap className="w-3 h-3 fill-current" />
-                                Scan Now
-                              </>
+                              <><Zap style={{ width: '11px', height: '11px' }} /> Scan Now</>
                             )}
                           </button>
                           <button
                             onClick={() => onRemoveTrackedWebsite && onRemoveTrackedWebsite(site.id)}
-                            className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors"
+                            style={{
+                              width: '28px',
+                              height: '28px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              borderRadius: '4px',
+                              border: 'none',
+                              background: 'transparent',
+                              color: vl.textMuted,
+                              cursor: 'pointer',
+                              transition: 'color 0.15s',
+                            }}
+                            onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.color = '#EF4444'}
+                            onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.color = vl.textMuted}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 style={{ width: '14px', height: '14px' }} />
                           </button>
                         </div>
                       </td>
@@ -334,32 +603,51 @@ const SetupView: React.FC<SetupViewProps> = ({
                 )
               ) : displayTriggers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center gap-3">
+                  <td colSpan={5}>
+                    <div style={{
+                      padding: '48px 24px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '10px',
+                    }}>
                       {activeTab === 'ai_generated' ? (
                         <>
-                          <Sparkles className="w-8 h-8 text-slate-300" />
-                          <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                          <Sparkles style={{ width: '28px', height: '28px', color: vl.textMuted }} />
+                          <p style={{ fontSize: '14px', color: vl.textBody, margin: 0 }}>
                             No Leadpulse-generated triggers yet.
                           </p>
-                          <p className="text-xs text-slate-400 mb-2">
-                            Use the <strong>Auto-Generate Triggers</strong> button to let Leadpulse propose intelligent signals based on your business profile.
+                          <p style={{ fontSize: '13px', color: vl.textMuted, textAlign: 'center', maxWidth: '320px', margin: 0, lineHeight: '18px' }}>
+                            Use the <strong>Auto-Generate</strong> button to let Leadpulse propose intelligent signals based on your business profile.
                           </p>
                           {onGenerateAITriggers && (
                             <button
                               onClick={onGenerateAITriggers}
                               disabled={isGeneratingAITriggers}
-                              className="px-4 py-2 mt-2 bg-indigo-500/10 text-indigo-500 rounded-lg text-xs font-semibold hover:bg-indigo-500/20 transition-all flex items-center gap-2"
+                              style={{
+                                marginTop: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '8px 16px',
+                                borderRadius: '6px',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: isGeneratingAITriggers ? 'not-allowed' : 'pointer',
+                                background: vl.primarySoft,
+                                color: vl.primary,
+                                border: `1px solid rgba(99,91,255,0.2)`,
+                              }}
                             >
-                              {isGeneratingAITriggers ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                              {isGeneratingAITriggers ? <RefreshCw style={{ width: '13px', height: '13px' }} className="animate-spin" /> : <Sparkles style={{ width: '13px', height: '13px' }} />}
                               {isGeneratingAITriggers ? 'Generating Triggers...' : 'Generate AI Triggers'}
                             </button>
                           )}
                         </>
                       ) : (
                         <>
-                          <Target className="w-8 h-8 text-slate-300" />
-                          <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                          <Target style={{ width: '28px', height: '28px', color: vl.textMuted }} />
+                          <p style={{ fontSize: '14px', color: vl.textBody, margin: 0 }}>
                             No active triggers configured.
                           </p>
                         </>
@@ -369,62 +657,136 @@ const SetupView: React.FC<SetupViewProps> = ({
                 </tr>
               ) : (
                 displayTriggers.map((t) => (
-                  <tr key={t.id} className={`group transition-colors ${isDarkMode ? 'hover:bg-slate-800/20' : 'hover:bg-slate-50/50'}`}>
-                    <td className="px-6 py-5 align-top">
-                      <p className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{t.event}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">{t.source}</p>
+                  <tr
+                    key={t.id}
+                    style={{ borderBottom: `1px solid ${vl.border}`, transition: 'background 0.1s' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = vl.rowHover}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+                  >
+                    <td style={{ padding: '16px 20px', verticalAlign: 'top' }}>
+                      <p style={{ fontSize: '14px', fontWeight: 600, color: vl.textMain, margin: '0 0 3px 0', lineHeight: '20px' }}>
+                        {t.event}
+                      </p>
+                      <p style={{ fontSize: '12px', color: vl.textMuted, margin: 0 }}>{t.source}</p>
                     </td>
-                    <td className="px-6 py-5 align-top">
-                      <p className={`text-xs max-w-xs italic leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>"{t.logic}"</p>
+                    <td style={{ padding: '16px 20px', verticalAlign: 'top' }}>
+                      <p style={{ fontSize: '13px', color: vl.textBody, margin: 0, fontStyle: 'italic', lineHeight: '18px', maxWidth: '280px' }}>
+                        "{t.logic}"
+                      </p>
                     </td>
-                    <td className="px-6 py-5 align-top">
-                      {t.triggerType === 'ai_generated' ? (
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase border bg-purple-500/10 text-purple-500 border-purple-500/20">
-                          Leadpulse Suggested
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase border bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-                          Verified
-                        </span>
-                      )}
+                    <td style={{ padding: '16px 20px', verticalAlign: 'top' }}>
+                      <StatusBadge type={t.triggerType === 'ai_generated' ? 'ai' : 'verified'} />
                     </td>
-                    <td className="px-6 py-5 align-top">
+                    <td style={{ padding: '16px 20px', verticalAlign: 'top' }}>
                       {t.scope === 'global' ? (
-                        <span className={`text-xs px-2 py-1 rounded inline-flex items-center gap-1.5 ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-100 text-slate-600'}`}>
-                          <Globe className="w-3 h-3" /> All Products
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          fontSize: '12px',
+                          color: vl.textMuted,
+                          background: vl.chipBg,
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                        }}>
+                          <Globe style={{ width: '11px', height: '11px' }} /> All Products
                         </span>
                       ) : t.scope === 'bundle' ? (
-                        <span className={`text-xs px-2 py-1 rounded inline-flex items-center gap-1.5 ${isDarkMode ? 'bg-purple-500/10 text-purple-400' : 'bg-slate-100 text-slate-600'}`}>
-                          <RefreshCw className="w-3 h-3" /> {t.bundleName}
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          fontSize: '12px',
+                          color: '#8B5CF6',
+                          background: isDarkMode ? 'rgba(139,92,246,0.10)' : '#F3F4FF',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                        }}>
+                          <RefreshCw style={{ width: '11px', height: '11px' }} /> {t.bundleName}
                         </span>
                       ) : (
-                        <span className={`text-xs px-2 py-1 rounded inline-flex items-center gap-1.5 ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-600'}`}>
+                        <span style={{
+                          fontSize: '12px',
+                          color: vl.textMuted,
+                          background: vl.chipBg,
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          display: 'inline-block',
+                        }}>
                           {t.product}
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-5 text-right align-top">
-                      <div className="flex items-center justify-end gap-2 transition-opacity">
-                        {/* Show Activate button only for Leadpulse Generated triggers */}
+                    <td style={{ padding: '16px 20px', verticalAlign: 'top', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
                         {t.triggerType === 'ai_generated' && onActivateTrigger && (
                           <button
                             onClick={() => handleActivate(t.id)}
-                            className="px-3 py-1 bg-indigo-500 text-white rounded text-[10px] font-semibold transition-all hover:bg-indigo-600 flex items-center gap-1"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '5px 10px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              background: vl.primary,
+                              color: '#fff',
+                              border: 'none',
+                              transition: 'background 0.15s',
+                            }}
+                            onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = vl.primaryHover}
+                            onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = vl.primary}
                           >
-                            <ArrowRight className="w-3 h-3" />
+                            <ArrowRight style={{ width: '11px', height: '11px' }} />
                             Activate
                           </button>
                         )}
                         {activeTab === 'active' && (
-                          <button className={`px-3 py-1 border rounded text-[10px] font-medium transition-all ${isDarkMode ? 'border-slate-700 hover:bg-slate-800' : 'border-slate-200 hover:bg-slate-50'}`}>
+                          <button
+                            style={{
+                              padding: '5px 10px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              background: 'transparent',
+                              color: vl.textBody,
+                              border: `1px solid ${vl.borderStrong}`,
+                              transition: 'all 0.15s',
+                            }}
+                            onMouseEnter={e => {
+                              (e.currentTarget as HTMLButtonElement).style.borderColor = vl.primary;
+                              (e.currentTarget as HTMLButtonElement).style.color = vl.primary;
+                            }}
+                            onMouseLeave={e => {
+                              (e.currentTarget as HTMLButtonElement).style.borderColor = vl.borderStrong;
+                              (e.currentTarget as HTMLButtonElement).style.color = vl.textBody;
+                            }}
+                          >
                             Verify
                           </button>
                         )}
                         <button
                           onClick={() => handleDelete(t.id)}
-                          className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors"
+                          style={{
+                            width: '28px',
+                            height: '28px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: '4px',
+                            border: 'none',
+                            background: 'transparent',
+                            color: vl.textMuted,
+                            cursor: 'pointer',
+                            transition: 'color 0.15s',
+                          }}
+                          onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.color = '#EF4444'}
+                          onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.color = vl.textMuted}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 style={{ width: '14px', height: '14px' }} />
                         </button>
                       </div>
                     </td>
@@ -436,37 +798,66 @@ const SetupView: React.FC<SetupViewProps> = ({
         </div>
       </section>
 
-      {/* Floating Bottom Bar */}
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-8 duration-700">
-        <div className={`backdrop-blur-md border shadow-lg rounded-full px-6 py-3 flex items-center gap-6 ${isDarkMode ? 'bg-slate-900/80 border-slate-800/60' : 'bg-white/80 border-slate-200/60'}`}>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <p className={`text-[11px] font-semibold uppercase tracking-tighter ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+      {/* ── Floating Bottom Bar ─────────────────────────────────────────────── */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-8 duration-500">
+        <div
+          className="backdrop-blur-md flex items-center gap-5"
+          style={{
+            background: isDarkMode ? 'rgba(15,15,15,0.85)' : 'rgba(255,255,255,0.92)',
+            border: `1px solid ${vl.borderStrong}`,
+            borderRadius: '9999px',
+            padding: '10px 20px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{
+              width: '7px',
+              height: '7px',
+              borderRadius: '50%',
+              background: '#10B981',
+              display: 'inline-block',
+              boxShadow: '0 0 0 2px rgba(16,185,129,0.2)',
+            }} className="animate-pulse" />
+            <p style={{
+              fontSize: '12px',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              color: vl.textBody,
+              margin: 0,
+            }}>
               {activeTriggers.length} Active Trigger{activeTriggers.length !== 1 ? 's' : ''}
             </p>
           </div>
-          
-          <div className={`w-px h-6 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}></div>
-          
+
+          <div style={{ width: '1px', height: '20px', background: vl.border }} />
+
           <button
             onClick={onGenerateSignals}
             disabled={isGenerating || activeTriggers.length === 0}
-            className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-[#6C5DD3] focus:ring-offset-2 ${
-              isGenerating || activeTriggers.length === 0
-                ? 'bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-500'
-                : 'bg-gradient-to-r from-[#6C5DD3] to-[#5b4eb3] text-white hover:shadow-md hover:-translate-y-0.5 hover:from-[#7c6deb] hover:to-[#6C5DD3]'
-            }`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 20px',
+              borderRadius: '9999px',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: isGenerating || activeTriggers.length === 0 ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+              background: isGenerating || activeTriggers.length === 0
+                ? (isDarkMode ? 'rgba(255,255,255,0.05)' : '#F8F9FB')
+                : vl.primary,
+              color: isGenerating || activeTriggers.length === 0 ? vl.textMuted : '#fff',
+              border: `1px solid ${isGenerating || activeTriggers.length === 0 ? vl.border : 'transparent'}`,
+              boxShadow: isGenerating || activeTriggers.length === 0 ? 'none' : '0 2px 8px rgba(99,91,255,0.35)',
+            }}
           >
             {isGenerating ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                Initializing Hunt...
-              </>
+              <><RefreshCw style={{ width: '14px', height: '14px' }} className="animate-spin" /> Initializing Hunt...</>
             ) : (
-              <>
-                <Zap className="w-4 h-4 fill-current" />
-                Trigger Live Hunt
-              </>
+              <><Zap style={{ width: '14px', height: '14px' }} fill="currentColor" /> Trigger Live Hunt</>
             )}
           </button>
         </div>
@@ -495,7 +886,6 @@ const SetupView: React.FC<SetupViewProps> = ({
           }}
         />
       )}
-
     </div>
   );
 };

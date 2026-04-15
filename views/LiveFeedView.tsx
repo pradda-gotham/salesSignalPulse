@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import {
    Radio,
@@ -17,6 +16,7 @@ import {
 } from 'lucide-react';
 import { MarketSignal, BusinessProfile, SalesTrigger } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
+import { getVL } from '../utils/vesper';
 
 interface LiveFeedViewProps {
    signals: MarketSignal[];
@@ -28,6 +28,7 @@ interface LiveFeedViewProps {
 
 const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTriggers, isSearching, onViewDossier }) => {
    const { isDarkMode } = useTheme();
+   const vl = getVL(isDarkMode);
    const [logs, setLogs] = useState<string[]>([]);
    const logEndRef = useRef<HTMLDivElement>(null);
 
@@ -74,36 +75,35 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
 
    return (
       <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-700">
-         <div className={`flex items-center justify-between p-8 rounded-[2rem] border shadow-2xl relative overflow-hidden ${isDarkMode ? 'bg-[#0f0f0f] border-white/5' : 'bg-gray-900 border-gray-800'
-            }`}>
+         <div className="flex items-center justify-between p-8 rounded-[6px] border shadow-2xl relative overflow-hidden vl-card" style={{ background: vl.surface, borderColor: vl.border }}>
             <div className="absolute top-0 right-0 p-4">
-               <div className="flex items-center gap-2 bg-[#6C5DD3]/10 text-[#6C5DD3] px-4 py-1.5 rounded-full border border-[#6C5DD3]/20 text-xs font-black animate-pulse">
-                  <div className="w-2 h-2 bg-[#6C5DD3] rounded-full" />
+               <div className="flex items-center gap-2 px-4 py-1.5 rounded-[4px] border border-[#10B981]/20 text-[10px] font-bold uppercase tracking-wider animate-pulse bg-[#10B981]/10 text-[#10B981]">
+                  <div className="w-2 h-2 bg-[#10B981] rounded-full" />
                   LIVE ENGINE STATUS
                </div>
             </div>
 
             <div className="flex items-center gap-8">
-               <div className="w-20 h-20 rounded-[2rem] bg-[#6C5DD3] flex items-center justify-center shadow-[0_0_40px_rgba(249,115,22,0.3)]">
-                  <Radio className="w-10 h-10 text-white animate-bounce" />
+               <div className="w-16 h-16 rounded-[6px] flex items-center justify-center shadow-lg" style={{ background: vl.primarySoft, color: vl.primary }}>
+                  <Radio className="w-8 h-8 animate-bounce" />
                </div>
                <div>
-                  <h1 className="text-4xl font-black text-white tracking-tight">Leads Command Center</h1>
-                  <p className="text-zinc-400 text-lg font-medium">Monitoring <span className="text-[#6C5DD3]">{profile.name}</span>'s market parameters via Google Search Grounding.</p>
+                  <h1 className="text-3xl font-semibold tracking-tight" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>Leads Command Center</h1>
+                  <p className="text-[13px] mt-1" style={{ color: vl.textBody }}>Monitoring <span className="font-bold" style={{ color: vl.primary }}>{profile.name}</span>'s market parameters via Google Search Grounding.</p>
                </div>
             </div>
 
             <div className="flex items-center gap-6 pr-10">
                <div className="text-right">
-                  <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Processing Power</div>
-                  <div className="text-white font-bold flex items-center gap-2 justify-end">
-                     <Cpu className="w-4 h-4 text-green-500" /> 100% Optimized
+                  <div className="text-[10px] font-bold uppercase tracking-widest mb-1 label-caps" style={{ color: vl.textMuted }}>Processing Power</div>
+                  <div className="font-mono text-sm font-bold flex items-center gap-2 justify-end" style={{ color: vl.textMain }}>
+                     <Cpu className="w-4 h-4 text-[#10B981]" /> 100% Optimized
                   </div>
                </div>
-               <div className="w-px h-10 bg-white/10" />
+               <div className="w-px h-10" style={{ background: vl.borderStrong }} />
                <div className="text-right">
-                  <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Active Triggers</div>
-                  <div className="text-white font-bold">{approvedTriggers.length} Configured</div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest mb-1 label-caps" style={{ color: vl.textMuted }}>Active Triggers</div>
+                  <div className="font-mono text-sm font-bold" style={{ color: vl.textMain }}>{approvedTriggers.length} Configured</div>
                </div>
             </div>
          </div>
@@ -111,59 +111,51 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
          <div className="grid lg:grid-cols-12 gap-8 items-start">
             <div className="lg:col-span-8 space-y-6">
                <div className="flex items-center justify-between px-2">
-                  <h2 className={`text-xl font-black flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                     <Activity className="w-5 h-5 text-[#6C5DD3]" />
+                  <h2 className="text-lg font-semibold flex items-center gap-3" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>
+                     <Activity className="w-5 h-5 flex-shrink-0" style={{ color: vl.primary }} />
                      Lead Stream
                   </h2>
-                  <div className={`text-xs font-bold ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Showing {signals.length} latest real-world signals</div>
+                  <div className="text-xs font-bold" style={{ color: vl.textMuted }}>Showing {signals.length} latest real-world signals</div>
                </div>
 
                <div className="space-y-4">
                   {isSearching ? (
-                     <div className={`p-20 text-center border rounded-[2.5rem] space-y-6 animate-pulse ${isDarkMode ? 'bg-[#0f0f0f] border-white/5' : 'bg-gray-50 border-gray-200'
-                        }`}>
-                        <Radar className={`w-16 h-16 mx-auto animate-spin ${isDarkMode ? 'text-zinc-800' : 'text-gray-400'}`} />
-                        <p className={`font-black uppercase tracking-[0.2em] text-sm ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Crawling Web for Real-Time Leads...</p>
+                     <div className="p-20 text-center border rounded-[6px] space-y-6 animate-pulse" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong }}>
+                        <Radar className="w-12 h-12 mx-auto animate-spin" style={{ color: vl.primary }} />
+                        <p className="font-bold uppercase tracking-wider text-[11px] label-caps" style={{ color: vl.textMuted }}>Crawling Web for Real-Time Leads...</p>
                      </div>
                   ) : signals.length === 0 ? (
-                     <div className={`p-20 text-center border rounded-[2.5rem] space-y-4 ${isDarkMode ? 'bg-[#0f0f0f] border-white/5' : 'bg-gray-50 border-gray-200'
-                        }`}>
-                        <Target className={`w-12 h-12 mx-auto ${isDarkMode ? 'text-zinc-800' : 'text-gray-400'}`} />
-                        <p className={`font-medium italic ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Engine standby. No high-intent signals matched current parameters.</p>
+                     <div className="p-20 text-center border rounded-[6px] space-y-4 border-dashed" style={{ background: vl.surface, borderColor: vl.borderStrong }}>
+                        <Target className="w-12 h-12 mx-auto" style={{ color: vl.textMuted }} />
+                        <p className="font-medium text-[13px] italic" style={{ color: vl.textBody }}>Engine standby. No high-intent signals matched current parameters.</p>
                      </div>
                   ) : (
                      signals.map((s, idx) => (
                         <div
                            key={s.id}
-                           className={`group p-6 rounded-[2rem] border transition-all relative overflow-hidden hover:bg-[#6C5DD3]/[0.02] ${isDarkMode
-                              ? 'bg-[#0f0f0f] border-white/5 hover:border-[#6C5DD3]/30'
-                              : 'bg-white border-gray-200 hover:border-orange-400/50'
-                              }`}
-                           style={{ animationDelay: `${idx * 150}ms` }}
+                           className="group p-6 rounded-[6px] border transition-all relative overflow-hidden vl-card hover-row"
+                           style={{ animationDelay: `${idx * 150}ms`, background: vl.surface, borderColor: vl.border }}
                         >
-                           <div className="absolute top-0 left-0 w-1 h-full bg-[#6C5DD3] opacity-0 group-hover:opacity-100 transition-opacity" />
+                           <div className="absolute top-0 left-0 w-1 h-full opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: vl.primary }} />
                            <div className="flex items-start justify-between">
                               <div className="flex gap-6 items-start">
-                                 <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center border transition-colors ${isDarkMode
-                                    ? 'bg-white/5 border-white/10 group-hover:border-[#6C5DD3]/30'
-                                    : 'bg-gray-100 border-gray-200 group-hover:border-orange-400/30'
-                                    }`}>
-                                    <span className="text-[8px] font-black uppercase text-zinc-500">Score</span>
-                                    <span className={`text-lg font-black group-hover:text-[#6C5DD3] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{s.score}</span>
+                                 <div className="w-12 h-12 rounded-[4px] flex flex-col items-center justify-center border transition-colors" style={{ background: vl.chipBg, borderColor: vl.borderStrong }}>
+                                    <span className="text-[9px] font-bold uppercase label-caps" style={{ color: vl.textMuted }}>Score</span>
+                                    <span className="text-sm font-bold font-mono transition-colors group-hover:text-[#635BFF]" style={{ color: vl.textMain }}>{s.score}</span>
                                  </div>
-                                 <div className="space-y-1">
-                                    <div className="flex items-center gap-3">
-                                       <h3 className={`text-xl font-black line-clamp-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{s.headline}</h3>
-                                       <span className="bg-green-500/10 text-green-400 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border border-green-500/20 flex items-center gap-1">
-                                          <ShieldCheck className="w-2.5 h-2.5" /> Verified Source
+                                 <div className="space-y-1.5">
+                                    <div className="flex items-center gap-3 mb-1">
+                                       <h3 className="text-[15px] font-bold line-clamp-1 transition-colors group-hover:text-[#635BFF]" style={{ color: vl.textMain }}>{s.headline}</h3>
+                                       <span className="px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider border flex items-center gap-1 label-caps" style={{ background: '#10B98110', color: '#10B981', borderColor: '#10B98120' }}>
+                                          <ShieldCheck className="w-2.5 h-2.5" /> Verified
                                        </span>
                                     </div>
-                                    <p className={`text-sm line-clamp-2 max-w-xl leading-relaxed ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>{s.summary}</p>
+                                    <p className="text-[13px] line-clamp-2 max-w-xl leading-relaxed" style={{ color: vl.textBody }}>{s.summary}</p>
                                     <div className="flex items-center gap-4 pt-2">
-                                       <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 font-black uppercase">
+                                       <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase" style={{ color: vl.textMuted }}>
                                           <Clock className="w-3 h-3" /> {s.timestamp}
                                        </div>
-                                       <div className="flex items-center gap-1.5 text-[10px] text-[#6C5DD3] font-black uppercase">
+                                       <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase" style={{ color: vl.primary }}>
                                           <Zap className="w-3 h-3" /> {s.matchedProducts[0]}
                                        </div>
                                        {s.sourceUrl ? (
@@ -171,13 +163,13 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
                                              href={s.sourceUrl}
                                              target="_blank"
                                              rel="noopener noreferrer"
-                                             className={`flex items-center gap-1.5 text-[10px] transition-colors font-black uppercase ${isDarkMode ? 'text-zinc-500 hover:text-white' : 'text-gray-400 hover:text-gray-900'
-                                                }`}
+                                             className="flex items-center gap-1.5 text-[10px] transition-colors font-bold uppercase hover:underline"
+                                             style={{ color: vl.textMuted }}
                                           >
                                              <Globe className="w-3 h-3" /> {(() => { try { const h = new URL(s.sourceUrl).hostname.replace('www.', ''); return h.includes('vertexaisearch') ? 'Google Verified' : h; } catch { return 'Source'; } })()}
                                           </a>
                                        ) : (
-                                          <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase ${isDarkMode ? 'text-zinc-600' : 'text-gray-300'}`}>
+                                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase opacity-50" style={{ color: vl.textMuted }}>
                                              <Globe className="w-3 h-3" /> Unpublished
                                           </div>
                                        )}
@@ -186,13 +178,10 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
                               </div>
                               <button
                                  onClick={() => onViewDossier(s)}
-                                 className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-all border group/btn ${isDarkMode
-                                    ? 'bg-white/5 hover:bg-[#6C5DD3] text-zinc-400 hover:text-white border-white/5 hover:border-[#6C5DD3]'
-                                    : 'bg-gray-100 hover:bg-[#6C5DD3] text-gray-500 hover:text-white border-gray-200 hover:border-[#6C5DD3]'
-                                    }`}
+                                 className="btn-primary flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-wider group/btn"
                               >
-                                 <span className="text-[10px] font-black uppercase whitespace-nowrap">Gather Intel</span>
-                                 <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                                 Gather Intel
+                                 <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" />
                               </button>
                            </div>
                         </div>
@@ -201,69 +190,64 @@ const LiveFeedView: React.FC<LiveFeedViewProps> = ({ signals, profile, activeTri
                </div>
             </div>
 
-            <div className="lg:col-span-4 space-y-8">
-               <div className={`p-6 rounded-[2rem] border font-mono text-xs space-y-4 shadow-inner ${isDarkMode ? 'bg-black border-white/5' : 'bg-gray-900 border-gray-800'
-                  }`}>
-                  <div className="flex items-center justify-between mb-2">
-                     <div className="flex items-center gap-2 text-zinc-500">
-                        <Terminal className="w-3 h-3" />
-                        <span className="uppercase font-black tracking-widest text-[9px]">Engine Console</span>
+            <div className="lg:col-span-4 space-y-6">
+               <div className="p-6 rounded-[6px] border font-mono text-xs space-y-4 shadow-inner" style={{ background: isDarkMode ? '#0a0a0a' : '#191C1E', borderColor: vl.borderStrong }}>
+                  <div className="flex items-center justify-between mb-2 pb-2 border-b border-white/10">
+                     <div className="flex items-center gap-2 text-zinc-400">
+                        <Terminal className="w-3.5 h-3.5" />
+                        <span className="uppercase font-bold tracking-widest text-[10px]">Engine Console</span>
                      </div>
                      <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                   </div>
-                  <div className="space-y-1.5 text-green-500/70 h-48 overflow-y-auto custom-scrollbar">
+                  <div className="space-y-2 text-green-400/80 h-48 overflow-y-auto custom-scrollbar text-[11px] leading-relaxed">
                      {logs.map((log, i) => (
-                        <div key={i} className="animate-in fade-in slide-in-from-left-2 duration-300">
-                           <span className="text-zinc-700 mr-2">{'>'}</span>
-                           {log}
+                        <div key={i} className="animate-in fade-in slide-in-from-left-2 duration-300 flex items-start gap-2">
+                           <span className="text-zinc-600 select-none">{'>'}</span>
+                           <span>{log}</span>
                         </div>
                      ))}
                      <div ref={logEndRef} />
                   </div>
                </div>
 
-               <div className={`p-8 rounded-[2rem] border space-y-6 ${isDarkMode ? 'bg-[#0f0f0f] border-white/5' : 'bg-white border-gray-200'
-                  }`}>
-                  <div className={`flex items-center gap-2 font-black uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-400' : 'text-gray-500'
-                     }`}>
-                     <Target className="w-4 h-4 text-[#6C5DD3]" />
+               <div className="p-6 rounded-[6px] border space-y-5 vl-card" style={{ background: vl.surface, borderColor: vl.border }}>
+                  <div className="flex items-center gap-2 font-bold uppercase tracking-widest text-[11px] label-caps" style={{ color: vl.textMuted }}>
+                     <Target className="w-4 h-4" style={{ color: vl.primary }} />
                      Active Parameters
                   </div>
                   <div className="space-y-3">
                      {approvedTriggers.slice(0, 3).map(trigger => (
-                        <div key={trigger.id} className={`p-4 rounded-xl border flex items-center justify-between group ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-200'
-                           }`}>
+                        <div key={trigger.id} className="p-3 rounded-[4px] border flex items-center justify-between group transition-colors" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong }}>
                            <div className="space-y-1">
-                              <div className={`text-xs font-bold transition-colors ${isDarkMode ? 'text-white group-hover:text-[#6C5DD3]' : 'text-gray-900 group-hover:text-[#6C5DD3]'
-                                 }`}>{trigger.event}</div>
-                              <div className="text-[9px] text-zinc-500 font-medium uppercase tracking-tighter">{trigger.product}</div>
+                              <div className="text-xs font-bold transition-colors group-hover:text-[#635BFF]" style={{ color: vl.textMain }}>{trigger.event}</div>
+                              <div className="text-[10px] font-bold uppercase label-caps" style={{ color: vl.textMuted }}>{trigger.product}</div>
                            </div>
-                           <Wifi className="w-3.5 h-3.5 text-zinc-700" />
+                           <Wifi className="w-3 h-3 opacity-50" style={{ color: vl.textMuted }} />
                         </div>
                      ))}
                   </div>
                </div>
 
-               <div className={`p-8 rounded-[2rem] border space-y-4 ${isDarkMode ? 'bg-[#6C5DD3]/5 border-[#6C5DD3]/10' : 'bg-orange-50 border-orange-200'
-                  }`}>
-                  <div className="flex items-center gap-2 text-[#6C5DD3] font-black uppercase tracking-widest text-[10px]">
+               <div className="p-6 rounded-[6px] border space-y-4 vl-card" style={{ background: vl.primarySoft, borderColor: isDarkMode ? 'rgba(99,91,255,0.2)' : 'rgba(99,91,255,0.1)' }}>
+                  <div className="flex items-center gap-2 font-bold uppercase tracking-widest text-[11px] label-caps" style={{ color: vl.primary }}>
                      <Search className="w-4 h-4" />
                      Scanner Coverage
                   </div>
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                      {[
                         { label: 'Google Search Grid', status: 'Live' },
                         { label: 'News Grounding', status: 'Live' },
                         { label: 'Public PR Feed', status: 'Syncing' },
                      ].map(item => (
-                        <div key={item.label} className="flex items-center justify-between">
-                           <span className={`text-sm font-medium ${isDarkMode ? 'text-zinc-400' : 'text-gray-600'}`}>{item.label}</span>
-                           <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${item.status === 'Live'
-                              ? 'text-green-400 bg-green-500/10 border border-green-500/20'
-                              : isDarkMode
-                                 ? 'text-zinc-500 bg-zinc-800 border border-white/5'
-                                 : 'text-gray-500 bg-gray-200 border border-gray-300'
-                              }`}>{item.status}</span>
+                        <div key={item.label} className="flex items-center justify-between py-1 border-b last:border-0 border-transparent" style={{ borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                           <span className="text-[13px] font-bold" style={{ color: vl.textMain }}>{item.label}</span>
+                           <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-[4px] border label-caps flex items-center gap-1 ${item.status === 'Live'
+                              ? 'text-[#10B981] bg-[#10B981]/10 border-[#10B981]/20'
+                              : 'text-zinc-500 bg-zinc-500/10 border-zinc-500/20'
+                              }`}>
+                              {item.status === 'Live' && <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />}
+                              {item.status}
+                           </span>
                         </div>
                      ))}
                   </div>

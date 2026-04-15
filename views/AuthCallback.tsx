@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../src/lib/supabase';
+import { useTheme } from '../contexts/ThemeContext';
+import { getVL } from '../utils/vesper';
 
 interface AuthCallbackProps {
     onComplete: () => void;
 }
 
 export const AuthCallback: React.FC<AuthCallbackProps> = ({ onComplete }) => {
+    const { isDarkMode } = useTheme();
+    const vl = getVL(isDarkMode);
     const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
     const [error, setError] = useState<string | null>(null);
 
@@ -52,32 +56,32 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({ onComplete }) => {
     }, [onComplete]);
 
     return (
-        <div style={styles.container}>
-            <div style={styles.card}>
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: vl.bg }}>
+            <div className="vl-card" style={{ backgroundColor: vl.surface, borderRadius: '6px', padding: '48px', textAlign: 'center', minWidth: '320px', border: `1px solid ${vl.border}` }}>
                 {status === 'loading' && (
                     <>
-                        <div style={styles.spinner}></div>
-                        <h2 style={styles.title}>Signing you in...</h2>
-                        <p style={styles.subtitle}>Please wait while we verify your session</p>
+                        <div style={{ width: '48px', height: '48px', border: `3px solid ${vl.borderStrong}`, borderTopColor: vl.primary, borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 24px' }}></div>
+                        <h2 style={{ color: vl.textMain, fontSize: '24px', fontWeight: '600', marginBottom: '8px', fontFamily: "'Newsreader', Georgia, serif" }}>Signing you in...</h2>
+                        <p style={{ color: vl.textBody, fontSize: '14px' }}>Please wait while we verify your session</p>
                     </>
                 )}
 
                 {status === 'success' && (
                     <>
-                        <div style={styles.successIcon}>✓</div>
-                        <h2 style={styles.title}>Welcome back!</h2>
-                        <p style={styles.subtitle}>Redirecting to your dashboard...</p>
+                        <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#10B98120', color: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', fontWeight: 'bold', margin: '0 auto 24px' }}>✓</div>
+                        <h2 style={{ color: vl.textMain, fontSize: '24px', fontWeight: '600', marginBottom: '8px', fontFamily: "'Newsreader', Georgia, serif" }}>Welcome back!</h2>
+                        <p style={{ color: vl.textBody, fontSize: '14px' }}>Redirecting to your dashboard...</p>
                     </>
                 )}
 
                 {status === 'error' && (
                     <>
-                        <div style={styles.errorIcon}>✕</div>
-                        <h2 style={styles.title}>Authentication Failed</h2>
-                        <p style={styles.subtitle}>{error}</p>
+                        <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#EF444420', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', fontWeight: 'bold', margin: '0 auto 24px' }}>✕</div>
+                        <h2 style={{ color: vl.textMain, fontSize: '24px', fontWeight: '600', marginBottom: '8px', fontFamily: "'Newsreader', Georgia, serif" }}>Authentication Failed</h2>
+                        <p style={{ color: vl.textBody, fontSize: '14px', marginBottom: '24px' }}>{error}</p>
                         <button
                             onClick={() => window.location.href = '/'}
-                            style={styles.button}
+                            className="btn-primary"
                         >
                             Return to Login
                         </button>
@@ -92,78 +96,4 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({ onComplete }) => {
       `}</style>
         </div>
     );
-};
-
-const styles: { [key: string]: React.CSSProperties } = {
-    container: {
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #0f0f0f 0%, #1a1a2e 50%, #16213e 100%)',
-    },
-    card: {
-        backgroundColor: 'rgba(30, 30, 40, 0.9)',
-        borderRadius: '16px',
-        padding: '48px',
-        textAlign: 'center',
-        minWidth: '320px',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-    },
-    spinner: {
-        width: '48px',
-        height: '48px',
-        border: '3px solid rgba(255, 255, 255, 0.1)',
-        borderTopColor: '#f97316',
-        borderRadius: '50%',
-        animation: 'spin 1s linear infinite',
-        margin: '0 auto 24px',
-    },
-    successIcon: {
-        width: '64px',
-        height: '64px',
-        borderRadius: '50%',
-        backgroundColor: 'rgba(34, 197, 94, 0.2)',
-        color: '#22c55e',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '32px',
-        fontWeight: 'bold',
-        margin: '0 auto 24px',
-    },
-    errorIcon: {
-        width: '64px',
-        height: '64px',
-        borderRadius: '50%',
-        backgroundColor: 'rgba(239, 68, 68, 0.2)',
-        color: '#ef4444',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '32px',
-        fontWeight: 'bold',
-        margin: '0 auto 24px',
-    },
-    title: {
-        color: '#ffffff',
-        fontSize: '24px',
-        fontWeight: '600',
-        marginBottom: '8px',
-    },
-    subtitle: {
-        color: 'rgba(255, 255, 255, 0.6)',
-        fontSize: '14px',
-    },
-    button: {
-        marginTop: '24px',
-        padding: '12px 24px',
-        fontSize: '14px',
-        fontWeight: '600',
-        borderRadius: '8px',
-        border: 'none',
-        backgroundColor: '#f97316',
-        color: '#ffffff',
-        cursor: 'pointer',
-    },
 };

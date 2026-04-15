@@ -31,6 +31,7 @@ import { DealDossier, MarketSignal, AuditablePrice } from '../types';
 import { priceValue, priceSource, priceConfidence } from '../utils/normalizeDossier';
 import { useTheme } from '../contexts/ThemeContext';
 import EstimationBreakdownModal from '../components/EstimationBreakdownModal';
+import { getVL } from '../utils/vesper';
 
 interface LeadsViewProps {
   signal: MarketSignal | null;
@@ -43,8 +44,9 @@ interface LeadsViewProps {
 
 const SkeletonPulse: React.FC<{ className?: string }> = ({ className }) => {
   const { isDarkMode } = useTheme();
+  const vl = getVL(isDarkMode);
   return (
-    <div className={`animate-pulse rounded-md ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'} ${className}`} />
+    <div className={`animate-pulse ${className}`} style={{ background: vl.chipBg, borderRadius: '4px' }} />
   );
 };
 
@@ -58,7 +60,7 @@ const SourceBadge: React.FC<{ source: string; confidence?: number }> = ({ source
         : { label: 'AI EST.', bg: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' };
 
   return (
-    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${config.bg}`} title={confidence ? `${confidence}% confidence` : undefined}>
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider border ${config.bg}`} title={confidence ? `${confidence}% confidence` : undefined}>
       {config.label}
     </span>
   );
@@ -66,26 +68,34 @@ const SourceBadge: React.FC<{ source: string; confidence?: number }> = ({ source
 
 const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error, onRetry, onBack }) => {
   const { isDarkMode } = useTheme();
+  const vl = getVL(isDarkMode);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const hasAuditTrail = !!(dossier?.auditTrail);
 
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6 text-center animate-in fade-in duration-500 px-4">
-        <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center">
+        <div className="w-16 h-16 rounded-[6px] bg-red-500/10 flex items-center justify-center">
           <AlertCircle className="w-8 h-8 text-red-500" />
         </div>
         <div>
-          <h2 className={`text-2xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>Dossier Generation Failed</h2>
-          <p className={`max-w-md mx-auto ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
+          <h2 className="text-2xl font-semibold mb-2" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>Dossier Generation Failed</h2>
+          <p className="max-w-md mx-auto text-[13px]" style={{ color: vl.textBody }}>
             {error || "An unexpected error occurred during intelligence gathering."}
           </p>
         </div>
         <div className="flex gap-4">
-          <button onClick={onBack} className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all border ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border-white/5' : 'bg-white hover:bg-slate-50 text-[#1B1D21] border-slate-200'}`}>
+          <button 
+            onClick={onBack} 
+            className="px-6 py-2.5 rounded-[6px] font-bold text-xs transition-all border"
+            style={{ background: vl.surface, color: vl.textMain, borderColor: vl.borderStrong }}
+          >
             Back to Signals
           </button>
-          <button onClick={onRetry} className="px-6 py-2.5 bg-[#6C5DD3] hover:bg-[#5B4EC2] text-white rounded-xl font-bold text-sm flex items-center gap-2 transition-all shadow-lg shadow-[#6C5DD3]/20">
+          <button 
+            onClick={onRetry} 
+            className="btn-primary px-6 py-2.5 text-xs font-bold flex items-center gap-2"
+          >
             <RefreshCw className="w-4 h-4" /> Retry
           </button>
         </div>
@@ -96,12 +106,19 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
   if (!signal) {
     return (
       <div className="text-center py-32 animate-in fade-in">
-        <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 border ${isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-slate-200'}`}>
-          <Target className={`w-10 h-10 ${isDarkMode ? 'text-zinc-600' : 'text-slate-300'}`} />
+        <div 
+          className="w-16 h-16 rounded-[6px] flex items-center justify-center mx-auto mb-6 border"
+          style={{ background: vl.chipBg, borderColor: vl.borderStrong }}
+        >
+          <Target className="w-8 h-8" style={{ color: vl.textMuted }} />
         </div>
-        <h3 className={`text-xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>No Signal Selected</h3>
-        <p className={`text-sm mb-8 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Select a signal from the Market Pulse to generate a strategic Dossier.</p>
-        <button onClick={onBack} className={`px-8 py-3 rounded-xl font-bold text-sm border transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border-white/5' : 'bg-white hover:bg-slate-50 text-[#1B1D21] border-slate-200'}`}>
+        <h3 className="text-xl font-semibold mb-2" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>No Signal Selected</h3>
+        <p className="text-[13px] mb-8" style={{ color: vl.textBody }}>Select a signal from the Market Pulse to generate a strategic Dossier.</p>
+        <button 
+          onClick={onBack} 
+          className="px-8 py-3 rounded-[6px] font-bold text-xs border transition-all"
+          style={{ background: vl.surface, color: vl.textMain, borderColor: vl.borderStrong }}
+        >
           Return to Market Pulse
         </button>
       </div>
@@ -113,66 +130,70 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
   const isPending = !dossier && isLoading;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 animate-in slide-in-from-right duration-500 pb-40 font-sans">
+    <div className="max-w-7xl mx-auto space-y-8 animate-in slide-in-from-right duration-500 pb-40">
 
       {/* Back Navigation */}
       <button
         onClick={onBack}
-        className={`flex items-center gap-2 text-sm font-medium transition-colors group ${isDarkMode ? 'text-zinc-500 hover:text-white' : 'text-[#808191] hover:text-[#1B1D21]'}`}
+        className="flex items-center gap-2 text-xs font-semibold transition-colors group mb-2"
+        style={{ color: vl.textBody }}
       >
         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
         Back to Signals
       </button>
 
       {/* Header Section */}
-      <div className={`flex items-start justify-between border-b pb-8 ${isDarkMode ? 'border-white/5' : 'border-slate-200/60'}`}>
+      <div className="flex items-start justify-between border-b pb-8" style={{ borderColor: vl.border }}>
         <div className="space-y-4 flex-1">
           <div className="flex items-center gap-3">
             {/* Status Badge */}
-            <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border flex items-center gap-2 ${isPending
-              ? 'bg-[#6C5DD3]/10 text-[#6C5DD3] border-[#6C5DD3]/20'
-              : 'bg-[#6C5DD3]/10 text-[#6C5DD3] border-[#6C5DD3]/20'
-              }`}>
+            <div 
+              className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-bold uppercase tracking-wider border flex items-center gap-2"
+              style={{ background: vl.primarySoft, color: vl.primary, borderColor: isDarkMode ? 'rgba(99,91,255,0.2)' : 'rgba(99,91,255,0.1)' }}
+            >
               {isPending && <Loader2 className="w-3 h-3 animate-spin" />}
               {isPending ? 'Gathering Intelligence...' : 'Strategic Dossier Ready'}
             </div>
 
             {/* Confidence Badge */}
             {dossier ? (
-              <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border animate-in fade-in ${dossier.confidence === 'High'
+              <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-[4px] text-[10px] font-bold uppercase tracking-wider border animate-in fade-in ${dossier.confidence === 'High'
                 ? 'bg-green-500/10 text-green-600 border-green-500/20'
                 : 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
                 }`}>
                 <ShieldCheck className="w-3 h-3" />
                 {dossier.confidence} Confidence
               </div>
-            ) : <SkeletonPulse className="w-24 h-6 rounded-full" />}
+            ) : <SkeletonPulse className="w-24 h-5 rounded-full" />}
           </div>
 
           <div>
-            <h1 className={`text-4xl font-bold tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
+            <h1 
+              className="text-4xl font-semibold tracking-tight mb-2"
+              style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}
+            >
               {displayAccountName}
             </h1>
-            <div className={`flex items-center gap-2 text-lg italic ${isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}`}>
-              <span className="opacity-50">Signal Detected:</span>
-              <span className={isDarkMode ? 'text-zinc-300' : 'text-[#50515e]'}>“{signal.headline}”</span>
+            <div className="flex items-center gap-2 text-[15px] italic" style={{ color: vl.textBody }}>
+              <span className="opacity-60">Signal Detected:</span>
+              <span style={{ color: vl.textMain }}>“{signal.headline}”</span>
             </div>
           </div>
         </div>
 
         {/* Est. Opportunity Metric */}
         <div className="text-right min-w-[140px]">
-          <div className={`text-[10px] font-bold uppercase mb-2 tracking-widest ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
+          <div className="label-caps mb-2" style={{ color: vl.textMuted }}>
             Est. Opportunity
           </div>
           {dossier ? (
             <div className="group relative inline-block">
               <div
-                className={`animate-in fade-in zoom-in-95 flex flex-col items-end group-hover:opacity-80 transition-opacity ${hasAuditTrail ? 'cursor-pointer' : 'cursor-help'}`}
+                className={`flex flex-col items-end transition-opacity ${hasAuditTrail ? 'cursor-pointer group-hover:opacity-80' : 'cursor-help'}`}
                 onClick={hasAuditTrail ? () => setShowBreakdown(true) : undefined}
               >
-                <div className={`text-4xl font-mono font-bold flex items-center justify-end ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
-                  <span className="text-[#6C5DD3] mr-1">$</span>
+                <div className="text-4xl font-mono font-bold flex items-center justify-end" style={{ color: vl.textMain }}>
+                  <span style={{ color: vl.primary }} className="mr-1">$</span>
                   {(priceValue(dossier.pricingStrategy.estimatedValue) / 1000).toFixed(0)}k
                 </div>
                 <div className="mt-1 flex items-center gap-2 justify-end">
@@ -181,7 +202,7 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
                     confidence={priceConfidence(dossier.pricingStrategy.estimatedValue)}
                   />
                   {hasAuditTrail && (
-                    <span className={`flex items-center gap-1 text-[9px] font-bold text-[#6C5DD3] hover:underline`}>
+                    <span className="flex items-center gap-1 text-[9px] font-bold hover:underline cursor-pointer" style={{ color: vl.primary }}>
                       <Info className="w-3 h-3" /> View Breakdown
                     </span>
                   )}
@@ -189,29 +210,31 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
               </div>
 
               {/* Advanced Calculation Popover */}
-              <div className={`absolute top-full right-0 mt-4 hidden group-hover:block w-[400px] z-50 p-6 rounded-2xl border shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 text-left ${isDarkMode ? 'bg-[#141414]/95 border-white/10' : 'bg-white/95 border-slate-200'}`}>
-                <div className="text-[10px] font-black uppercase text-[#6C5DD3] mb-1 tracking-widest">
+              <div 
+                className="absolute top-full right-0 mt-2 hidden group-hover:block w-[360px] z-50 p-6 rounded-[6px] border shadow-xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 text-left"
+                style={{ background: vl.surface, borderColor: vl.border }}
+              >
+                <div className="label-caps mb-2" style={{ color: vl.primary }}>
                   Process Transparency
                 </div>
-                <h4 className={`text-sm font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
+                <h4 className="text-sm font-bold mb-4" style={{ color: vl.textMain }}>
                   Bottom-Up AI Scope Modeling
                 </h4>
 
-                {/* Scope Definition */}
                 <div className="space-y-4">
                   <div>
-                    <p className={`text-xs italic leading-relaxed ${isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}`}>
+                    <p className="text-xs leading-relaxed" style={{ color: vl.textBody }}>
                       Leadpulse bypassed gross project values to synthesize a purely addressable Component Bill of Materials using explicit project assumptions derived from the signal footprint.
                     </p>
                   </div>
 
                   {dossier.assumptions?.length > 0 && (
-                    <div className={`p-3 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-                      <div className={`text-[9px] font-bold uppercase tracking-widest mb-2 ${isDarkMode ? 'text-zinc-500' : 'text-slate-400'}`}>Driven by Context</div>
-                      <ul className="space-y-1.5">
+                    <div className="p-3 rounded-[4px] border" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong }}>
+                      <div className="label-caps mb-2" style={{ color: vl.textMuted }}>Driven by Context</div>
+                      <ul className="space-y-1.5 list-none p-0 m-0">
                         {dossier.assumptions.slice(0, 2).map((asm, idx) => (
-                          <li key={idx} className={`text-xs flex gap-2 ${isDarkMode ? 'text-zinc-300' : 'text-[#1B1D21]'}`}>
-                            <span className="text-[#6C5DD3] font-bold mt-0.5">•</span>
+                          <li key={idx} className="text-xs flex gap-2" style={{ color: vl.textBody }}>
+                            <span className="font-bold mt-0.5" style={{ color: vl.primary }}>•</span>
                             <span className="leading-relaxed">{asm}</span>
                           </li>
                         ))}
@@ -219,9 +242,7 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
                     </div>
                   )}
 
-                  {/* Math Breakdown */}
-                  <div className={`border-t pt-4 ${isDarkMode ? 'border-white/10' : 'border-slate-100'}`}>
-                    {/* Reconstruct the Subtotal from the bundle to show exactly how it reached the math */}
+                  <div className="border-t pt-4" style={{ borderColor: vl.border }}>
                     {(() => {
                       const subtotal = dossier.recommendedBundle.reduce((sum, b) => sum + (b.lineTotal ?? (b.quantity * priceValue(b.unitPrice))), 0);
                       const discountPct = priceValue(dossier.pricingStrategy.discount);
@@ -231,22 +252,25 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
                       return (
                         <div className="space-y-2.5 font-mono text-xs">
                           <div className="flex justify-between items-center">
-                            <span className={isDarkMode ? 'text-zinc-400' : 'text-slate-500'}>Catalog Match Value:</span>
-                            <span className={`font-bold ${isDarkMode ? 'text-zinc-300' : 'text-slate-700'}`}>${subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <span style={{ color: vl.textMuted }}>Catalog Match Value:</span>
+                            <span className="font-bold" style={{ color: vl.textMain }}>${subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
                           
                           {discountPct > 0 && (
-                            <div className="flex justify-between items-start text-red-500/80 gap-4">
-                              <span className="flex-1 text-[11px] leading-tight" title={dossier.pricingStrategy.logic}>Applied Strategy ({discountPct.toFixed(2)}%)<br/><span className="text-[9px] italic opacity-70 block mt-0.5 truncate">{dossier.pricingStrategy.logic}</span></span>
+                            <div className="flex justify-between items-start text-red-500/80 gap-4 mt-2">
+                              <span className="flex-1 text-[11px] leading-tight" title={dossier.pricingStrategy.logic}>
+                                Applied Strategy ({discountPct.toFixed(2)}%)<br/>
+                                <span className="text-[9px] italic opacity-70 block mt-0.5 truncate">{dossier.pricingStrategy.logic}</span>
+                              </span>
                               <span className="font-bold">-${discountAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                           )}
                           
-                          <div className={`h-px my-3 ${isDarkMode ? 'bg-white/10' : 'bg-slate-100'}`} />
+                          <div className="h-px my-3" style={{ background: vl.borderStrong }} />
                           
                           <div className="flex justify-between items-center">
-                            <span className={`font-sans text-[10px] uppercase font-black tracking-widest ${isDarkMode ? 'text-zinc-500' : 'text-slate-400'}`}>Net Addressable</span>
-                            <span className={`text-[15px] font-bold text-[#6C5DD3]`}>
+                            <span className="label-caps" style={{ color: vl.textMuted }}>Net Addressable</span>
+                            <span className="text-[15px] font-bold" style={{ color: vl.primary }}>
                               ${finalValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                             </span>
                           </div>
@@ -261,24 +285,29 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
+      <div className="grid lg:grid-cols-3 gap-8 mt-6">
         {/* Main Content (Left Column) */}
         <div className="lg:col-span-2 space-y-8">
 
           {/* Executive Summary */}
-          <section className="space-y-4">
-            <div className={`flex items-center gap-2 font-bold uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
-              <FileText className="w-4 h-4 text-[#6C5DD3]" />
+          <section className="space-y-3">
+            <div className="label-caps flex items-center gap-2" style={{ color: vl.textMuted }}>
+              <FileText className="w-4 h-4" style={{ color: vl.primary }} />
               Strategic Briefing
             </div>
-            <div className={`p-8 rounded-2xl border leading-relaxed text-[15px] shadow-sm relative overflow-hidden ${isDarkMode ? 'bg-[#141414] border-white/5 text-zinc-300' : 'bg-white border-slate-200/60 text-[#50515e]'
-              }`}>
+            <div 
+              className="p-6 rounded-[6px] border text-[14px] leading-relaxed relative overflow-hidden vl-card"
+              style={{ background: vl.surface, borderColor: vl.border, color: vl.textBody }}
+            >
               {displaySummary}
               {isPending && (
-                <div className={`absolute inset-0 flex items-center justify-center ${isDarkMode ? 'bg-[#141414]/80' : 'bg-white/80'}`}>
+                <div 
+                  className="absolute inset-0 flex items-center justify-center backdrop-blur-sm z-10"
+                  style={{ background: isDarkMode ? 'rgba(20,20,20,0.8)' : 'rgba(255,255,255,0.8)' }}
+                >
                   <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="w-8 h-8 text-[#6C5DD3] animate-spin" />
-                    <span className="text-xs font-bold text-[#6C5DD3] animate-pulse">ANALYZING OPPORTUNITY...</span>
+                    <Loader2 className="w-6 h-6 animate-spin" style={{ color: vl.primary }} />
+                    <span className="label-caps animate-pulse" style={{ color: vl.primary }}>Analyzing Opportunity...</span>
                   </div>
                 </div>
               )}
@@ -286,83 +315,84 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
           </section>
 
           {/* Recommended Bundle */}
-          <section className="space-y-4">
-            <div className={`flex items-center gap-2 font-bold uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
-              <Package className="w-4 h-4 text-[#6C5DD3]" />
+          <section className="space-y-3">
+            <div className="label-caps flex items-center gap-2" style={{ color: vl.textMuted }}>
+              <Package className="w-4 h-4" style={{ color: vl.primary }} />
               Product Configuration
             </div>
-            <div className={`overflow-hidden rounded-2xl border shadow-sm ${isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-slate-200/60'}`}>
-              <table className="w-full text-left text-sm">
-                <thead className={`font-bold uppercase tracking-wider text-[10px] border-b ${isDarkMode ? 'bg-white/5 text-zinc-500 border-white/5' : 'bg-slate-50/50 text-[#808191] border-slate-100'}`}>
+            <div className="overflow-hidden rounded-[6px] border vl-card" style={{ borderColor: vl.border }}>
+              <table className="w-full text-left text-sm border-collapse">
+                <thead className="label-caps border-b" style={{ background: vl.tableHeader, color: vl.textMuted, borderColor: vl.border }}>
                   <tr>
-                    <th className="px-5 py-4">SKU</th>
-                    <th className="px-5 py-4">Description</th>
-                    <th className="px-5 py-4 text-right">Qty</th>
-                    <th className="px-5 py-4 text-right">Unit Price</th>
-                    <th className="px-5 py-4 text-right">Line Total</th>
-                    <th className="px-5 py-4 text-center">Source</th>
+                    <th className="px-5 py-3.5 font-bold">SKU</th>
+                    <th className="px-5 py-3.5 font-bold">Description</th>
+                    <th className="px-5 py-3.5 font-bold text-right">Qty</th>
+                    <th className="px-5 py-3.5 font-bold text-right">Unit Price</th>
+                    <th className="px-5 py-3.5 font-bold text-right">Line Total</th>
+                    <th className="px-5 py-3.5 font-bold text-center">Source</th>
                   </tr>
                 </thead>
-                <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-100'}`}>
+                <tbody className="divide-y" style={{ divideColor: vl.border }}>
                   {dossier ? dossier.recommendedBundle.map((item, i) => {
                     const up = priceValue(item.unitPrice);
                     const lt = item.lineTotal ?? (item.quantity * up);
                     const src = priceSource(item.unitPrice);
                     const conf = priceConfidence(item.unitPrice);
                     return (
-                      <tr key={i} className={`animate-in fade-in slide-in-from-left-2 duration-300 ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`} style={{ animationDelay: `${i * 100}ms` }}>
-                        <td className="px-5 py-4 font-mono text-[#6C5DD3] font-bold text-xs">{item.sku}</td>
-                        <td className={`px-5 py-4 ${isDarkMode ? 'text-zinc-300' : 'text-[#1B1D21]'}`}>{item.description}</td>
-                        <td className={`px-5 py-4 text-right font-bold ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>{item.quantity}</td>
-                        <td className={`px-5 py-4 text-right font-mono text-xs ${isDarkMode ? 'text-zinc-300' : 'text-[#1B1D21]'}`}>
+                      <tr key={i} className="animate-in fade-in transition-colors hover-row" style={{ animationDelay: `${i * 100}ms` }}>
+                        <td className="px-5 py-3.5 font-mono font-bold text-xs" style={{ color: vl.primary }}>{item.sku}</td>
+                        <td className="px-5 py-3.5 text-[13px]" style={{ color: vl.textMain }}>{item.description}</td>
+                        <td className="px-5 py-3.5 text-right font-bold text-[13px]" style={{ color: vl.textMain }}>{item.quantity}</td>
+                        <td className="px-5 py-3.5 text-right font-mono text-xs" style={{ color: vl.textBody }}>
                           {up > 0 ? `$${up.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
                         </td>
-                        <td className={`px-5 py-4 text-right font-mono font-bold text-xs ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
+                        <td className="px-5 py-3.5 text-right font-mono font-bold text-xs" style={{ color: vl.textMain }}>
                           {lt > 0 ? `$${lt.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
                         </td>
-                        <td className="px-5 py-4 text-center">
+                        <td className="px-5 py-3.5 text-center">
                           {up > 0 ? <SourceBadge source={src} confidence={conf} /> : null}
                         </td>
                       </tr>
                     );
                   }) : Array.from({ length: 3 }).map((_, i) => (
-                    <tr key={i}>
-                      <td className="px-5 py-4"><SkeletonPulse className="w-16 h-4" /></td>
-                      <td className="px-5 py-4"><SkeletonPulse className="w-48 h-4" /></td>
-                      <td className="px-5 py-4 text-right"><SkeletonPulse className="w-8 h-4 ml-auto" /></td>
-                      <td className="px-5 py-4 text-right"><SkeletonPulse className="w-16 h-4 ml-auto" /></td>
-                      <td className="px-5 py-4 text-right"><SkeletonPulse className="w-16 h-4 ml-auto" /></td>
-                      <td className="px-5 py-4"><SkeletonPulse className="w-12 h-4 mx-auto" /></td>
+                    <tr key={i} className="border-b" style={{ borderColor: vl.borderStrong }}>
+                      <td className="px-5 py-4"><SkeletonPulse className="w-12 h-3.5" /></td>
+                      <td className="px-5 py-4"><SkeletonPulse className="w-40 h-3.5" /></td>
+                      <td className="px-5 py-4 text-right"><SkeletonPulse className="w-8 h-3.5 ml-auto" /></td>
+                      <td className="px-5 py-4 text-right"><SkeletonPulse className="w-16 h-3.5 ml-auto" /></td>
+                      <td className="px-5 py-4 text-right"><SkeletonPulse className="w-16 h-3.5 ml-auto" /></td>
+                      <td className="px-5 py-4"><SkeletonPulse className="w-12 h-3.5 mx-auto" /></td>
                     </tr>
                   ))}
                 </tbody>
+                
                 {/* Bundle Summary Footer */}
                 {dossier && dossier.recommendedBundle.some(b => priceValue(b.unitPrice) > 0) && (
-                  <tfoot className={`border-t ${isDarkMode ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50/30'}`}>
+                  <tfoot className="border-t" style={{ borderColor: vl.border, background: vl.surfaceMuted }}>
                     <tr>
-                      <td colSpan={4} className={`px-5 py-3 text-right text-xs font-semibold ${isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}`}>Subtotal</td>
-                      <td className={`px-5 py-3 text-right font-mono font-bold text-xs ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
+                      <td colSpan={4} className="px-5 py-3 text-right text-xs font-semibold" style={{ color: vl.textMuted }}>Subtotal</td>
+                      <td className="px-5 py-3 text-right font-mono font-bold text-xs" style={{ color: vl.textMain }}>
                         ${dossier.recommendedBundle.reduce((sum, b) => sum + (b.lineTotal ?? (b.quantity * priceValue(b.unitPrice))), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
                       <td />
                     </tr>
                     {priceValue(dossier.pricingStrategy.discount) > 0 && (
                       <tr>
-                        <td colSpan={4} className={`px-5 py-3 text-right text-xs font-semibold ${isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}`}>
+                        <td colSpan={4} className="px-5 py-3 text-right text-xs font-semibold" style={{ color: vl.textMuted }}>
                           Discount ({priceValue(dossier.pricingStrategy.discount).toFixed(2)}%)
                         </td>
-                        <td className="px-5 py-3 text-right font-mono font-bold text-xs text-red-400">
+                        <td className="px-5 py-3 text-right font-mono font-bold text-xs text-red-500">
                           -${(dossier.recommendedBundle.reduce((sum, b) => sum + (b.lineTotal ?? (b.quantity * priceValue(b.unitPrice))), 0) * priceValue(dossier.pricingStrategy.discount) / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
                         <td />
                       </tr>
                     )}
-                    <tr className={`border-t ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}>
-                      <td colSpan={4} className={`px-5 py-3 text-right text-xs font-bold ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>Estimated Value</td>
-                      <td className="px-5 py-3 text-right font-mono font-bold text-sm text-[#6C5DD3]">
+                    <tr className="border-t" style={{ borderColor: vl.borderStrong }}>
+                      <td colSpan={4} className="px-5 py-3.5 text-right text-xs font-bold" style={{ color: vl.textMain }}>Estimated Value</td>
+                      <td className="px-5 py-3.5 text-right font-mono font-bold text-[14px]" style={{ color: vl.primary }}>
                         ${priceValue(dossier.pricingStrategy.estimatedValue).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="px-5 py-3 text-center">
+                      <td className="px-5 py-3.5 text-center">
                         <SourceBadge source={priceSource(dossier.pricingStrategy.estimatedValue)} confidence={priceConfidence(dossier.pricingStrategy.estimatedValue)} />
                       </td>
                     </tr>
@@ -371,14 +401,15 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
               </table>
               {/* Glass Box CTA */}
               {hasAuditTrail && (
-                <div className={`px-5 py-3 flex items-center justify-between border-t ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
-                  <div className={`flex items-center gap-2 text-[10px] ${isDarkMode ? 'text-zinc-600' : 'text-[#aaa]'}`}>
-                    <ShieldCheck className="w-3.5 h-3.5 text-[#6C5DD3]" />
-                    Glass Box AI — All math computed deterministically
+                <div className="px-5 py-3 flex items-center justify-between border-t" style={{ borderColor: vl.borderStrong, background: vl.surface }}>
+                  <div className="flex items-center gap-2 text-[10px] font-semibold" style={{ color: vl.textMuted }}>
+                    <ShieldCheck className="w-3.5 h-3.5" style={{ color: vl.primary }} />
+                    Glass Box AI — Deterministically computed
                   </div>
                   <button
                     onClick={() => setShowBreakdown(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-[#6C5DD3] bg-[#6C5DD3]/10 hover:bg-[#6C5DD3]/20 border border-[#6C5DD3]/20 transition-all"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-[10px] font-bold transition-all border"
+                    style={{ color: vl.primary, background: vl.primarySoft, borderColor: isDarkMode ? 'rgba(99,91,255,0.2)' : 'rgba(99,91,255,0.1)' }}
                   >
                     <Info className="w-3 h-3" />
                     How did we calculate this?
@@ -389,32 +420,32 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
           </section>
 
           {/* Pricing Strategy */}
-          <section className={`p-6 rounded-2xl border space-y-4 shadow-sm ${isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-slate-200/60'}`}>
-            <div className={`flex items-center gap-2 font-bold uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
-              <TrendingUp className="w-4 h-4 text-[#6C5DD3]" />
+          <section className="p-6 rounded-[6px] border space-y-4 vl-card" style={{ borderColor: vl.border }}>
+            <div className="label-caps flex items-center gap-2" style={{ color: vl.textMuted }}>
+              <TrendingUp className="w-4 h-4" style={{ color: vl.primary }} />
               Pricing Strategy
             </div>
             {dossier ? (
-              <div className="flex items-start gap-8 animate-in fade-in">
+              <div className="flex items-start gap-8 animate-in fade-in mt-4">
                 <div className="flex-1">
-                  <div className={`text-xs font-semibold mb-1 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Strategy Logic</div>
-                  <div className={`text-sm leading-relaxed font-medium ${isDarkMode ? 'text-zinc-300' : 'text-[#1B1D21]'}`}>{dossier.pricingStrategy.logic}</div>
+                  <div className="label-caps mb-1" style={{ color: vl.textMuted }}>Strategy Logic</div>
+                  <div className="text-[13px] leading-relaxed font-medium" style={{ color: vl.textMain }}>{dossier.pricingStrategy.logic}</div>
                   {dossier.pricingStrategy.derivation && (
-                    <div className="mt-2">
+                    <div className="mt-3">
                       <SourceBadge source={dossier.pricingStrategy.derivation === 'catalog_sum' ? 'catalog' : dossier.pricingStrategy.derivation === 'hybrid' ? 'catalog' : 'ai_estimate'} />
-                      <span className={`ml-2 text-[10px] ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
-                        {dossier.pricingStrategy.derivation === 'catalog_sum' ? 'Based on catalog pricing' : dossier.pricingStrategy.derivation === 'hybrid' ? 'Partially catalog-based' : 'AI estimate — set up your product catalog for accurate pricing'}
+                      <span className="ml-2 text-[10px]" style={{ color: vl.textMuted }}>
+                        {dossier.pricingStrategy.derivation === 'catalog_sum' ? 'Based on catalog pricing' : dossier.pricingStrategy.derivation === 'hybrid' ? 'Partially catalog-based' : 'AI estimate — set up catalog for accurate pricing'}
                       </span>
                     </div>
                   )}
                 </div>
-                <div className={`flex-shrink-0 text-right border-l pl-8 ${isDarkMode ? 'border-white/10' : 'border-slate-100'}`}>
-                  <div className={`text-xs font-semibold mb-1 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Max Discount</div>
-                  <div className="text-[#6C5DD3] text-3xl font-bold">{priceValue(dossier.pricingStrategy.discount).toFixed(2)}%</div>
+                <div className="flex-shrink-0 text-right border-l pl-8" style={{ borderColor: vl.border }}>
+                  <div className="label-caps mb-1" style={{ color: vl.textMuted }}>Max Discount</div>
+                  <div className="text-2xl font-bold" style={{ color: vl.primary }}>{priceValue(dossier.pricingStrategy.discount).toFixed(2)}%</div>
                 </div>
               </div>
             ) : (
-              <div className="flex items-start gap-8">
+              <div className="flex items-start gap-8 mt-4">
                 <SkeletonPulse className="flex-1 h-12" />
                 <SkeletonPulse className="w-24 h-12" />
               </div>
@@ -426,14 +457,14 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
         <div className="lg:col-span-1 space-y-6">
 
           {/* Account Intelligence */}
-          <section className={`p-6 rounded-2xl border space-y-5 shadow-sm ${isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-slate-200/60'}`}>
-            <div className={`flex items-center justify-between font-bold uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
+          <section className="p-6 rounded-[6px] border space-y-4 vl-card" style={{ borderColor: vl.border }}>
+            <div className="flex items-center justify-between label-caps" style={{ color: vl.textMuted }}>
               <div className="flex items-center gap-2">
-                <Target className="w-4 h-4 text-[#6C5DD3]" />
+                <Target className="w-4 h-4" style={{ color: vl.primary }} />
                 Account Intel
               </div>
               {dossier?.isEnriched && (
-                <span className="flex items-center gap-1 text-[#10B981] bg-[#10B981]/10 px-1.5 py-0.5 rounded border border-[#10B981]/20">
+                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] border bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20">
                   <ShieldCheck className="w-3 h-3" /> VERIFIED
                 </span>
               )}
@@ -441,8 +472,8 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
 
             <div className="space-y-4">
               <div>
-                <div className={`flex items-center gap-2 font-bold text-lg mb-1 ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
-                  <Building className={`w-4 h-4 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`} />
+                <div className="flex items-center gap-2 font-bold text-base mb-1" style={{ color: vl.textMain }}>
+                  <Building className="w-4 h-4" style={{ color: vl.textMuted }} />
                   {dossier?.enrichedCompany?.name || displayAccountName}
                 </div>
 
@@ -450,23 +481,23 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
                 <div className="pl-6 space-y-2 mt-2">
                   {dossier ? (
                     <>
-                      <a href={dossier.enrichedCompany?.domain ? `https://${dossier.enrichedCompany.domain}` : '#'} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 text-xs hover:text-[#6C5DD3] transition-colors ${isDarkMode ? 'text-zinc-400' : 'text-[#50515e]'}`}>
+                      <a href={dossier.enrichedCompany?.domain ? `https://${dossier.enrichedCompany.domain}` : '#'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[12px] hover:underline" style={{ color: vl.textBody }}>
                         <Globe className="w-3.5 h-3.5" />
                         {dossier.enrichedCompany?.domain || dossier.targetWebsite || 'Website Unavailable'}
                       </a>
                       {(dossier.enrichedCompany?.linkedinUrl || dossier.targetLinkedin) && (
-                        <a href={dossier.enrichedCompany?.linkedinUrl || dossier.targetLinkedin} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 text-xs hover:text-[#6C5DD3] transition-colors ${isDarkMode ? 'text-zinc-400' : 'text-[#50515e]'}`}>
+                        <a href={dossier.enrichedCompany?.linkedinUrl || dossier.targetLinkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[12px] hover:underline" style={{ color: vl.textBody }}>
                           <Linkedin className="w-3.5 h-3.5" />
                           LinkedIn Profile
                         </a>
                       )}
                       {dossier.enrichedCompany?.employeeCount && (
-                        <div className={`text-xs ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
+                        <div className="text-[12px]" style={{ color: vl.textBody }}>
                           👥 {dossier.enrichedCompany.employeeCount.toLocaleString()} employees
                         </div>
                       )}
                       {dossier.enrichedCompany?.revenue && (
-                        <div className={`text-xs ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
+                        <div className="text-[12px]" style={{ color: vl.textBody }}>
                           💰 {dossier.enrichedCompany.revenue}
                         </div>
                       )}
@@ -475,16 +506,16 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
                 </div>
               </div>
 
-              <div className={`h-px ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`} />
+              <div className="h-px w-full" style={{ background: vl.border }} />
 
               {/* Source Link */}
               {signal.sourceUrl ? (
-                <a href={signal.sourceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-bold text-[#6C5DD3] hover:underline">
+                <a href={signal.sourceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[12px] font-bold hover:underline" style={{ color: vl.primary }}>
                   <ExternalLink className="w-3.5 h-3.5" />
                   Source: {signal.sourceTitle}
                 </a>
               ) : (
-                <div className="flex items-center gap-2 text-xs font-bold text-[#808191]">
+                <div className="flex items-center gap-2 text-[12px] font-bold" style={{ color: vl.textMuted }}>
                   <ExternalLink className="w-3.5 h-3.5 opacity-50" />
                   Source: {signal.sourceTitle} (Unpublished)
                 </div>
@@ -493,37 +524,37 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
           </section>
 
           {/* Stakeholders */}
-          <section className={`p-6 rounded-2xl border space-y-4 shadow-sm ${isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-slate-200/60'}`}>
-            <div className={`font-bold uppercase tracking-widest text-[10px] mb-2 ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
+          <section className="p-6 rounded-[6px] border space-y-4 vl-card" style={{ borderColor: vl.border }}>
+            <div className="label-caps mb-2" style={{ color: vl.textMuted }}>
               Stakeholders
             </div>
 
             {dossier?.enrichedContacts && dossier.enrichedContacts.length > 0 ? (
               <div className="space-y-3">
                 {dossier.enrichedContacts.map((contact, idx) => (
-                  <div key={idx} className={`p-3 rounded-xl border ${contact.isPrimary
-                    ? isDarkMode ? 'bg-[#6C5DD3]/10 border-[#6C5DD3]/20' : 'bg-[#6C5DD3]/5 border-[#6C5DD3]/10'
-                    : isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'
-                    }`}>
+                  <div key={idx} className="p-3 rounded-[4px] border" style={{ 
+                    background: contact.isPrimary ? vl.primarySoft : vl.surfaceMuted, 
+                    borderColor: contact.isPrimary ? (isDarkMode ? 'rgba(99,91,255,0.2)' : 'rgba(99,91,255,0.1)') : vl.borderStrong 
+                  }}>
                     <div className="flex justify-between items-start mb-1">
                       <div>
-                        <div className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>{contact.name}</div>
-                        <div className={`text-[10px] ${isDarkMode ? 'text-zinc-400' : 'text-[#50515e]'}`}>{contact.title}</div>
+                        <div className="text-[13px] font-bold" style={{ color: vl.textMain }}>{contact.name}</div>
+                        <div className="text-[11px]" style={{ color: vl.textMuted }}>{contact.title}</div>
                       </div>
                       {contact.isPrimary && (
-                        <span className="text-[9px] font-black text-[#6C5DD3] bg-[#6C5DD3]/10 border border-[#6C5DD3]/20 px-1.5 py-0.5 rounded">KEY</span>
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[4px] border" style={{ color: vl.primary, background: vl.primarySoft, borderColor: isDarkMode ? 'rgba(99,91,255,0.2)' : 'rgba(99,91,255,0.1)' }}>KEY</span>
                       )}
                     </div>
 
-                    <div className="space-y-1 mt-2">
+                    <div className="space-y-1.5 mt-2.5">
                       {contact.email && (
-                        <a href={`mailto:${contact.email}`} className={`flex items-center gap-1.5 text-[10px] hover:text-[#6C5DD3] transition-colors ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
-                          <Mail className="w-3 h-3" /> {contact.email}
+                        <a href={`mailto:${contact.email}`} className="flex items-center gap-1.5 text-[11px] hover:underline" style={{ color: vl.textBody }}>
+                          <Mail className="w-3.5 h-3.5" /> {contact.email}
                         </a>
                       )}
                       {contact.linkedinUrl && (
-                        <a href={contact.linkedinUrl} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-1.5 text-[10px] hover:text-[#6C5DD3] transition-colors ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
-                          <Linkedin className="w-3 h-3" /> LinkedIn Profile
+                        <a href={contact.linkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-[11px] hover:underline" style={{ color: vl.textBody }}>
+                          <Linkedin className="w-3.5 h-3.5" /> LinkedIn Profile
                         </a>
                       )}
                     </div>
@@ -532,15 +563,13 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
               </div>
             ) : (
               <div className="space-y-3">
-                <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-                  <div className="flex items-center gap-3">
-                    <User className={`w-8 h-8 p-1.5 rounded-full ${isDarkMode ? 'bg-zinc-800 text-zinc-500' : 'bg-white text-slate-400'}`} />
-                    <div>
-                      <div className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-[#1B1D21]'}`}>
-                        {dossier?.keyPersonName || signal.decisionMaker || <SkeletonPulse className="w-24 h-4" />}
-                      </div>
-                      <div className={`text-[10px] ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>Target Executive</div>
+                <div className="p-4 rounded-[4px] border flex items-center gap-3" style={{ background: vl.surfaceMuted, borderColor: vl.borderStrong }}>
+                  <User className="w-8 h-8 p-1.5 rounded-[4px]" style={{ background: vl.chipBg, color: vl.textMuted }} />
+                  <div>
+                    <div className="text-[13px] font-bold" style={{ color: vl.textMain }}>
+                      {dossier?.keyPersonName || signal.decisionMaker || <SkeletonPulse className="w-24 h-4" />}
                     </div>
+                    <div className="text-[11px]" style={{ color: vl.textMuted }}>Target Executive</div>
                   </div>
                 </div>
               </div>
@@ -548,30 +577,30 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
           </section>
 
           {/* Battlecard */}
-          <section className={`p-6 rounded-2xl border space-y-5 relative overflow-hidden shadow-sm ${isDarkMode ? 'bg-[#141414] border-white/5' : 'bg-white border-slate-200/60'}`}>
-            <div className={`flex items-center gap-2 font-bold uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-zinc-500' : 'text-[#808191]'}`}>
-              <Swords className="w-4 h-4 text-[#6C5DD3]" />
+          <section className="p-6 rounded-[6px] border space-y-4 vl-card" style={{ borderColor: vl.border }}>
+            <div className="label-caps flex items-center gap-2" style={{ color: vl.textMuted }}>
+              <Swords className="w-4 h-4" style={{ color: vl.primary }} />
               Competitive Edge
             </div>
 
             {dossier ? (
-              <div className="space-y-5 animate-in fade-in">
+              <div className="space-y-5 animate-in fade-in mt-4">
                 <div>
-                  <div className="text-[10px] font-black text-[#FF5F5F] uppercase mb-1 tracking-wide flex items-center gap-1">
+                  <div className="text-[10px] font-black uppercase mb-1 tracking-wider flex items-center gap-1 text-[#EF4444]">
                     <ShieldAlert className="w-3 h-3" /> Their Weakness
                   </div>
-                  <p className={`text-xs leading-relaxed italic ${isDarkMode ? 'text-zinc-300' : 'text-[#50515e]'}`}>"{dossier.battlecard.competitorWeakness}"</p>
+                  <p className="text-[12px] leading-relaxed italic" style={{ color: vl.textBody }}>"{dossier.battlecard.competitorWeakness}"</p>
                 </div>
-                <div className={`h-px ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
+                <div className="h-px w-full" style={{ background: vl.borderStrong }} />
                 <div>
-                  <div className="text-[10px] font-black text-[#10B981] uppercase mb-1 tracking-wide flex items-center gap-1">
+                  <div className="text-[10px] font-black uppercase mb-1 tracking-wider flex items-center gap-1 text-[#10B981]">
                     <ShieldCheck className="w-3 h-3" /> Our Win Angle
                   </div>
-                  <p className={`text-xs font-semibold leading-relaxed ${isDarkMode ? 'text-zinc-200' : 'text-[#1B1D21]'}`}>"{dossier.battlecard.ourEdge}"</p>
+                  <p className="text-[13px] font-semibold leading-relaxed" style={{ color: vl.textMain }}>"{dossier.battlecard.ourEdge}"</p>
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
+               <div className="space-y-4 mt-4">
                 <SkeletonPulse className="w-full h-10" />
                 <SkeletonPulse className="w-full h-10" />
               </div>
@@ -581,28 +610,27 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
         </div>
       </div>
 
-      {/* Floating Action Bar (Pill Style) */}
+      {/* Floating Action Bar */}
       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 animate-in slide-in-from-bottom-8 duration-700">
-        <div className={`flex items-center gap-3 p-2 pl-4 rounded-full border shadow-xl backdrop-blur-md ${isDarkMode ? 'bg-[#141414]/90 border-white/10' : 'bg-white/90 border-slate-200'}`}>
-          <div className={`text-xs font-bold mr-2 ${isDarkMode ? 'text-zinc-400' : 'text-[#808191]'}`}>
+        <div 
+          className="flex items-center gap-3 p-2 pl-5 rounded-[6px] border shadow-2xl backdrop-blur-md"
+          style={{ background: isDarkMode ? 'rgba(20,20,20,0.95)' : 'rgba(255,255,255,0.95)', borderColor: vl.border }}
+        >
+          <div className="label-caps mr-2" style={{ color: vl.textMuted }}>
             {dossier ? 'Action Ready' : 'Processing...'}
           </div>
 
-
-
           <button
             disabled={!dossier}
-            className={`px-5 py-2.5 rounded-full text-xs font-bold border transition-all flex items-center gap-2 ${isDarkMode
-              ? 'border-white/10 hover:bg-white/5 text-white disabled:opacity-50'
-              : 'border-slate-200 hover:bg-slate-50 text-[#1B1D21] disabled:opacity-50'
-              }`}
+            className="px-5 py-2.5 rounded-[4px] text-xs font-bold border transition-all flex items-center gap-2 disabled:opacity-50"
+            style={{ borderColor: vl.borderStrong, color: vl.textMain, background: vl.surface }}
           >
             <MessageSquare className="w-3.5 h-3.5" /> Email Briefing
           </button>
 
           <button
             disabled={!dossier}
-            className="px-6 py-2.5 bg-[#6C5DD3] hover:bg-[#5A4DBF] text-white rounded-full text-xs font-bold transition-all shadow-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary px-6 py-2.5 rounded-[4px] text-xs font-bold transition-all shadow-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Push to CRM <ChevronRight className="w-3.5 h-3.5" />
           </button>
