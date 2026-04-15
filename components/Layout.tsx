@@ -12,7 +12,8 @@ import {
   Sun,
   Moon,
   Package,
-  UserCircle2
+  UserCircle2,
+  Briefcase
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -29,17 +30,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, onLog
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const navItems = [
-    { id: 'profile', label: 'Profile', icon: UserCircle2 },
-    { id: 'setup', label: 'Setup', icon: Activity },
-    { id: 'catalog', label: 'Catalog', icon: Package },
-    { id: 'signals', label: 'Signals', icon: Zap },
-    { id: 'leads', label: 'Leads', icon: Target },
-    { id: 'insights', label: 'Insights', icon: BarChart3 },
+    { id: 'business-onboarding', label: 'Business Onboarding', icon: Briefcase },
+    { id: 'setup', label: 'Trigger Setup', icon: Activity },
+    { id: 'signals', label: 'Leadboard', icon: Zap },
+    { id: 'insights', label: 'Dashboard', icon: BarChart3 },
   ];
 
   // ─── Vesper Logic color tokens ───────────────────────────────────────────────
   const vl = {
-    sidebar: isDarkMode ? '#0f0f0f' : '#F8F9FB',
+    sidebar: isDarkMode ? '#0f0f0f' : '#FFFFFF',
     sidebarBorder: isDarkMode ? 'rgba(255,255,255,0.05)' : '#F1F3F5',
     surface: isDarkMode ? '#141414' : '#FFFFFF',
     canvas: isDarkMode ? '#0a0a0a' : '#F8F9FB',
@@ -78,8 +77,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, onLog
         >
           {/* ── Logo ─────────────────────────────────────────────────────── */}
           <div
-            className={`flex-shrink-0 ${isCollapsed ? 'px-4 py-6' : 'px-6 py-6'}`}
-            style={{ borderBottom: `1px solid ${vl.sidebarBorder}` }}
+            className={`flex-shrink-0 flex items-center ${isCollapsed ? 'justify-center px-4' : 'px-6'}`}
+            style={{ 
+              height: '64px', 
+              borderBottom: `1px solid ${vl.sidebarBorder}` 
+            }}
           >
             <div
               onClick={() => (onLogoClick ? onLogoClick() : onTabChange('signals'))}
@@ -134,7 +136,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, onLog
             )}
 
             {navItems.map((item) => {
-              const isActive = activeTab === item.id;
+              const effectiveActiveTab = (activeTab === 'leads' || activeTab === 'estimation') ? 'signals' : activeTab;
+              const isActive = effectiveActiveTab === item.id;
               return (
                 <button
                   key={item.id}
@@ -332,35 +335,33 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, onLog
             {/* Search */}
             <div className="relative group">
               <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 transition-colors"
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors"
                 style={{
-                  width: '14px',
-                  height: '14px',
+                  width: '16px',
+                  height: '16px',
                   color: vl.textMuted,
                 }}
               />
               <input
                 type="text"
-                placeholder="Search signals..."
+                placeholder="Search signals or entities..."
                 className="transition-all focus:outline-none"
                 style={{
-                  width: '220px',
-                  height: '36px',
-                  paddingLeft: '36px',
+                  width: '480px',
+                  height: '40px',
+                  paddingLeft: '40px',
                   paddingRight: '16px',
-                  fontSize: '13px',
+                  fontSize: '14px',
                   fontFamily: "'Manrope', sans-serif",
-                  borderRadius: '6px',
-                  border: `1px solid ${vl.borderStrong}`,
-                  background: isDarkMode ? 'rgba(255,255,255,0.05)' : '#F8F9FB',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: isDarkMode ? 'rgba(255,255,255,0.05)' : '#F1F5F9',
                   color: vl.textMain,
                 }}
                 onFocus={(e) => {
-                  (e.currentTarget as HTMLInputElement).style.borderColor = vl.primary;
-                  (e.currentTarget as HTMLInputElement).style.boxShadow = `0 0 0 3px rgba(99,91,255,0.12)`;
+                  (e.currentTarget as HTMLInputElement).style.boxShadow = `0 0 0 2px ${vl.primary}`;
                 }}
                 onBlur={(e) => {
-                  (e.currentTarget as HTMLInputElement).style.borderColor = vl.borderStrong;
                   (e.currentTarget as HTMLInputElement).style.boxShadow = 'none';
                 }}
               />

@@ -13,6 +13,7 @@ interface CatalogViewProps {
   onAddRateCardEntry: (entry: { category: string; description: string; unit: string; defaultRate: number; region?: string }) => Promise<any>;
   onUpdateRateCardEntry: (entry: { id: string; category: string; description: string; unit: string; defaultRate: number; region?: string }) => Promise<any>;
   onRemoveRateCardEntry: (id: string) => Promise<boolean>;
+  isEmbedded?: boolean;
 }
 
 type SubTab = 'products' | 'rate-cards';
@@ -31,7 +32,7 @@ const EMPTY_RATE_CARD = { category: 'labour', description: '', unit: 'hr', defau
 const CatalogView: React.FC<CatalogViewProps> = ({
   catalog, rateCards,
   onAddCatalogItem, onUpdateCatalogItem, onRemoveCatalogItem,
-  onAddRateCardEntry, onUpdateRateCardEntry, onRemoveRateCardEntry,
+  onAddRateCardEntry, onUpdateRateCardEntry, onRemoveRateCardEntry, isEmbedded = false
 }) => {
   const { isDarkMode } = useTheme();
   const vl = getVL(isDarkMode);
@@ -179,16 +180,18 @@ const CatalogView: React.FC<CatalogViewProps> = ({
   }));
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>Product Catalog & Rate Cards</h1>
-          <p className="text-[13px] mt-1" style={{ color: vl.textBody }}>
-            Manage your product SKUs and standard rates for accurate, auditable pricing
-          </p>
+    <div className={`mx-auto space-y-6 ${isEmbedded ? 'max-w-full' : 'max-w-6xl'}`}>
+      {/* Header (Hidden if embedded) */}
+      {!isEmbedded && (
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h1 className="text-3xl font-semibold" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>Product Catalog & Rate Cards</h1>
+            <p className="text-[13px] mt-1" style={{ color: vl.textBody }}>
+              Manage your product SKUs and standard rates for accurate, auditable pricing
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Sub-tab Toggle */}
       <div className="flex gap-1 p-1 rounded-[6px] w-fit border" style={{ background: vl.surfaceMuted, borderColor: vl.border }}>

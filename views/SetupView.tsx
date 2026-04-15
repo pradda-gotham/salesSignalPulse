@@ -199,29 +199,60 @@ const SetupView: React.FC<SetupViewProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={() => setShowTrackWebsiteModal(true)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '8px 16px',
-            borderRadius: '6px',
-            fontSize: '13px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 0.15s',
-            background: vl.primary,
-            color: '#fff',
-            border: 'none',
-            boxShadow: '0 1px 4px rgba(99,91,255,0.3)',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = vl.primaryHover; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = vl.primary; }}
-        >
-          <Globe style={{ width: '14px', height: '14px' }} />
-          Track Website
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button
+            onClick={() => setShowCustomTriggerModal(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+              background: vl.surface,
+              color: vl.textMain,
+              border: `1px solid ${vl.borderStrong}`,
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = vl.primary;
+              (e.currentTarget as HTMLButtonElement).style.color = vl.primary;
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = vl.borderStrong;
+              (e.currentTarget as HTMLButtonElement).style.color = vl.textMain;
+            }}
+          >
+            <Plus style={{ width: '14px', height: '14px' }} />
+            Create Trigger
+          </button>
+          
+          <button
+            onClick={() => setShowTrackWebsiteModal(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+              background: vl.primary,
+              color: '#fff',
+              border: 'none',
+              boxShadow: '0 1px 4px rgba(99,91,255,0.3)',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = vl.primaryHover; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = vl.primary; }}
+          >
+            <Globe style={{ width: '14px', height: '14px' }} />
+            Track Website
+          </button>
+        </div>
       </header>
 
       {/* ── Metrics Row ──────────────────────────────────────────────────────── */}
@@ -352,34 +383,7 @@ const SetupView: React.FC<SetupViewProps> = ({
               </button>
             )}
 
-            <button
-              onClick={() => setShowCustomTriggerModal(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-                background: vl.surface,
-                color: vl.textBody,
-                border: `1px solid ${vl.borderStrong}`,
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLButtonElement).style.borderColor = vl.primary;
-                (e.currentTarget as HTMLButtonElement).style.color = vl.primary;
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLButtonElement).style.borderColor = vl.borderStrong;
-                (e.currentTarget as HTMLButtonElement).style.color = vl.textBody;
-              }}
-            >
-              <Plus style={{ width: '12px', height: '12px' }} />
-              Create Trigger
-            </button>
+
           </div>
 
           {/* Right: Tabs */}

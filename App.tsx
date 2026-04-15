@@ -12,8 +12,7 @@ import { LoginView } from './views/LoginView';
 import { AuthCallback } from './views/AuthCallback';
 import { OnboardingOrchestrator } from './views/OnboardingOrchestrator';
 import AuthTestPage from './views/AuthTestPage';
-import CatalogView from './views/CatalogView';
-import ProfileView from './views/ProfileView';
+import BusinessOnboardingView from './views/BusinessOnboardingView';
 import SettingsView, { getSettings } from './views/SettingsView';
 import { emailService } from './services/emailService';
 import { normalizeDossier } from './utils/normalizeDossier';
@@ -637,7 +636,7 @@ const AppContent: React.FC = () => {
       }
 
       // 1. Set the tab FIRST (before auth refresh causes re-render)
-      setActiveTab('setup');
+      setActiveTab('business-onboarding');
       setCurrentRoute('/');
       setBusinessProfile(profile);
 
@@ -678,15 +677,24 @@ const AppContent: React.FC = () => {
       );
     }
 
-    // Profile is always accessible
-    if (activeTab === 'profile') {
+    // Business Onboarding combined view
+    if (activeTab === 'business-onboarding' || activeTab === 'profile' || activeTab === 'catalog') {
       return (
-        <ProfileView
+        <BusinessOnboardingView
           profile={businessProfile}
-          onSave={async (updatedProfile) => {
+          onSaveProfile={async (updatedProfile) => {
             setBusinessProfile(updatedProfile);
             await saveBusinessProfile(updatedProfile as unknown as Record<string, unknown>);
           }}
+          catalog={catalog}
+          rateCards={rateCards}
+          onAddCatalogItem={addCatalogItem}
+          onUpdateCatalogItem={updateCatalogItem}
+          onRemoveCatalogItem={removeCatalogItem}
+          onAddRateCardEntry={addRateCardEntry}
+          onUpdateRateCardEntry={updateRateCardEntry}
+          onRemoveRateCardEntry={removeRateCardEntry}
+          onProceedToSetup={() => setActiveTab('setup')}
         />
       );
     }
@@ -720,21 +728,6 @@ const AppContent: React.FC = () => {
 
     if (activeTab === 'settings') {
       return <SettingsView />;
-    }
-
-    if (activeTab === 'catalog') {
-      return (
-        <CatalogView
-          catalog={catalog}
-          rateCards={rateCards}
-          onAddCatalogItem={addCatalogItem}
-          onUpdateCatalogItem={updateCatalogItem}
-          onRemoveCatalogItem={removeCatalogItem}
-          onAddRateCardEntry={addRateCardEntry}
-          onUpdateRateCardEntry={updateRateCardEntry}
-          onRemoveRateCardEntry={removeRateCardEntry}
-        />
-      );
     }
 
     // For other tabs, require business profile

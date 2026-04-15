@@ -705,9 +705,10 @@ const SECTION_FORMS: Record<string, React.FC<SectionFormProps>> = {
 interface ProfileViewProps {
   profile: BusinessProfile | null;
   onSave: (profile: BusinessProfile) => Promise<void>;
+  isEmbedded?: boolean;
 }
 
-const ProfileView: React.FC<ProfileViewProps> = ({ profile: initialProfile, onSave }) => {
+const ProfileView: React.FC<ProfileViewProps> = ({ profile: initialProfile, onSave, isEmbedded = false }) => {
   const { isDarkMode } = useTheme();
   const vl = getVL(isDarkMode);
   const [profile, setProfile] = useState<BusinessProfile>(initialProfile || { name: '', industry: '', products: [], targetGroups: [], geography: [], website: '' });
@@ -744,36 +745,61 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile: initialProfile, onSa
   const filledSections = SECTIONS.filter(s => sectionCompletion(s.id, profile) > 0).length;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-40 animate-in fade-in duration-500">
+    <div className={`mx-auto pb-40 animate-in fade-in duration-500 flex flex-col ${isEmbedded ? 'max-w-full' : 'max-w-4xl'}`}>
 
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>
-            Business Intelligence Profile
-          </h1>
-          <p className="text-[13px] mt-1" style={{ color: vl.textBody }}>
-            The more Leadpulse knows about your business, the sharper your signals become. All fields are optional.
-          </p>
+      {/* Header (Hidden if embedded) */}
+      {!isEmbedded && (
+        <div className="flex items-start justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>
+              Business Intelligence Profile
+            </h1>
+            <p className="text-[13px] mt-1" style={{ color: vl.textBody }}>
+              The more Leadpulse knows about your business, the sharper your signals become. All fields are optional.
+            </p>
+          </div>
         </div>
+      )}
 
-        {/* Save status */}
-        <div 
-          className="flex items-center gap-2 px-3 py-1.5 rounded-[4px] text-[10px] font-bold border transition-all uppercase tracking-wider label-caps"
-          style={{
-            background: saveStatus === 'saving' ? '#F59E0B10' : saveStatus === 'saved' ? '#10B98110' : vl.chipBg,
-            borderColor: saveStatus === 'saving' ? '#F59E0B30' : saveStatus === 'saved' ? '#10B98130' : vl.borderStrong,
-            color: saveStatus === 'saving' ? '#F59E0B' : saveStatus === 'saved' ? '#10B981' : vl.textMuted
-          }}
-        >
-          {saveStatus === 'saving' && <><Save className="w-3 h-3 animate-pulse" /> Saving...</>}
-          {saveStatus === 'saved' && <><CheckCircle2 className="w-3 h-3" /> Saved</>}
-          {saveStatus === 'idle' && <><Save className="w-3 h-3" /> Auto-save</>}
+      {/* Embedded Save Status removed from block flow, moved to card below */}
+      
+      {!isEmbedded && (
+        <div className="flex justify-end -mt-16 relative z-10 mb-4 pr-2">
+          <div 
+            className="flex items-center gap-2 px-3 py-1.5 rounded-[4px] text-[10px] font-bold border transition-all uppercase tracking-wider label-caps"
+            style={{
+              background: saveStatus === 'saving' ? '#F59E0B10' : saveStatus === 'saved' ? '#10B98110' : vl.chipBg,
+              borderColor: saveStatus === 'saving' ? '#F59E0B30' : saveStatus === 'saved' ? '#10B98130' : vl.borderStrong,
+              color: saveStatus === 'saving' ? '#F59E0B' : saveStatus === 'saved' ? '#10B981' : vl.textMuted
+            }}
+          >
+            {saveStatus === 'saving' && <><Save className="w-3 h-3 animate-pulse" /> Saving...</>}
+            {saveStatus === 'saved' && <><CheckCircle2 className="w-3 h-3" /> Saved</>}
+            {saveStatus === 'idle' && <><Save className="w-3 h-3" /> Auto-save Active</>}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Overall Progress */}
-      <div className="p-6 rounded-[6px] border flex items-center gap-6 vl-card" style={{ background: vl.surface, borderColor: vl.border }}>
+      {/* Container for main content */}
+      <div className="space-y-6">
+        {/* Overall Progress */}
+        <div className="p-6 rounded-[6px] border flex items-center gap-6 vl-card relative" style={{ background: vl.surface, borderColor: vl.border }}>
+          {isEmbedded && (
+            <div className="absolute top-4 right-4 z-10">
+              <div 
+                className="flex items-center gap-2 px-3 py-1.5 rounded-[4px] text-[10px] font-bold border transition-all uppercase tracking-wider label-caps shadow-sm"
+                style={{
+                  background: saveStatus === 'saving' ? '#F59E0B10' : saveStatus === 'saved' ? '#10B98110' : vl.chipBg,
+                  borderColor: saveStatus === 'saving' ? '#F59E0B30' : saveStatus === 'saved' ? '#10B98130' : vl.borderStrong,
+                  color: saveStatus === 'saving' ? '#F59E0B' : saveStatus === 'saved' ? '#10B981' : vl.textMuted
+                }}
+              >
+                {saveStatus === 'saving' && <><Save className="w-3 h-3 animate-pulse" /> Saving...</>}
+                {saveStatus === 'saved' && <><CheckCircle2 className="w-3 h-3" /> Saved</>}
+                {saveStatus === 'idle' && <><Save className="w-3 h-3" /> Auto-save Active</>}
+              </div>
+            </div>
+          )}
         <CompletionRing percent={overallCompletion} size={64} />
         <div className="flex-1">
           <div className="text-[15px] font-bold" style={{ color: vl.textMain }}>
@@ -847,6 +873,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile: initialProfile, onSa
             </div>
           );
         })}
+      </div>
       </div>
     </div>
   );
