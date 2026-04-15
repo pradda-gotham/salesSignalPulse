@@ -12,7 +12,6 @@ import { LoginView } from './views/LoginView';
 import { AuthCallback } from './views/AuthCallback';
 import { OnboardingOrchestrator } from './views/OnboardingOrchestrator';
 import AuthTestPage from './views/AuthTestPage';
-import AdhocHuntView from './views/AdhocHuntView';
 import CatalogView from './views/CatalogView';
 import ProfileView from './views/ProfileView';
 import SettingsView, { getSettings } from './views/SettingsView';
@@ -64,6 +63,7 @@ const AppContent: React.FC = () => {
     activateTrigger,
     saveSignal,
     updateSignalStatus,
+    updateSignalFeedback,
     createHuntLog,
     completeHuntLog,
     saveDossier: saveDossierToDb,
@@ -97,6 +97,7 @@ const AppContent: React.FC = () => {
   const [estimationError, setEstimationError] = useState<string | null>(null);
   const [marketActivity, setMarketActivity] = useState<{ level: string, summary: string, colorClass: string } | null>(null);
   const [isAssessingActivity, setIsAssessingActivity] = useState(false);
+  const [isGeneratingAITriggers, setIsGeneratingAITriggers] = useState(false);
 
   // Assess market activity once profile is loaded
   useEffect(() => {
@@ -114,7 +115,7 @@ const AppContent: React.FC = () => {
     }
   }, [businessProfile, marketActivity, isAssessingActivity]);
 
-  // Adhoc/Live Hunt session state
+  // Adhoc/Live Hunt session state (Legacy but left empty variables for compatibility if needed, though mostly unused now)
   const [isAdhocSession, setIsAdhocSession] = useState(false);
   const [adhocProfile, setAdhocProfile] = useState<BusinessProfile | null>(null);
   const [adhocTriggers, setAdhocTriggers] = useState<SalesTrigger[]>([]);
@@ -323,8 +324,11 @@ const AppContent: React.FC = () => {
     setSignals(prev => prev.map(s => s.id === id ? { ...s, status } : s));
   };
 
-  const handleUpdateFeedback = (id: string, feedback: 'Positive' | 'Negative') => {
+  const handleUpdateFeedback = async (id: string, feedback: 'Positive' | 'Negative') => {
+    // Optimistically update local state immediately for snappy UX
     setSignals(prev => prev.map(s => s.id === id ? { ...s, relevanceFeedback: feedback } : s));
+    // Persist to Supabase (uses the real DB UUID — signals in state already have DB IDs after sync)
+    await updateSignalFeedback(id, feedback);
   };
 
   const handleBackToSignals = () => {
@@ -556,6 +560,28 @@ const AppContent: React.FC = () => {
     }
   };
 
+  const handleGenerateAITriggers = async () => {
+    if (!businessProfile) return;
+    setIsGeneratingAITriggers(true);
+    try {
+      const newTriggers = await geminiService.generateTriggers(businessProfile);
+      if (newTriggers.length > 0) {
+        console.log('[APP] Persisting', newTriggers.length, 'Leadpulse triggers from Setup');
+        await addAITriggers(newTriggers.map(t => ({
+          product: t.product,
+          event: t.event,
+          source: t.source,
+          logic: t.logic,
+        })));
+      }
+    } catch (e) {
+      console.error("[APP] Error generating AI triggers:", e);
+      handleError(e);
+    } finally {
+      setIsGeneratingAITriggers(false);
+    }
+  };
+
   const handleAuthComplete = () => {
     window.history.replaceState(null, '', '/');
     setCurrentRoute('/');
@@ -686,6 +712,8 @@ const AppContent: React.FC = () => {
           isGenerating={isSearchingSignals}
           marketActivity={marketActivity}
           isAssessing={isAssessingActivity}
+          onGenerateAITriggers={handleGenerateAITriggers}
+          isGeneratingAITriggers={isGeneratingAITriggers}
         />
       );
     }
@@ -761,26 +789,15 @@ const AppContent: React.FC = () => {
           />
         );
       case 'insights':
-        return <InsightsView profile={businessProfile} />;
-      case 'live-hunt':
+        // analysisSignals: exclude signals the user marked as NOT relevant (thumbs down).
+        // Unrated signals are included — only explicit thumbs-down are removed from analysis.
+        const analysisSignals = signals.filter(s => s.relevanceFeedback !== 'Negative');
         return (
-          <AdhocHuntView
-            onCalibrationComplete={async (profile, triggers) => {
-              // Persist intelligent triggers to DB as 'ai_generated' (deduped)
-              console.log('[APP] Persisting', triggers.length, 'Leadpulse triggers from Live Hunt');
-              await addAITriggers(triggers.map(t => ({
-                product: t.product,
-                event: t.event,
-                source: t.source,
-                logic: t.logic,
-              })));
-              // Set region if available
-              if (profile.geography?.length > 0) {
-                setActiveHuntingRegion(profile.geography[0]);
-              }
-              // Navigate to Setup — triggers load from DB via useOrgData
-              setActiveTab('setup');
-            }}
+          <InsightsView
+            profile={businessProfile}
+            signals={analysisSignals}
+            dossierCache={dossierCache}
+            onViewDossier={handleViewDossier}
           />
         );
       default:

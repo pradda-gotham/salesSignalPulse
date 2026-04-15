@@ -1697,5 +1697,72 @@ Return as JSON.`;
     }
 
     return discovered;
-  }
+  },
+
+  // ============ INDUSTRY TRENDS (Insights Screen) ============
+  async getIndustryTrends(profile: BusinessProfile): Promise<Array<{
+    title: string;
+    impact: string;
+    relevance: string;
+    marketShift: 'bullish' | 'bearish' | 'neutral';
+    sourceTitle?: string;
+    sourceUrl?: string;
+  }>> {
+    return withRetry(async () => {
+      const ai = getAI();
+      const today = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      const geoCtx = profile.geography.slice(0, 3).join(', ');
+      const productsCtx = profile.products.slice(0, 4).join(', ');
+
+      const prompt = `You are a senior market intelligence analyst. As of ${today}, identify exactly 4 major real-world trends shaping the ${profile.industry} industry in ${geoCtx}.
+
+Our company (${profile.name}) sells: ${productsCtx}.
+Our target customers: ${profile.targetGroups.slice(0, 3).join(', ')}.
+
+For each trend:
+1. Find a real, current trend (backed by recent news, reports, or data)
+2. Explain the market direction it creates (bullish = growing demand, bearish = declining, neutral = structural shift)
+3. Explain specifically how it affects companies selling ${productsCtx}
+
+Be concrete and specific — cite what's actually happening in the market right now. Each trend should be distinct (e.g., regulatory, technological, economic, consumer behavior).`;
+
+      const response = await withTimeout(
+        ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: prompt,
+          config: {
+            tools: [{ googleSearch: {} }],
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  impact: { type: Type.STRING },
+                  relevance: { type: Type.STRING },
+                  marketShift: { type: Type.STRING, enum: ['bullish', 'bearish', 'neutral'] },
+                  sourceTitle: { type: Type.STRING },
+                  sourceUrl: { type: Type.STRING },
+                },
+                required: ['title', 'impact', 'relevance', 'marketShift'],
+              },
+            } as any,
+          },
+        }),
+        45000
+      );
+
+      const trends = JSON.parse(response.text || '[]');
+      console.log('[TRENDS] Fetched', trends.length, 'industry trends');
+
+      // Enrich with grounding URLs where available
+      const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+      return trends.map((t: any, i: number) => ({
+        ...t,
+        sourceUrl: t.sourceUrl || chunks[i]?.web?.uri || '',
+        sourceTitle: t.sourceTitle || chunks[i]?.web?.title || '',
+      }));
+    });
+  },
 };

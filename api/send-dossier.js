@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     const resend = new Resend(apiKey);
 
     const { data, error } = await resend.emails.send({
-      from: 'SalesPulse Intelligence <notifications@aireadines.com>',
+      from: 'Leadpulse Intelligence <notifications@aireadines.com>',
       to: recipients,
       subject: `Deal Dossier: ${dossier.accountName}`,
       html: `
@@ -189,7 +189,7 @@ export default async function handler(req, res) {
             
             <!-- Footer -->
             <div style="text-align: center; padding: 24px; color: #808191; font-size: 12px;">
-              Powered by <span style="color: #6C5DD3; font-weight: 600;">SalesPulse</span> Autonomous Intelligence
+              Powered by <span style="color: #6C5DD3; font-weight: 600;">Leadpulse</span> Autonomous Intelligence
             </div>
           </div>
         </body>

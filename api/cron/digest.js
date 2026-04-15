@@ -112,7 +112,7 @@ export default async function handler(req, res) {
           if (resend) {
             try {
               await resend.emails.send({
-                from: 'SalesPulse <noreply@salespulse.dev>',
+                from: 'Leadpulse <noreply@leadpulse.dev>',
                 to: user.email,
                 subject: `🔥 ${signals.length} New Lead Signals - ${org.name}`,
                 html: emailHtml,
@@ -199,7 +199,7 @@ function buildDigestEmail(orgName, signals) {
     
     <!-- Header -->
     <div style="text-align: center; margin-bottom: 32px;">
-      <h1 style="color: #f97316; font-size: 24px; margin: 0;">⚡ SalesPulse</h1>
+      <h1 style="color: #6C5DD3; font-size: 24px; margin: 0;">⚡ Leadpulse</h1>
       <p style="color: #888; margin-top: 8px;">Daily Lead Digest for ${escapeHtml(orgName)}</p>
     </div>
 
@@ -235,7 +235,7 @@ function buildDigestEmail(orgName, signals) {
     <!-- Footer -->
     <div style="text-align: center; margin-top: 40px; color: #666; font-size: 12px;">
       <p>You're receiving this because you enabled daily digests.</p>
-      <p>© ${new Date().getFullYear()} SalesPulse. All rights reserved.</p>
+      <p>© ${new Date().getFullYear()} Leadpulse. All rights reserved.</p>
     </div>
 
   </div>

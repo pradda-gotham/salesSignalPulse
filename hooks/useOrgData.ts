@@ -59,6 +59,13 @@ function mapStatus(dbStatus: string | null): LeadStatus {
 
 // Convert DB signal to app MarketSignal format
 function dbSignalToAppSignal(s: DbSignal): MarketSignal {
+    // Map DB relevance_feedback (lowercase) to app type (PascalCase)
+    const feedbackRaw = (s as any).relevance_feedback as string | null;
+    const relevanceFeedback: 'Positive' | 'Negative' | undefined =
+        feedbackRaw === 'positive' ? 'Positive' :
+        feedbackRaw === 'negative' ? 'Negative' :
+        undefined;
+
     return {
         id: s.id,
         headline: s.headline,
@@ -81,6 +88,7 @@ function dbSignalToAppSignal(s: DbSignal): MarketSignal {
             total: s.score || 50,
         },
         status: mapStatus(s.status),
+        relevanceFeedback,
         trackedWebsiteId: s.tracked_website_id || undefined,
     };
 }
@@ -305,6 +313,18 @@ export function useOrgData() {
         return success;
     }, []);
 
+    // Update signal relevance feedback
+    const updateSignalFeedback = useCallback(async (signalId: string, feedback: 'Positive' | 'Negative') => {
+        const dbFeedback = feedback === 'Positive' ? 'positive' : 'negative';
+        const success = await dataService.updateSignalFeedback(signalId, dbFeedback);
+        if (success) {
+            setSignals(prev => prev.map(s =>
+                s.id === signalId ? { ...s, relevanceFeedback: feedback } : s
+            ));
+        }
+        return success;
+    }, []);
+
     // Create a hunt log when starting a hunt
     const createHuntLog = useCallback(async () => {
         if (!orgId) return null;
@@ -431,6 +451,7 @@ export function useOrgData() {
         updateTrackedWebsiteScanTime,
         saveSignal,
         updateSignalStatus,
+        updateSignalFeedback,
         createHuntLog,
         completeHuntLog,
         saveDossier,

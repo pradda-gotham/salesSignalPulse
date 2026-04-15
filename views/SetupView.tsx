@@ -41,6 +41,8 @@ interface SetupViewProps {
   onScanWebsite?: (site: TrackedWebsite) => Promise<void>;
   marketActivity?: { level: string, summary: string, colorClass: string } | null;
   isAssessing?: boolean;
+  onGenerateAITriggers?: () => void;
+  isGeneratingAITriggers?: boolean;
 }
 
 type TabType = 'active' | 'ai_generated' | 'tracked_sites';
@@ -59,7 +61,9 @@ const SetupView: React.FC<SetupViewProps> = ({
   onRemoveTrackedWebsite,
   onScanWebsite,
   marketActivity,
-  isAssessing
+  isAssessing,
+  onGenerateAITriggers,
+  isGeneratingAITriggers
 }) => {
   const { isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('active');
@@ -169,6 +173,18 @@ const SetupView: React.FC<SetupViewProps> = ({
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-4">
             <h2 className={`text-sm font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>Active Configurations</h2>
+            
+            {activeTab === 'ai_generated' && onGenerateAITriggers && (
+              <button
+                onClick={onGenerateAITriggers}
+                disabled={isGeneratingAITriggers}
+                className={`px-3 py-1 rounded border text-xs font-medium flex items-center gap-1.5 transition-all ${isDarkMode ? 'bg-purple-500/10 border-purple-500/20 text-purple-400 hover:bg-purple-500/20' : 'bg-purple-50 border-purple-200 text-purple-600 hover:bg-purple-100'} ${isGeneratingAITriggers ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {isGeneratingAITriggers ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                {isGeneratingAITriggers ? 'Generating...' : 'Auto-Generate Triggers'}
+              </button>
+            )}
+
             <button
               onClick={() => setShowCustomTriggerModal(true)}
               className={`px-3 py-1 rounded border text-xs font-medium flex items-center gap-1.5 transition-all ${isDarkMode ? 'bg-[#141414] border-white/10 text-white hover:border-[#6C5DD3]/50 hover:text-[#6C5DD3]' : 'bg-white border-slate-200 text-[#1B1D21] hover:border-[#6C5DD3]/50 hover:text-[#6C5DD3]'}`}
@@ -326,9 +342,19 @@ const SetupView: React.FC<SetupViewProps> = ({
                           <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                             No Leadpulse-generated triggers yet.
                           </p>
-                          <p className="text-xs text-slate-400">
-                            Run a <strong>Live Hunt</strong> calibration to generate intelligent Leadpulse triggers.
+                          <p className="text-xs text-slate-400 mb-2">
+                            Use the <strong>Auto-Generate Triggers</strong> button to let Leadpulse propose intelligent signals based on your business profile.
                           </p>
+                          {onGenerateAITriggers && (
+                            <button
+                              onClick={onGenerateAITriggers}
+                              disabled={isGeneratingAITriggers}
+                              className="px-4 py-2 mt-2 bg-indigo-500/10 text-indigo-500 rounded-lg text-xs font-semibold hover:bg-indigo-500/20 transition-all flex items-center gap-2"
+                            >
+                              {isGeneratingAITriggers ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                              {isGeneratingAITriggers ? 'Generating Triggers...' : 'Generate AI Triggers'}
+                            </button>
+                          )}
                         </>
                       ) : (
                         <>

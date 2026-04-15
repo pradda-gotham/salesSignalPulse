@@ -281,6 +281,7 @@ export type Database = {
           id: string
           matched_products: string[] | null
           org_id: string
+          relevance_feedback: string | null
           score: number | null
           source_title: string | null
           source_url: string | null
@@ -301,6 +302,7 @@ export type Database = {
           id?: string
           matched_products?: string[] | null
           org_id: string
+          relevance_feedback?: string | null
           score?: number | null
           source_title?: string | null
           source_url?: string | null
@@ -321,6 +323,7 @@ export type Database = {
           id?: string
           matched_products?: string[] | null
           org_id?: string
+          relevance_feedback?: string | null
           score?: number | null
           source_title?: string | null
           source_url?: string | null

@@ -103,7 +103,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                     {/* Headline */}
                     <h1 style={styles.heroTitle}>
                         Hello<br />
-                        SalesPulse!<span style={styles.waveEmoji}>👋</span>
+                        Leadpulse!<span style={styles.waveEmoji}>👋</span>
                     </h1>
 
                     {/* Tagline */}
@@ -122,7 +122,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
             <div style={styles.rightPanel}>
                 <div style={styles.formContainer}>
                     {/* Brand name */}
-                    <h2 style={styles.brandName}>SalesPulse</h2>
+                    <h2 style={styles.brandName}>Leadpulse</h2>
 
                     {/* Welcome text */}
                     <div style={styles.welcomeSection}>

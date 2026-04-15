@@ -35,7 +35,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, onLog
     { id: 'profile', label: 'Profile', icon: UserCircle2 },
     { id: 'setup', label: 'Setup', icon: Activity },
     { id: 'catalog', label: 'Catalog', icon: Package },
-    { id: 'live-hunt', label: 'Live Hunt', icon: Radar },
     { id: 'signals', label: 'Signals', icon: Zap },
     { id: 'leads', label: 'Leads', icon: Target },
     { id: 'insights', label: 'Insights', icon: BarChart3 },
@@ -67,7 +66,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, onLog
                 <Zap className="w-5 h-5 text-white" />
               </div>
               {!isCollapsed && (
-                <span className="text-xl font-bold tracking-tight whitespace-nowrap overflow-hidden">SalesPulse</span>
+                <span className="text-xl font-bold tracking-tight whitespace-nowrap overflow-hidden">Leadpulse</span>
               )}
             </div>
 

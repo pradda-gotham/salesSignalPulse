@@ -96,7 +96,7 @@ const OnboardingView: React.FC<OnboardingViewProps> = ({ onVerified, autoPilotMo
         <div className="w-16 h-16 bg-[#6C5DD3] rounded-2xl flex items-center justify-center shadow-2xl shadow-orange-500/30 mb-8">
           <Compass className="w-8 h-8 text-white" />
         </div>
-        <h1 className={`text-5xl font-black tracking-tight mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>SalesPulse Onboarding</h1>
+        <h1 className={`text-5xl font-black tracking-tight mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Leadpulse Onboarding</h1>
         <p className={`text-xl max-w-xl mb-10 font-medium ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>
           Input your company URL to bootstrap your <span className="text-[#6C5DD3]">Autonomous Market Intelligence</span> engine.
         </p>

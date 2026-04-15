@@ -244,6 +244,22 @@ export async function updateSignalStatus(
     return true;
 }
 
+export async function updateSignalFeedback(
+    signalId: string,
+    feedback: 'positive' | 'negative'
+): Promise<boolean> {
+    const { error } = await supabase
+        .from('signals')
+        .update({ relevance_feedback: feedback } as any)
+        .eq('id', signalId);
+
+    if (error) {
+        console.error('[DataService] Error updating signal feedback:', error);
+        return false;
+    }
+    return true;
+}
+
 // ============ DOSSIERS ============
 
 export async function getDossier(signalId: string): Promise<Dossier | null> {
@@ -552,6 +568,7 @@ export const dataService = {
     getSignals,
     upsertSignal,
     updateSignalStatus,
+    updateSignalFeedback,
     getDossier,
     saveDossier,
     createHuntLog,
