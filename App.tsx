@@ -14,6 +14,7 @@ import { OnboardingOrchestrator } from './views/OnboardingOrchestrator';
 import AuthTestPage from './views/AuthTestPage';
 import AdhocHuntView from './views/AdhocHuntView';
 import CatalogView from './views/CatalogView';
+import ProfileView from './views/ProfileView';
 import SettingsView, { getSettings } from './views/SettingsView';
 import { emailService } from './services/emailService';
 import { normalizeDossier } from './utils/normalizeDossier';
@@ -648,6 +649,19 @@ const AppContent: React.FC = () => {
           <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
           <span className="ml-3 text-zinc-400">Loading your workspace...</span>
         </div>
+      );
+    }
+
+    // Profile is always accessible
+    if (activeTab === 'profile') {
+      return (
+        <ProfileView
+          profile={businessProfile}
+          onSave={async (updatedProfile) => {
+            setBusinessProfile(updatedProfile);
+            await saveBusinessProfile(updatedProfile as unknown as Record<string, unknown>);
+          }}
+        />
       );
     }
 

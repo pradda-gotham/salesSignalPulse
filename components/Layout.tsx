@@ -14,7 +14,8 @@ import {
   Radar,
   PanelLeftClose,
   PanelLeft,
-  Package
+  Package,
+  UserCircle2
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -31,6 +32,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, onLog
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const navItems = [
+    { id: 'profile', label: 'Profile', icon: UserCircle2 },
     { id: 'setup', label: 'Setup', icon: Activity },
     { id: 'catalog', label: 'Catalog', icon: Package },
     { id: 'live-hunt', label: 'Live Hunt', icon: Radar },

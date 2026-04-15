@@ -8,6 +8,82 @@ export enum SignalUrgency {
 
 export type LeadStatus = 'New' | 'Contacted' | 'Followed-up' | 'Meeting Booked' | 'Archived';
 
+// ============ ADVANCED BUSINESS PROFILE SECTIONS ============
+
+export interface BestCustomerExample {
+  name: string;
+  whyIdeal: string;
+}
+
+export interface ICPSection {
+  priorityIndustries?: string[];
+  companySize?: string;                // "1-50", "50-200", "200-1000", "1000+"
+  revenueRange?: string;               // "$1M-$5M", "$5M-$50M", "$50M-$500M", "$500M+"
+  typicalBuyerTitles?: string[];       // "CFO", "Head of Ops", "Marketing Director"
+  customerType?: 'B2B' | 'B2C' | 'Both';
+  companyStagePreference?: 'new' | 'established' | 'fast_growing' | 'stable' | 'no_preference';
+  bestCustomers?: BestCustomerExample[];
+  bestCustomerRevenuePercent?: number; // 0-100
+}
+
+export interface ProblemSolutionFitSection {
+  painPoints?: string[];               // key problems you solve
+  buyingTriggers?: string[];           // events that lead to a sale: "hiring", "funding", "expansion", etc.
+  readinessSignals?: string[];         // signals indicating a company is ready to buy
+}
+
+export interface USPSection {
+  whyChooseUs?: string;                // free-text: why customers choose you
+  uniqueStrength?: string;             // what you do better than anyone
+  customerFeedback?: string;           // what customers say after buying
+  proofPoints?: string[];              // case studies, ROI metrics, testimonials
+  measurableOutcomes?: string[];       // "30% cost reduction", "2x faster onboarding"
+}
+
+export interface CompetitorEntry {
+  name: string;
+  whyWeWin?: string;
+  whyWeLose?: string;
+}
+
+export interface DealCharacteristicsSection {
+  avgDealSize?: string;                // "$10K-$50K", "$50K-$200K", etc.
+  typicalSalesCycle?: string;          // "1-2 weeks", "1-3 months", "3-6 months", "6-12 months"
+  salesMotion?: 'high_touch' | 'low_touch' | 'hybrid';
+  highProbabilityIndustries?: string[];
+  highProbabilityBuyerRoles?: string[];
+  highProbabilityCompanyStages?: string[];
+  competitors?: CompetitorEntry[];
+}
+
+export interface ExclusionsSection {
+  excludedIndustries?: string[];
+  excludedCompanySizes?: string[];
+  excludedRegions?: string[];
+  redFlags?: string[];                 // "no budget allocated", "already locked into competitor"
+}
+
+export interface SalesApproachSection {
+  primaryChannels?: string[];          // "email", "cold_call", "linkedin", "inbound"
+  bestMessaging?: string;              // what messaging works best
+  commonObjections?: string[];         // objections you commonly face
+  whatConvinces?: string;              // what typically convinces a customer to buy
+  toneOfVoice?: string;               // "professional", "consultative", "friendly", "technical"
+}
+
+export interface DataSourcePreferencesSection {
+  currentLeadSources?: string[];       // where they currently find leads
+  trustedSources?: string[];           // "news", "linkedin", "job_boards", "industry_portals"
+  monitoredWebsites?: string[];        // specific URLs to watch
+  monitoredCompetitors?: string[];     // competitor names to track
+}
+
+export interface SuccessMetricsSection {
+  goodLeadDefinition?: string;         // what defines a "good lead"
+  expectedConversionRate?: string;     // "5%", "10-15%"
+  volumeVsQuality?: 'volume' | 'quality' | 'balanced';
+}
+
 export interface BusinessProfile {
   id?: string;
   name: string;
@@ -17,6 +93,15 @@ export interface BusinessProfile {
   geography: string[];
   website: string;
   isVerified?: boolean;
+  // --- Advanced profile sections (all optional) ---
+  icp?: ICPSection;
+  problemSolutionFit?: ProblemSolutionFitSection;
+  usp?: USPSection;
+  dealCharacteristics?: DealCharacteristicsSection;
+  exclusions?: ExclusionsSection;
+  salesApproach?: SalesApproachSection;
+  dataSources?: DataSourcePreferencesSection;
+  successMetrics?: SuccessMetricsSection;
 }
 
 export interface SalesTrigger {

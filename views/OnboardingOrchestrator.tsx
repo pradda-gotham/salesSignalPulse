@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { OnboardingModeSelector } from './OnboardingModeSelector';
 import { SetupOrgView } from './SetupOrgView';
 import OnboardingView from './OnboardingView';
+import { SuperchargeStep } from './SuperchargeStep';
 import { BusinessProfile, SalesTrigger } from '../types';
 import { geminiService } from '../services/geminiService';
 import { Radar } from 'lucide-react';
@@ -10,12 +11,13 @@ interface OnboardingOrchestratorProps {
     onComplete: (profile: BusinessProfile, aiTriggers: SalesTrigger[]) => void;
 }
 
-type OnboardingStep = 'select' | 'auto' | 'manual' | 'calibrating';
+type OnboardingStep = 'select' | 'auto' | 'manual' | 'calibrating' | 'supercharge';
 
 export const OnboardingOrchestrator: React.FC<OnboardingOrchestratorProps> = ({ onComplete }) => {
     const [step, setStep] = useState<OnboardingStep>('select');
     const [initialProfile, setInitialProfile] = useState<BusinessProfile | null>(null);
     const [verifiedProfile, setVerifiedProfile] = useState<BusinessProfile | null>(null);
+    const [calibrationTriggers, setCalibrationTriggers] = useState<SalesTrigger[]>([]);
 
     const handleModeSelect = (mode: 'auto' | 'manual') => {
         if (mode === 'manual') {
@@ -38,17 +40,18 @@ export const OnboardingOrchestrator: React.FC<OnboardingOrchestratorProps> = ({ 
         runCalibration(profile);
     };
 
-    // Run Leadpulse calibration to generate triggers
+    // Run Leadpulse calibration to generate triggers, then move to supercharge
     const runCalibration = async (profile: BusinessProfile) => {
         try {
             console.log('[Onboarding] Running calibration for:', profile.name);
             const triggers = await geminiService.generateTriggers(profile);
             console.log('[Onboarding] Calibration complete, generated', triggers.length, 'triggers');
-            onComplete(profile, triggers);
+            setCalibrationTriggers(triggers);
+            setStep('supercharge');
         } catch (e) {
             console.error('[Onboarding] Calibration failed:', e);
-            // Even if calibration fails, let user proceed with no intelligent triggers
-            onComplete(profile, []);
+            setCalibrationTriggers([]);
+            setStep('supercharge');
         }
     };
 
@@ -85,6 +88,16 @@ export const OnboardingOrchestrator: React.FC<OnboardingOrchestratorProps> = ({ 
                         </p>
                     </div>
                 </div>
+            );
+
+        case 'supercharge':
+            return (
+                <SuperchargeStep
+                    profile={verifiedProfile!}
+                    onSave={(updatedProfile) => setVerifiedProfile(updatedProfile)}
+                    onContinue={() => onComplete(verifiedProfile!, calibrationTriggers)}
+                    onSkip={() => onComplete(verifiedProfile!, calibrationTriggers)}
+                />
             );
 
         default:

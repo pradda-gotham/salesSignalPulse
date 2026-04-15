@@ -161,6 +161,66 @@ async function verifySignalSource(headline: string, companyName: string): Promis
   });
 }
 
+// ============ ADVANCED PROFILE CONTEXT BUILDER ============
+// Injects ICP, USP, exclusions, deal characteristics, etc. into AI prompts
+
+function buildAdvancedContext(profile: BusinessProfile): string {
+  const parts: string[] = [];
+
+  // ICP
+  if (profile.icp?.companySize) parts.push(`Target company size: ${profile.icp.companySize} employees`);
+  if (profile.icp?.revenueRange) parts.push(`Target revenue range: ${profile.icp.revenueRange}`);
+  if (profile.icp?.typicalBuyerTitles?.filter(Boolean).length) parts.push(`Key decision-maker titles: ${profile.icp.typicalBuyerTitles.filter(Boolean).join(', ')}`);
+  if (profile.icp?.customerType) parts.push(`Customer type: ${profile.icp.customerType}`);
+  if (profile.icp?.priorityIndustries?.filter(Boolean).length) parts.push(`Priority industries: ${profile.icp.priorityIndustries.filter(Boolean).join(', ')}`);
+  if (profile.icp?.companyStagePreference && profile.icp.companyStagePreference !== 'no_preference') parts.push(`Preferred company stage: ${profile.icp.companyStagePreference}`);
+
+  // Problem-Solution Fit
+  if (profile.problemSolutionFit?.painPoints?.filter(Boolean).length) parts.push(`Problems we solve: ${profile.problemSolutionFit.painPoints.filter(Boolean).join('; ')}`);
+  if (profile.problemSolutionFit?.buyingTriggers?.filter(Boolean).length) parts.push(`Known buying triggers: ${profile.problemSolutionFit.buyingTriggers.filter(Boolean).join(', ')}`);
+  if (profile.problemSolutionFit?.readinessSignals?.filter(Boolean).length) parts.push(`Readiness signals: ${profile.problemSolutionFit.readinessSignals.filter(Boolean).join('; ')}`);
+
+  // USP
+  if (profile.usp?.whyChooseUs) parts.push(`Why customers choose us: ${profile.usp.whyChooseUs}`);
+  if (profile.usp?.uniqueStrength) parts.push(`Our unique strength: ${profile.usp.uniqueStrength}`);
+  if (profile.usp?.proofPoints?.filter(Boolean).length) parts.push(`Proof points: ${profile.usp.proofPoints.filter(Boolean).join('; ')}`);
+  if (profile.usp?.measurableOutcomes?.filter(Boolean).length) parts.push(`Measurable outcomes: ${profile.usp.measurableOutcomes.filter(Boolean).join('; ')}`);
+
+  // Deal Characteristics
+  if (profile.dealCharacteristics?.avgDealSize) parts.push(`Typical deal size: ${profile.dealCharacteristics.avgDealSize}`);
+  if (profile.dealCharacteristics?.typicalSalesCycle) parts.push(`Sales cycle: ${profile.dealCharacteristics.typicalSalesCycle}`);
+  if (profile.dealCharacteristics?.competitors?.filter(c => c.name).length) {
+    const compStr = profile.dealCharacteristics.competitors!.filter(c => c.name).map(c => {
+      let s = c.name;
+      if (c.whyWeWin) s += ` (we win because: ${c.whyWeWin})`;
+      if (c.whyWeLose) s += ` (we lose because: ${c.whyWeLose})`;
+      return s;
+    }).join('; ');
+    parts.push(`Competitors: ${compStr}`);
+  }
+
+  // Exclusions
+  if (profile.exclusions?.excludedIndustries?.filter(Boolean).length) parts.push(`EXCLUDE these industries: ${profile.exclusions.excludedIndustries.filter(Boolean).join(', ')}`);
+  if (profile.exclusions?.excludedRegions?.filter(Boolean).length) parts.push(`EXCLUDE these regions: ${profile.exclusions.excludedRegions.filter(Boolean).join(', ')}`);
+  if (profile.exclusions?.excludedCompanySizes?.filter(Boolean).length) parts.push(`EXCLUDE these company sizes: ${profile.exclusions.excludedCompanySizes.filter(Boolean).join(', ')}`);
+  if (profile.exclusions?.redFlags?.filter(Boolean).length) parts.push(`Red flags to avoid: ${profile.exclusions.redFlags.filter(Boolean).join('; ')}`);
+
+  // Sales Approach
+  if (profile.salesApproach?.toneOfVoice) parts.push(`Preferred tone: ${profile.salesApproach.toneOfVoice}`);
+  if (profile.salesApproach?.primaryChannels?.length) parts.push(`Primary sales channels: ${profile.salesApproach.primaryChannels.join(', ')}`);
+  if (profile.salesApproach?.commonObjections?.filter(Boolean).length) parts.push(`Common objections: ${profile.salesApproach.commonObjections.filter(Boolean).join('; ')}`);
+
+  // Data Sources
+  if (profile.dataSources?.trustedSources?.filter(Boolean).length) parts.push(`Preferred signal sources: ${profile.dataSources.trustedSources.filter(Boolean).join(', ')}`);
+  if (profile.dataSources?.monitoredCompetitors?.filter(Boolean).length) parts.push(`Monitor competitors: ${profile.dataSources.monitoredCompetitors.filter(Boolean).join(', ')}`);
+
+  // Success Metrics
+  if (profile.successMetrics?.goodLeadDefinition) parts.push(`Good lead definition: ${profile.successMetrics.goodLeadDefinition}`);
+  if (profile.successMetrics?.volumeVsQuality) parts.push(`Priority: ${profile.successMetrics.volumeVsQuality} over ${profile.successMetrics.volumeVsQuality === 'volume' ? 'quality' : 'volume'}`);
+
+  return parts.length > 0 ? '\n\nADVANCED BUSINESS PROFILE CONTEXT:\n' + parts.join('\n') : '';
+}
+
 // Legacy bundle processing (used when no catalog or when Glass Box Stage 2 fails)
 function legacyProcessBundle(
   data: any,
@@ -260,8 +320,9 @@ export const geminiService = {
   async generateTriggers(profile: BusinessProfile): Promise<SalesTrigger[]> {
     return withRetry(async () => {
       const ai = getAI();
+      const advancedCtx = buildAdvancedContext(profile);
       const prompt = `Given these products: ${profile.products.join(', ')} and these target groups: ${profile.targetGroups.join(', ')} for the company ${profile.name} in the ${profile.industry} industry, what real-world events or "sales triggers" create immediate demand? Generate 4 triggers.
-
+${advancedCtx}
 For each trigger, provide:
 - product: The specific product or service from the list above
 - event: A concrete, searchable real-world event (e.g., "New government dietary guidelines released", "Major construction project announced", "Back-to-school season begins")
@@ -371,12 +432,31 @@ For each trigger, provide:
       }
 
       // 2. Profile-derived angles — broader discovery (industry-agnostic)
+      const advCtx = buildAdvancedContext(profile);
+      const exclusionNote = profile.exclusions?.excludedIndustries?.filter(Boolean).length
+        ? ` IMPORTANT: Do NOT return signals about these industries: ${profile.exclusions.excludedIndustries.filter(Boolean).join(', ')}.` : '';
+      const buyerNote = profile.icp?.typicalBuyerTitles?.filter(Boolean).length
+        ? ` Focus on signals relevant to these buyer roles: ${profile.icp.typicalBuyerTitles.filter(Boolean).join(', ')}.` : '';
+
       promptAngles.push(
-        `Find 1 recent news or emerging trend in ${regionContext} relevant to the ${profile.industry} industry that would create demand for ${productsStr}. Look for market shifts, regulatory changes, seasonal patterns, or consumer behavior changes.`,
-        `Find 1 recent announcement, partnership, funding round, or expansion in ${regionContext} relevant to companies or individuals who buy ${productsStr}. Target audience: ${targetGroupsStr}.`,
-        `Find 1 recent news article in ${regionContext} about a problem, challenge, or unmet need that ${profile.name}'s products (${productsStr}) could solve. Look for pain points experienced by ${targetGroupsStr}.`,
-        `Find 1 recent industry report, survey result, or market research finding in ${regionContext} that signals growing demand for ${productsStr} within ${profile.industry}.`
+        `Find 1 recent news or emerging trend in ${regionContext} relevant to the ${profile.industry} industry that would create demand for ${productsStr}. Look for market shifts, regulatory changes, seasonal patterns, or consumer behavior changes.${exclusionNote}${buyerNote}`,
+        `Find 1 recent announcement, partnership, funding round, or expansion in ${regionContext} relevant to companies or individuals who buy ${productsStr}. Target audience: ${targetGroupsStr}.${exclusionNote}`,
+        `Find 1 recent news article in ${regionContext} about a problem, challenge, or unmet need that ${profile.name}'s products (${productsStr}) could solve. Look for pain points experienced by ${targetGroupsStr}.${exclusionNote}`,
+        `Find 1 recent industry report, survey result, or market research finding in ${regionContext} that signals growing demand for ${productsStr} within ${profile.industry}.${exclusionNote}`
       );
+
+      // 2b. Advanced profile-driven angles (if configured)
+      if (profile.problemSolutionFit?.buyingTriggers?.filter(Boolean).length) {
+        const userTriggers = profile.problemSolutionFit.buyingTriggers.filter(Boolean);
+        promptAngles.push(
+          `Find 1 recent news in ${regionContext} matching these known buying triggers for ${productsStr}: ${userTriggers.join(', ')}. The ideal result shows a company or organization experiencing one of these triggers.${exclusionNote}`
+        );
+      }
+      if (profile.dataSources?.monitoredCompetitors?.filter(Boolean).length) {
+        promptAngles.push(
+          `Find 1 recent news in ${regionContext} about competitors of ${profile.name}: ${profile.dataSources.monitoredCompetitors.filter(Boolean).join(', ')}. Look for their wins, losses, product launches, or customer complaints that create an opening for ${productsStr}.`
+        );
+      }
 
       // Add site-specific prompts if sites mode is active
       if (runSitesMode && allowedSites.length > 0) {
@@ -561,6 +641,12 @@ For each trigger, provide:
           contents: `Generate multi-channel B2B outreach for ${profile.name} targeting a ${signal.decisionMaker} regarding: "${signal.headline}".
           Context: ${signal.summary}.
           Source: ${signal.sourceUrl}.
+          ${profile.salesApproach?.toneOfVoice ? `Tone of voice: ${profile.salesApproach.toneOfVoice}.` : ''}
+          ${profile.usp?.whyChooseUs ? `Our key value prop: ${profile.usp.whyChooseUs}.` : ''}
+          ${profile.usp?.uniqueStrength ? `Our unique edge: ${profile.usp.uniqueStrength}.` : ''}
+          ${profile.salesApproach?.bestMessaging ? `Best messaging approach: ${profile.salesApproach.bestMessaging}.` : ''}
+          ${profile.salesApproach?.commonObjections?.filter(Boolean).length ? `Address these common objections: ${profile.salesApproach.commonObjections.filter(Boolean).join('; ')}.` : ''}
+          ${profile.usp?.measurableOutcomes?.filter(Boolean).length ? `Include these proof points if relevant: ${profile.usp.measurableOutcomes.filter(Boolean).join('; ')}.` : ''}
           Return JSON with 'email', 'linkedin', and 'call'.`,
           config: {
             responseMimeType: "application/json",
@@ -788,12 +874,13 @@ For each bundle item return: sku, description, quantity, reasoning (detailed exp
         ? `\n\nPRODUCT CATALOG (USE THESE EXACT SKUs AND PRICES):\n${catalog.map(c => `SKU: ${c.sku} | ${c.name} | $${c.unitPrice.toFixed(2)}/${c.unit} | Category: ${c.category}`).join('\n')}\n\nCRITICAL PRICING RULES:\n- Use ONLY SKUs from this catalog for the recommendedBundle.\n- Use exact unitPrice values from the catalog.\n- Calculate lineTotal = quantity × unitPrice for each item.\n- estimatedValue MUST equal sum of all lineTotals minus discount amount.\n- If a product is needed but NOT in the catalog, invent a descriptive SKU prefixed with "AI-" and estimate the price.`
         : '\n\nNOTE: No product catalog is configured. Generate reasonable SKUs and estimate prices. All prices will be labeled as AI estimates.';
 
+      const dossierAdvancedCtx = buildAdvancedContext(profile);
       const prompt = `Generate a Deal Dossier for a sales opportunity.
 
 SELLER COMPANY: ${profile.name}
 SELLER PRODUCTS: ${profile.products.join(', ')}
 SELLER TARGET CUSTOMERS: ${profile.targetGroups.join(', ')}
-
+${dossierAdvancedCtx}
 NEWS/SIGNAL: "${signal.headline}"
 SOURCE: ${signal.sourceUrl}
 REGION: ${signal.region}
