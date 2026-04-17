@@ -1,14 +1,31 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
 import { BusinessProfile, SalesTrigger, MarketSignal, SignalUrgency, SignalConfidence, DealDossier, EnrichedContact, EnrichedCompany, CostEstimation, CostCategory, TrackedWebsite, ProductCatalogItem, RateCardEntry, AuditablePrice, ProjectIntelligence, ScaleMetric, LineItemDerivation, EstimationAuditTrail, LeadType, SignalEntity, ResearchHints } from "../types";
 import { apolloService } from "./apolloService";
 
-const getAI = () => {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) {
-    console.error("VITE_GEMINI_API_KEY is missing! Please check .env.local");
-    throw new Error("Missing API Key");
+// Uses the new backend proxy to hide the API key
+const callGeminiAPI = async (payload: any) => {
+  const response = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini Proxy Error: ${response.status} - ${errorText}`);
   }
-  return new GoogleGenAI({ apiKey });
+
+  return response.json();
+};
+
+const mockedAI = {
+  models: {
+    generateContent: callGeminiAPI
+  }
+};
+
+const getAI = () => {
+  return mockedAI;
 };
 
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
