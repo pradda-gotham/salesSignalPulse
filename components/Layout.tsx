@@ -13,7 +13,8 @@ import {
   Moon,
   Package,
   UserCircle2,
-  Briefcase
+  Briefcase,
+  Link
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -34,6 +35,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, onLog
     { id: 'setup', label: 'Trigger Setup', icon: Activity },
     { id: 'signals', label: 'Leadboard', icon: Zap },
     { id: 'insights', label: 'Dashboard', icon: BarChart3 },
+    { id: 'integration', label: 'Integration', icon: Link },
   ];
 
   // ─── Vesper Logic color tokens ───────────────────────────────────────────────

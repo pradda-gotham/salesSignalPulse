@@ -36,6 +36,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { geminiService } from '../services/geminiService';
 import { priceValue } from '../utils/normalizeDossier';
 import { getVL } from '../utils/vesper';
+import { exportSignalsToExcel } from '../utils/exportToExcel';
 
 interface IndustryTrend {
   title: string;
@@ -197,7 +198,20 @@ const InsightsView: React.FC<InsightsViewProps> = ({ profile, signals, dossierCa
   const industryChartData = useMemo(() => {
     const map: Record<string, { count: number; value: number }> = {};
     signals.forEach(s => {
-      const key = s.matchedProducts?.[0] || profile.targetGroups?.[0] || 'General';
+      // Look for the first matched property that isn't a product
+      let key = s.matchedProducts?.find(mp => {
+        const isProduct = profile.products?.some(p => 
+          mp.toLowerCase().includes(p.toLowerCase()) || 
+          p.toLowerCase().includes(mp.toLowerCase())
+        );
+        return !isProduct;
+      });
+
+      // If everything was a product, fallback to target groups or industry
+      if (!key) {
+        key = profile.targetGroups?.[0] || profile.industry || 'General';
+      }
+      
       const label = key.length > 22 ? key.slice(0, 22) + '…' : key;
       if (!map[label]) map[label] = { count: 0, value: 0 };
       map[label].count += 1;
@@ -211,21 +225,62 @@ const InsightsView: React.FC<InsightsViewProps> = ({ profile, signals, dossierCa
 
   const locationChartData = useMemo(() => {
     const map: Record<string, number> = {};
+    
+    // State extraction map for Australian locations
+    const stateMap: Record<string, string> = {
+      'nsw': 'NSW', 'new south wales': 'NSW', 'sydney': 'NSW',
+      'vic': 'VIC', 'victoria': 'VIC', 'melbourne': 'VIC',
+      'qld': 'QLD', 'queensland': 'QLD', 'brisbane': 'QLD',
+      'wa': 'WA', 'western australia': 'WA', 'perth': 'WA',
+      'sa': 'SA', 'south australia': 'SA', 'adelaide': 'SA',
+      'tas': 'TAS', 'tasmania': 'TAS', 'hobart': 'TAS',
+      'act': 'ACT', 'canberra': 'ACT',
+      'nt': 'NT', 'northern territory': 'NT', 'darwin': 'NT'
+    };
+    
+    // Create regex from keys
+    const stateRegex = new RegExp(`\\b(${Object.keys(stateMap).join('|')})\\b`, 'i');
+
     signals.forEach(s => {
-      const region = s.region?.trim() || 'Unknown';
+      let region = s.region?.trim() || 'Unknown';
+      let matchedState = '';
+
+      // 1. Try from dossier
+      const dLocation = dossierCache[s.id]?.projectIntelligence?.location;
+      if (dLocation) {
+        const match = dLocation.match(stateRegex);
+        if (match) matchedState = stateMap[match[0].toLowerCase()];
+      }
+
+      // 2. Try scanning headline and summary
+      if (!matchedState) {
+        const textToSearch = `${s.headline} ${s.summary}`;
+        const match = textToSearch.match(stateRegex);
+        if (match) matchedState = stateMap[match[0].toLowerCase()];
+      }
+
+      // Update region if we found a state
+      if (matchedState) {
+        region = matchedState;
+      } else if (region.toLowerCase() === 'australia') {
+        region = 'National';
+      }
+
       const key = region.length > 20 ? region.slice(0, 20) + '…' : region;
       map[key] = (map[key] || 0) + 1;
     });
+
     const allUnknown = Object.keys(map).every(k => k === 'Unknown' || k === 'Unknown…');
     if (allUnknown && profile.geography.length > 0) {
       profile.geography.forEach(g => { map[g] = map['Unknown'] || 1; });
       delete map['Unknown'];
     }
+
     return Object.entries(map)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
-  }, [signals, profile]);
+  }, [signals, dossierCache, profile]);
 
   const sortedOpportunities = useMemo(() => {
     let list = [...signals];
@@ -275,7 +330,11 @@ const InsightsView: React.FC<InsightsViewProps> = ({ profile, signals, dossierCa
             Live signal analytics for <span className="not-italic font-bold" style={{ color: vl.primary }}>{profile.name}</span>
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-[6px] text-xs font-bold border transition-all" style={{ background: vl.surface, color: vl.textMain, borderColor: vl.borderStrong }}>
+        <button 
+          onClick={() => exportSignalsToExcel(signals, dossierCache)}
+          className="flex items-center gap-2 px-4 py-2 rounded-[6px] text-xs font-bold border transition-all" 
+          style={{ background: vl.surface, color: vl.textMain, borderColor: vl.borderStrong }}
+        >
           <Download className="w-3.5 h-3.5" /> Export Report
         </button>
       </div>
@@ -298,7 +357,7 @@ const InsightsView: React.FC<InsightsViewProps> = ({ profile, signals, dossierCa
               </div>
               <div>
                 <h3 className="font-semibold text-lg" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>Value of Opportunity by Sector</h3>
-                <p className="text-xs" style={{ color: vl.textMuted }}>Pipeline value & signal count by matched industry / product</p>
+                <p className="text-xs" style={{ color: vl.textMuted }}>Pipeline value & signal count by matched industry</p>
               </div>
             </div>
           </div>

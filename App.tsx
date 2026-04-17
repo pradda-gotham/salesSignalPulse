@@ -14,6 +14,7 @@ import { OnboardingOrchestrator } from './views/OnboardingOrchestrator';
 import AuthTestPage from './views/AuthTestPage';
 import BusinessOnboardingView from './views/BusinessOnboardingView';
 import SettingsView, { getSettings } from './views/SettingsView';
+import IntegrationView from './views/IntegrationView';
 import { emailService } from './services/emailService';
 import { normalizeDossier } from './utils/normalizeDossier';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -793,6 +794,8 @@ const AppContent: React.FC = () => {
             onViewDossier={handleViewDossier}
           />
         );
+      case 'integration':
+        return <IntegrationView />;
       default:
         return (
           <SignalsView

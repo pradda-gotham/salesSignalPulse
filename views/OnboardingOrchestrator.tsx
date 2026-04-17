@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { OnboardingModeSelector } from './OnboardingModeSelector';
 import { SetupOrgView } from './SetupOrgView';
 import OnboardingView from './OnboardingView';
-import { SuperchargeStep } from './SuperchargeStep';
 import { BusinessProfile, SalesTrigger } from '../types';
 import { geminiService } from '../services/geminiService';
 import { Radar } from 'lucide-react';
@@ -11,7 +10,7 @@ interface OnboardingOrchestratorProps {
     onComplete: (profile: BusinessProfile, aiTriggers: SalesTrigger[]) => void;
 }
 
-type OnboardingStep = 'select' | 'auto' | 'manual' | 'calibrating' | 'supercharge';
+type OnboardingStep = 'select' | 'auto' | 'manual' | 'calibrating';
 
 export const OnboardingOrchestrator: React.FC<OnboardingOrchestratorProps> = ({ onComplete }) => {
     const [step, setStep] = useState<OnboardingStep>('select');
@@ -46,12 +45,10 @@ export const OnboardingOrchestrator: React.FC<OnboardingOrchestratorProps> = ({ 
             console.log('[Onboarding] Running calibration for:', profile.name);
             const triggers = await geminiService.generateTriggers(profile);
             console.log('[Onboarding] Calibration complete, generated', triggers.length, 'triggers');
-            setCalibrationTriggers(triggers);
-            setStep('supercharge');
+            onComplete(profile, triggers);
         } catch (e) {
             console.error('[Onboarding] Calibration failed:', e);
-            setCalibrationTriggers([]);
-            setStep('supercharge');
+            onComplete(profile, []);
         }
     };
 
@@ -90,15 +87,7 @@ export const OnboardingOrchestrator: React.FC<OnboardingOrchestratorProps> = ({ 
                 </div>
             );
 
-        case 'supercharge':
-            return (
-                <SuperchargeStep
-                    profile={verifiedProfile!}
-                    onSave={(updatedProfile) => setVerifiedProfile(updatedProfile)}
-                    onContinue={() => onComplete(verifiedProfile!, calibrationTriggers)}
-                    onSkip={() => onComplete(verifiedProfile!, calibrationTriggers)}
-                />
-            );
+
 
         default:
             return null;

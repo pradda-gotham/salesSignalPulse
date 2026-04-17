@@ -5,6 +5,7 @@ import { getVL } from '../utils/vesper';
 import ProfileView from './ProfileView';
 import CatalogView from './CatalogView';
 import { BusinessProfile, ProductCatalogItem, RateCardEntry } from '../types';
+import { QuickTargetingForm } from './QuickTargetingForm';
 
 interface BusinessOnboardingViewProps {
   // Profile Props
@@ -104,8 +105,34 @@ const BusinessOnboardingView: React.FC<BusinessOnboardingViewProps> = ({
       <div className="pt-4 ml-[52px]">
         {/* Tab Content Routing */}
         {activeTab === 'questionnaire' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <ProfileView profile={profile} onSave={onSaveProfile} isEmbedded={true} />
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-12">
+            {/* Quick Targeting Section (formerly SuperchargeStep) */}
+            <div className="max-w-3xl">
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold tracking-tight" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>
+                  Quick Start: Essential Targeting
+                </h2>
+                <p className="text-[13px] mt-1" style={{ color: vl.textBody }}>
+                  High-impact details that directly influence signal quality.
+                </p>
+              </div>
+              <QuickTargetingForm profile={profile!} onSave={onSaveProfile} />
+            </div>
+
+            <div className="h-px w-full" style={{ background: vl.border }}></div>
+
+            {/* Detailed Profile Section */}
+            <div>
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold tracking-tight" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>
+                  Complete Business Intelligence Profile
+                </h2>
+                <p className="text-[13px] mt-1" style={{ color: vl.textBody }}>
+                  Deepen the AI's understanding of your business across all sectors.
+                </p>
+              </div>
+              <ProfileView profile={profile} onSave={onSaveProfile} isEmbedded={true} />
+            </div>
           </div>
         )}
 
