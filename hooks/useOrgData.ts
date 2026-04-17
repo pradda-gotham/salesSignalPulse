@@ -66,6 +66,14 @@ function dbSignalToAppSignal(s: DbSignal): MarketSignal {
         feedbackRaw === 'negative' ? 'Negative' :
         undefined;
 
+    const sAny = s as any;
+    const leadType = sAny.lead_type as MarketSignal['leadType'] | null;
+    const entities = sAny.entities as MarketSignal['entities'] | null;
+    const researchHints = sAny.research_hints as MarketSignal['researchHints'] | null;
+    const semanticFingerprint = sAny.semantic_fingerprint as string | null;
+    const relevanceScore = typeof sAny.relevance_score === 'number' ? sAny.relevance_score : undefined;
+    const relevanceReasoning = sAny.relevance_reasoning as string | null;
+
     return {
         id: s.id,
         headline: s.headline,
@@ -90,6 +98,12 @@ function dbSignalToAppSignal(s: DbSignal): MarketSignal {
         status: mapStatus(s.status),
         relevanceFeedback,
         trackedWebsiteId: s.tracked_website_id || undefined,
+        leadType: leadType || undefined,
+        entities: entities || undefined,
+        researchHints: researchHints || undefined,
+        semanticFingerprint: semanticFingerprint || undefined,
+        relevanceScore,
+        relevanceReasoning: relevanceReasoning || undefined,
     };
 }
 
@@ -277,6 +291,12 @@ export function useOrgData() {
             matched_products: signal.matchedProducts,
             trigger_id: triggerId,
             tracked_website_id: signal.trackedWebsiteId,
+            lead_type: signal.leadType,
+            semantic_fingerprint: signal.semanticFingerprint,
+            entities: signal.entities,
+            research_hints: signal.researchHints,
+            relevance_score: signal.relevanceScore,
+            relevance_reasoning: signal.relevanceReasoning,
         });
 
         if (saved) {

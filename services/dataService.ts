@@ -196,28 +196,54 @@ export async function upsertSignal(
         matched_products?: string[];
         trigger_id?: string;
         tracked_website_id?: string;
+        // Signal quality fields
+        lead_type?: 'direct_company' | 'government_tender' | 'project_winner' | 'market_trend';
+        semantic_fingerprint?: string;
+        entities?: unknown;
+        research_hints?: unknown;
+        relevance_score?: number;
+        relevance_reasoning?: string;
     }
 ): Promise<Signal | null> {
+    // Cross-run semantic dedup: if this opportunity (same account + event + week)
+    // was already stored for this org, skip the upsert and return the existing row.
+    if (signal.semantic_fingerprint) {
+        const query: any = supabase.from('signals').select('*').eq('org_id', orgId);
+        const { data: existing } = await query
+            .eq('semantic_fingerprint', signal.semantic_fingerprint)
+            .maybeSingle();
+        if (existing) {
+            console.log('[DataService] Semantic fingerprint match, signal already exists:', signal.headline.substring(0, 60));
+            return existing as Signal;
+        }
+    }
+
+    const payload: Record<string, unknown> = {
+        org_id: orgId,
+        fingerprint: signal.fingerprint,
+        headline: signal.headline,
+        summary: signal.summary || null,
+        source_url: signal.source_url || null,
+        source_title: signal.source_title || null,
+        decision_maker: signal.decision_maker || null,
+        confidence: signal.confidence || 'medium',
+        urgency: signal.urgency || 'medium',
+        score: signal.score || 50,
+        matched_products: signal.matched_products || [],
+        trigger_id: signal.trigger_id || null,
+        tracked_website_id: signal.tracked_website_id || null,
+    };
+
+    if (signal.lead_type) payload.lead_type = signal.lead_type;
+    if (signal.semantic_fingerprint) payload.semantic_fingerprint = signal.semantic_fingerprint;
+    if (signal.entities !== undefined) payload.entities = signal.entities;
+    if (signal.research_hints !== undefined) payload.research_hints = signal.research_hints;
+    if (signal.relevance_score !== undefined) payload.relevance_score = signal.relevance_score;
+    if (signal.relevance_reasoning) payload.relevance_reasoning = signal.relevance_reasoning;
+
     const { data, error } = await supabase
         .from('signals')
-        .upsert(
-            {
-                org_id: orgId,
-                fingerprint: signal.fingerprint,
-                headline: signal.headline,
-                summary: signal.summary || null,
-                source_url: signal.source_url || null,
-                source_title: signal.source_title || null,
-                decision_maker: signal.decision_maker || null,
-                confidence: signal.confidence || 'medium',
-                urgency: signal.urgency || 'medium',
-                score: signal.score || 50,
-                matched_products: signal.matched_products || [],
-                trigger_id: signal.trigger_id || null,
-                tracked_website_id: signal.tracked_website_id || null,
-            },
-            { onConflict: 'org_id,fingerprint' }
-        )
+        .upsert(payload as any, { onConflict: 'org_id,fingerprint' })
         .select()
         .single();
 

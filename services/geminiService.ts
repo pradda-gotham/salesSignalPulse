@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { BusinessProfile, SalesTrigger, MarketSignal, SignalUrgency, SignalConfidence, DealDossier, EnrichedContact, EnrichedCompany, CostEstimation, CostCategory, TrackedWebsite, ProductCatalogItem, RateCardEntry, AuditablePrice, ProjectIntelligence, ScaleMetric, LineItemDerivation, EstimationAuditTrail } from "../types";
+import { BusinessProfile, SalesTrigger, MarketSignal, SignalUrgency, SignalConfidence, DealDossier, EnrichedContact, EnrichedCompany, CostEstimation, CostCategory, TrackedWebsite, ProductCatalogItem, RateCardEntry, AuditablePrice, ProjectIntelligence, ScaleMetric, LineItemDerivation, EstimationAuditTrail, LeadType, SignalEntity, ResearchHints } from "../types";
 import { apolloService } from "./apolloService";
 
 const getAI = () => {
@@ -287,6 +287,148 @@ function legacyProcessBundle(
   return { bundle: processedBundle, pricingStrategy: processedPricingStrategy };
 }
 
+// ============ SIGNAL QUALITY HELPERS ============
+
+/**
+ * Compute a semantic fingerprint that stays stable across hunt runs for the
+ * same opportunity. Uses canonical account name + event type + week bucket
+ * so a slightly different headline for the same deal still dedups.
+ */
+function computeSemanticFingerprint(accountName: string, canonicalEvent: string, timestamp?: string): string {
+  const normalize = (s: string) => (s || '')
+    .toLowerCase()
+    .replace(/[^\w\s]/g, '')
+    .replace(/\b(the|a|an|inc|ltd|pty|limited|corporation|corp|llc|plc|group|holdings)\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const account = normalize(accountName) || 'unknown';
+  const event = normalize(canonicalEvent) || 'unknown';
+
+  // Week bucket: floor to Monday of the week so same opportunity within a week collapses.
+  const d = timestamp ? new Date(timestamp) : new Date();
+  const day = d.getUTCDay(); // 0 = Sunday
+  const diff = (day === 0 ? -6 : 1) - day;
+  const weekStart = new Date(d);
+  weekStart.setUTCDate(d.getUTCDate() + diff);
+  const weekBucket = `${weekStart.getUTCFullYear()}-W${Math.ceil(((weekStart.getTime() - new Date(Date.UTC(weekStart.getUTCFullYear(), 0, 1)).getTime()) / 86400000 + 1) / 7)}`;
+
+  const raw = `${account}::${event}::${weekBucket}`;
+  return btoa(unescape(encodeURIComponent(raw))).substring(0, 48);
+}
+
+/**
+ * Build actionable research hints for signals where direct enrichment is unlikely
+ * (government tenders, project winners, market trends). Gives the sales rep a
+ * concrete next step instead of a dead-end "no contact found".
+ */
+function computeResearchHints(
+  leadType: LeadType | undefined,
+  accountName: string,
+  headline: string,
+  sourceUrl: string,
+  entities: SignalEntity[] | undefined,
+  profile: BusinessProfile
+): ResearchHints | undefined {
+  if (!leadType || leadType === 'direct_company') return undefined;
+
+  const hints: ResearchHints = {};
+  const buyerTitles = profile.icp?.typicalBuyerTitles?.filter(Boolean) || ['Procurement', 'Operations Manager'];
+  const encodedHeadline = encodeURIComponent(headline.substring(0, 120));
+
+  if (leadType === 'government_tender') {
+    hints.tenderPortalUrl = sourceUrl || undefined;
+    const agency = entities?.find(e => e.type === 'government')?.name || accountName;
+    hints.agency = agency;
+    hints.linkedinSearchUrl = `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(buyerTitles[0] + ' ' + agency)}`;
+    hints.googleContactSearch = `https://www.google.com/search?q=${encodeURIComponent(agency + ' procurement contact email')}`;
+    hints.suggestedNextAction = `Open the tender portal to find the exact RFP reference, then search LinkedIn for ${buyerTitles.slice(0, 2).join(' / ')} at ${agency}. Contact the agency procurement office directly if contacts aren't listed.`;
+  } else if (leadType === 'project_winner') {
+    const winner = entities?.find(e => e.role === 'contractor')?.name || accountName;
+    hints.linkedinSearchUrl = `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent('Procurement Manager ' + winner)}`;
+    hints.googleContactSearch = `https://www.google.com/search?q=${encodeURIComponent(winner + ' procurement supplier onboarding')}`;
+    hints.suggestedNextAction = `${winner} won this project — they now need suppliers. Reach out to their procurement team before competitors do. Check their careers page for recent procurement hires.`;
+  } else if (leadType === 'market_trend') {
+    hints.googleContactSearch = `https://www.google.com/search?q=${encodedHeadline}+buyer+intent`;
+    hints.suggestedNextAction = `This is a market-level trend, not a specific lead. Use it to inform outreach messaging and segment targeting in your campaigns.`;
+  }
+
+  return Object.keys(hints).length > 0 ? hints : undefined;
+}
+
+/**
+ * Post-hunt relevance scoring pass. Runs a single low-cost Gemini call to
+ * triage the candidate signals against the user's profile (products, ICP,
+ * exclusions) and returns per-signal keep/reject decisions with reasoning.
+ * This is the hard exclusion filter that keeps irrelevant signals out.
+ */
+async function scoreSignalsRelevance(
+  candidates: MarketSignal[],
+  profile: BusinessProfile
+): Promise<Array<{ id: string; keep: boolean; score: number; reasoning: string }>> {
+  if (candidates.length === 0) return [];
+
+  const ai = getAI();
+  const excluded = [
+    ...(profile.exclusions?.excludedIndustries?.filter(Boolean) || []),
+    ...(profile.exclusions?.excludedRegions?.filter(Boolean) || []),
+  ];
+  const buyerTitles = profile.icp?.typicalBuyerTitles?.filter(Boolean) || [];
+  const goodLeadDef = profile.successMetrics?.goodLeadDefinition || '';
+
+  const prompt = `You are a lead qualification analyst. Score each of the following signals for relevance to this business:
+
+BUSINESS: ${profile.name} (${profile.industry})
+PRODUCTS: ${profile.products.join(', ')}
+TARGET BUYERS: ${profile.targetGroups.join(', ')}
+${buyerTitles.length ? `DECISION MAKER TITLES: ${buyerTitles.join(', ')}` : ''}
+${goodLeadDef ? `WHAT MAKES A GOOD LEAD: ${goodLeadDef}` : ''}
+${excluded.length ? `HARD EXCLUSIONS (reject if signal is about any of these): ${excluded.join(', ')}` : ''}
+
+SIGNALS TO SCORE:
+${candidates.map((s, idx) => `${idx + 1}. [id=${s.id}] "${s.headline}" — ${s.summary.substring(0, 200)}`).join('\n')}
+
+For EACH signal, return:
+- id: the exact id from above
+- score: 0-100 relevance score (100 = perfect fit, 0 = totally irrelevant)
+- keep: true if score >= 50 AND no hard exclusion match, false otherwise
+- reasoning: 1 sentence explaining why
+
+Return a JSON array. Be strict on exclusions — if the signal is about an excluded industry/region, keep=false regardless of score.`;
+
+  try {
+    const response = await withTimeout(
+      ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                id: { type: Type.STRING },
+                score: { type: Type.NUMBER },
+                keep: { type: Type.BOOLEAN },
+                reasoning: { type: Type.STRING },
+              },
+              required: ['id', 'score', 'keep', 'reasoning'],
+            },
+          },
+          temperature: 0.1,
+        },
+      }),
+      45000
+    );
+    const parsed = JSON.parse(response.text || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.warn('[RELEVANCE] Scoring pass failed, keeping all candidates:', (err as Error).message);
+    return candidates.map(c => ({ id: c.id, keep: true, score: 60, reasoning: 'Relevance scorer unavailable' }));
+  }
+}
+
 export const geminiService = {
   async profileBusiness(url: string): Promise<Partial<BusinessProfile>> {
     return withRetry(async () => {
@@ -471,13 +613,17 @@ For each trigger, provide:
       const activePrompts = runWebMode ? promptAngles : promptAngles.filter(p => p.includes('site:'));
 
       const TARGET_SIGNALS = 10;
+      const MIN_RELEVANT_SIGNALS = 3; // Retry if we fall below this after relevance scoring
       const discoveredSignals: MarketSignal[] = [];
       const seenHeadlines = new Set<string>();
+      const seenSemanticFingerprints = new Set<string>();
 
       console.log(`[HUNT] Starting one-signal-per-call hunt. ${activePrompts.length} prompt angles available, targeting ${TARGET_SIGNALS} signals.`);
 
-      for (let i = 0; i < activePrompts.length && discoveredSignals.length < TARGET_SIGNALS; i++) {
-        const angle = activePrompts[i];
+      // Inner helper so we can run the hunt loop twice (main pass + retry-if-short)
+      const runHuntLoop = async (angles: string[], startIdx: number, maxSignals: number) => {
+        for (let i = 0; i < angles.length && discoveredSignals.length < maxSignals; i++) {
+        const angle = angles[i];
 
         // Build dedup clause from already-discovered headlines
         const dedupClause = seenHeadlines.size > 0
@@ -485,12 +631,12 @@ For each trigger, provide:
           : '';
 
         const fullPrompt = `SEARCH GROUNDING TASK: ${angle}
-         
+
          TIME CONSTRAINT: Only include results from ${dateRange}. Ignore anything older.
          Identify the key DECISION MAKER (company or person).
          If you cannot find a real, verifiable result, respond with exactly: {}
          Do NOT fabricate or guess any URLs. Do NOT include any source URL field.
-         
+
          Respond with a JSON object (no markdown backticks) containing these fields:
          - headline (string): The title of the announcement
          - summary (string): A brief description of the opportunity
@@ -498,11 +644,15 @@ For each trigger, provide:
          - decisionMaker (string): The key company or person
          - urgency (string): One of "STANDARD", "HIGH", or "EMERGENCY"
          - matchedProducts (array of strings): Which products are relevant
+         - accountName (string): Canonical name of the BUYER organisation (company, agency, contractor) — not the publisher of the article
+         - canonicalEvent (string): Short canonical event descriptor for deduplication (e.g. "Series B funding", "hospital expansion tender", "warehouse project win"). 3-6 words.
+         - leadType (string): One of "direct_company" (named private company buying directly), "government_tender" (public sector RFP/tender), "project_winner" (a contractor that won a project and now needs suppliers), "market_trend" (broad market shift, no specific buyer)
+         - entities (array): List of key entities mentioned. Each with {name, type: "company"|"government"|"person"|"organization", role: "seller"|"buyer"|"contractor"|"client"|"neutral"}
          - scores (object): Provide numeric scores from 0-100 for the following 4 metrics: "freshness" (how recent), "proximity" (geographic relevance), "intentStrength" (likelihood to buy), "buyerMatch" (how well they fit the profile).
          ${dedupClause}`;
 
         try {
-          console.log(`\n[HUNT ${i + 1}/${activePrompts.length}] Searching: "${angle.substring(0, 80)}..."`);
+          console.log(`\n[HUNT ${startIdx + i + 1}] Searching: "${angle.substring(0, 80)}..."`);
 
           const response = await withTimeout(
             ai.models.generateContent({
@@ -518,7 +668,7 @@ For each trigger, provide:
 
           const rawText = (response.text || '').trim();
           if (!rawText || rawText === '{}') {
-            console.log(`[HUNT ${i + 1}] No signal found for this angle, skipping.`);
+            console.log(`[HUNT ${startIdx + i + 1}] No signal found for this angle, skipping.`);
             continue;
           }
 
@@ -536,35 +686,45 @@ For each trigger, provide:
           try {
             signal = JSON.parse(jsonText);
           } catch (parseErr) {
-            console.warn(`[HUNT ${i + 1}] Failed to parse JSON from response, skipping.`);
+            console.warn(`[HUNT ${startIdx + i + 1}] Failed to parse JSON from response, skipping.`);
             continue;
           }
 
           // Skip empty or invalid signals
           if (!signal.headline || signal.headline.trim().length === 0) {
-            console.log(`[HUNT ${i + 1}] No signal found for this angle, skipping.`);
+            console.log(`[HUNT ${startIdx + i + 1}] No signal found for this angle, skipping.`);
             continue;
           }
 
           const normalizedHeadline = signal.headline.toLowerCase().trim();
           if (seenHeadlines.has(normalizedHeadline)) {
-            console.log(`[HUNT ${i + 1}] Duplicate headline, skipping: "${signal.headline.substring(0, 50)}..."`);
+            console.log(`[HUNT ${startIdx + i + 1}] Duplicate headline, skipping: "${signal.headline.substring(0, 50)}..."`);
             continue;
           }
           seenHeadlines.add(normalizedHeadline);
+
+          // Semantic fingerprint dedup (cross-run + within-run)
+          const accountName = (signal.accountName || signal.decisionMaker || '').toString();
+          const canonicalEvent = (signal.canonicalEvent || '').toString();
+          const semanticFingerprint = computeSemanticFingerprint(accountName, canonicalEvent);
+          if (seenSemanticFingerprints.has(semanticFingerprint)) {
+            console.log(`[HUNT ${startIdx + i + 1}] Duplicate semantic fingerprint (same opportunity), skipping.`);
+            continue;
+          }
+          seenSemanticFingerprints.add(semanticFingerprint);
 
           // === SOURCE URL: Use ONLY grounding chunk URLs (Google-verified) ===
           // NEVER trust model-generated URLs — they are hallucinated.
           let sourceUrl = '';
           const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-          console.log(`[HUNT ${i + 1}] Grounding chunks: ${chunks.length}`);
+          console.log(`[HUNT ${startIdx + i + 1}] Grounding chunks: ${chunks.length}`);
 
           if (chunks.length > 0) {
             // Find the best URL — prefer actual article URLs over redirect URLs
             for (const chunk of chunks) {
               if (chunk.web?.uri) {
                 sourceUrl = chunk.web.uri;
-                console.log(`[HUNT ${i + 1}] Source URL (grounding): ${sourceUrl.substring(0, 100)}`);
+                console.log(`[HUNT ${startIdx + i + 1}] Source URL (grounding): ${sourceUrl.substring(0, 100)}`);
                 break;
               }
             }
@@ -580,13 +740,13 @@ For each trigger, provide:
                 sourceHost.includes(site) || site.includes(sourceHost)
               );
               if (!matchesAllowedSite && !sourceHost.includes('vertexaisearch')) {
-                console.log(`[HUNT ${i + 1}] Domain filter rejected: ${sourceHost}`);
+                console.log(`[HUNT ${startIdx + i + 1}] Domain filter rejected: ${sourceHost}`);
                 continue;
               }
             } catch (e) { /* invalid URL, keep signal anyway */ }
           }
 
-          console.log(`[HUNT ${i + 1}] ✅ "${signal.headline.substring(0, 60)}..."`);
+          console.log(`[HUNT ${startIdx + i + 1}] ✅ "${signal.headline.substring(0, 60)}..."`);
           console.log(`           Source: ${hasSource ? sourceUrl.substring(0, 120) : '(no grounding URL)'}`);
 
           const aiScores = signal.scores || {};
@@ -600,8 +760,19 @@ For each trigger, provide:
           };
           confidence.total = Math.round((confidence.freshness + confidence.proximity + confidence.intentStrength + confidence.buyerMatch + confidence.urgency) / 5);
 
+          // Classify + enrich signal
+          const validLeadTypes: LeadType[] = ['direct_company', 'government_tender', 'project_winner', 'market_trend'];
+          const leadType: LeadType = validLeadTypes.includes(signal.leadType) ? signal.leadType : 'direct_company';
+          const entities: SignalEntity[] | undefined = Array.isArray(signal.entities) ? signal.entities.filter((e: any) => e && e.name) : undefined;
+          const researchHints = computeResearchHints(leadType, accountName, signal.headline, sourceUrl, entities, profile);
+
           const marketSignal: MarketSignal = {
-            ...signal,
+            headline: signal.headline,
+            summary: signal.summary || '',
+            importance: signal.importance || '',
+            matchedProducts: Array.isArray(signal.matchedProducts) ? signal.matchedProducts : [],
+            decisionMaker: signal.decisionMaker || accountName || '',
+            urgency: signal.urgency || SignalUrgency.MEDIUM,
             id: `sig-${Date.now()}-${Math.random()}`,
             timestamp: hasSource ? 'Verified Live' : 'Unverified',
             score: confidence.total,
@@ -609,7 +780,11 @@ For each trigger, provide:
             sourceUrl: sourceUrl,
             sourceTitle: signal.headline,
             region: regionContext,
-            status: 'New'
+            status: 'New',
+            leadType,
+            entities,
+            researchHints,
+            semanticFingerprint,
           };
 
           discoveredSignals.push(marketSignal);
@@ -620,15 +795,75 @@ For each trigger, provide:
           }
 
         } catch (err) {
-          console.warn(`[HUNT ${i + 1}] Failed:`, (err as Error).message);
+          console.warn(`[HUNT ${startIdx + i + 1}] Failed:`, (err as Error).message);
         }
 
         // Small delay between calls to stay within rate limits
         await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      };
+
+      // === MAIN HUNT PASS ===
+      await runHuntLoop(activePrompts, 0, TARGET_SIGNALS);
+
+      console.log(`\n[HUNT] Main pass complete. ${discoveredSignals.length} raw signals discovered. Running relevance triage...`);
+
+      // === RELEVANCE SCORING PASS ===
+      // Applies hard exclusions and filters out low-relevance signals.
+      const scores = await scoreSignalsRelevance(discoveredSignals, profile);
+      const scoreMap = new Map(scores.map(s => [s.id, s]));
+
+      for (const sig of discoveredSignals) {
+        const scored = scoreMap.get(sig.id);
+        if (scored) {
+          sig.relevanceScore = scored.score;
+          sig.relevanceReasoning = scored.reasoning;
+        }
       }
 
-      console.log(`\n[HUNT] Complete. ${discoveredSignals.length} signals discovered.`);
-      return discoveredSignals;
+      let relevantSignals = discoveredSignals.filter(s => {
+        const scored = scoreMap.get(s.id);
+        return !scored || scored.keep;
+      });
+
+      console.log(`[HUNT] Relevance pass: ${relevantSignals.length} / ${discoveredSignals.length} signals kept.`);
+
+      // === RETRY-IF-SHORT ===
+      // If we fell below the minimum, run a second round with broader angles.
+      if (relevantSignals.length < MIN_RELEVANT_SIGNALS && activePrompts.length > 0) {
+        console.log(`[HUNT] Below minimum (${relevantSignals.length} < ${MIN_RELEVANT_SIGNALS}). Running retry round with broader angles...`);
+
+        const retryAngles: string[] = [
+          `Find 1 recent news in ${regionContext} about any company hiring decision-makers or expanding operations that could benefit from ${productsStr}. Broader net — any adjacent opportunity counts.`,
+          `Find 1 recent announcement in ${regionContext} about new facilities, projects, or infrastructure that would need ${productsStr}. Include indirect buyers like contractors or project winners.`,
+          `Find 1 recent regulatory change, policy update, or industry report in ${regionContext} that creates pressure to adopt ${productsStr} within ${profile.industry}.`,
+          `Find 1 recent government procurement notice or public tender in ${regionContext} related to ${profile.industry} or ${productsStr}.`,
+        ];
+
+        const preRetryCount = discoveredSignals.length;
+        await runHuntLoop(retryAngles, activePrompts.length, TARGET_SIGNALS);
+        const newSignals = discoveredSignals.slice(preRetryCount);
+        if (newSignals.length > 0) {
+          const retryScores = await scoreSignalsRelevance(newSignals, profile);
+          const retryScoreMap = new Map(retryScores.map(s => [s.id, s]));
+          for (const sig of newSignals) {
+            const scored = retryScoreMap.get(sig.id);
+            if (scored) {
+              sig.relevanceScore = scored.score;
+              sig.relevanceReasoning = scored.reasoning;
+              scoreMap.set(sig.id, scored);
+            }
+          }
+          relevantSignals = discoveredSignals.filter(s => {
+            const scored = scoreMap.get(s.id);
+            return !scored || scored.keep;
+          });
+          console.log(`[HUNT] After retry: ${relevantSignals.length} relevant signals.`);
+        }
+      }
+
+      console.log(`\n[HUNT] Complete. Returning ${relevantSignals.length} relevant signals (filtered from ${discoveredSignals.length} candidates).`);
+      return relevantSignals;
     });
   },
 

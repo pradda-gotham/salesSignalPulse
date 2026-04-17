@@ -138,6 +138,32 @@ export interface SignalConfidence {
   total: number;
 }
 
+// ============ SIGNAL QUALITY — LEAD CLASSIFICATION & RESEARCH HINTS ============
+
+export type LeadType =
+  | 'direct_company'      // A named private company that could be a buyer directly
+  | 'government_tender'   // A government/public sector tender or RFP
+  | 'project_winner'      // A contractor/company that won a project (indirect buyer)
+  | 'market_trend';       // A market-level shift (goes to market trend dashboard, not leads)
+
+export interface SignalEntity {
+  name: string;
+  type: 'company' | 'government' | 'person' | 'organization';
+  role: 'seller' | 'buyer' | 'contractor' | 'client' | 'neutral';
+}
+
+// Structured hints that help the user act on indirect leads (tenders, project winners)
+// when Apollo cannot resolve the company directly.
+export interface ResearchHints {
+  tenderPortalUrl?: string;        // Link to the original tender listing
+  tenderId?: string;               // Reference ID from the portal
+  agency?: string;                 // Issuing government body
+  submissionDeadline?: string;     // ISO date or free-text deadline
+  linkedinSearchUrl?: string;      // Pre-built LinkedIn search for decision makers
+  googleContactSearch?: string;    // Pre-built Google search for contacts
+  suggestedNextAction?: string;    // Human-readable next step for the sales rep
+}
+
 export interface MarketSignal {
   id: string;
   headline: string;
@@ -155,6 +181,13 @@ export interface MarketSignal {
   status: LeadStatus;
   relevanceFeedback?: 'Positive' | 'Negative';
   trackedWebsiteId?: string;
+  // --- Signal quality enrichment (all optional for legacy compat) ---
+  leadType?: LeadType;
+  entities?: SignalEntity[];
+  researchHints?: ResearchHints;
+  semanticFingerprint?: string;     // accountName + event + weekBucket hash for cross-run dedup
+  relevanceScore?: number;          // 0-100 from the relevance scoring pass
+  relevanceReasoning?: string;      // Why this signal was accepted/rejected by the scorer
 }
 
 export interface EnrichedContact {
