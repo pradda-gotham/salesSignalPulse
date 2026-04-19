@@ -348,18 +348,42 @@ export async function runContactCascade(
         }
     }
 
-    // Fall through: try Apollo name lookup
+    // ---------- TIER 1b: Apollo name lookup ----------
     apolloCompany = await apolloService.findCompany(normalizedName);
+    let matchedVia: 'direct' | 'fuzzy' = 'direct';
+
+    // ---------- TIER 2: Fuzzy fallback with best-candidate scoring ----------
+    // If Tier 1b missed OR the top match looks dubious, fetch 5 candidates
+    // and score them against signal context (domain/industry/region/size).
+    const candidateNeedsReview = !apolloCompany || !looksLikeReasonableMatch(apolloCompany, normalizedName, domainHint);
+    if (candidateNeedsReview) {
+        const candidates = await apolloService.findCompanyCandidates(normalizedName, 5);
+        if (candidates.length > 0) {
+            const scored = candidates
+                .map(c => ({ company: c, score: scoreCompanyCandidate(c, signal, profile, normalizedName, domainHint) }))
+                .sort((a, b) => b.score - a.score);
+            const best = scored[0];
+            console.log(`[ContactCascade] Tier 2 scored candidates:`, scored.map(s => `${s.company.name}=${s.score}`).join(', '));
+            if (best && best.score >= 40) {
+                apolloCompany = best.company;
+                matchedVia = 'fuzzy';
+                notes.push(`Tier 2 fuzzy picked "${best.company.name}" (score ${best.score}/100)`);
+            } else {
+                notes.push(`Tier 2 fuzzy: no candidate scored >= 40 threshold`);
+                apolloCompany = null;
+            }
+        }
+    }
 
     if (apolloCompany) {
         notes.push(`Apollo company match: ${apolloCompany.name} (${apolloCompany.primary_domain})`);
         const contacts = await apolloService.findAndEnrichDecisionMakers(apolloCompany.primary_domain, roleKeywords, 3);
         if (contacts.length > 0) {
-            const enriched = contacts.map((c, idx) => mapApolloContact(c, idx === 0));
+            const enriched = contacts.map((c, idx) => mapApolloContact(c, idx === 0, matchedVia));
             return {
                 contacts: enriched,
                 company: mapApolloCompany(apolloCompany),
-                tier: 'apollo_direct',
+                tier: matchedVia === 'fuzzy' ? 'apollo_fuzzy' : 'apollo_direct',
                 notes: `${notes.join('; ')}; ${contacts.length} contacts enriched.`,
             };
         }
@@ -369,7 +393,6 @@ export async function runContactCascade(
     }
 
     // ---------- TIER 3: Gemini grounded contact discovery ----------
-    // (Tier 2 fuzzy-with-scoring is deferred — one cascade step at a time)
     const geminiContacts = await geminiDiscoverContacts(normalizedName, domainHint, roleKeywords, 3);
     if (geminiContacts.length > 0) {
         notes.push(`Gemini grounded search: ${geminiContacts.length} candidate contacts`);
@@ -393,7 +416,11 @@ export async function runContactCascade(
 
 // ============ APOLLO → APP MAPPERS ============
 
-function mapApolloContact(c: any, isPrimary: boolean): EnrichedContact {
+function mapApolloContact(c: any, isPrimary: boolean, matchedVia: 'direct' | 'fuzzy' = 'direct'): EnrichedContact {
+    const baseConfidence = c.email ? 95 : 75;
+    // Fuzzy-matched companies get a confidence haircut — the contacts are real
+    // but they might be at a slightly-different-but-similarly-named org.
+    const confidence = matchedVia === 'fuzzy' ? Math.max(55, baseConfidence - 15) : baseConfidence;
     return {
         name: c.name || `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Unknown',
         title: c.title || 'Unknown Title',
@@ -401,9 +428,123 @@ function mapApolloContact(c: any, isPrimary: boolean): EnrichedContact {
         phone: c.sanitized_phone || null,
         linkedinUrl: c.linkedin_url || null,
         isPrimary,
-        confidence: c.email ? 95 : 75,
-        source: 'apollo',
+        confidence,
+        source: matchedVia === 'fuzzy' ? 'apollo_fuzzy' : 'apollo',
+        needsVerification: matchedVia === 'fuzzy',
     };
+}
+
+// ============ TIER 2 HELPERS: RANKING & REASONABLENESS ============
+
+/**
+ * Quick gate — is the top Apollo hit even plausibly the right company?
+ * If not, Tier 2 fuzzy rescoring kicks in.
+ */
+function looksLikeReasonableMatch(
+    candidate: any,
+    normalizedName: string,
+    domainHint: string | null
+): boolean {
+    if (!candidate) return false;
+
+    // If we have a domain hint and the candidate's domain matches, trust it.
+    if (domainHint && candidate.primary_domain) {
+        const candDomain = candidate.primary_domain.toLowerCase();
+        if (candDomain === domainHint || candDomain.endsWith('.' + domainHint) || domainHint.endsWith('.' + candDomain)) {
+            return true;
+        }
+        // Domain hint exists but candidate's domain is clearly different — dubious
+        // Let Tier 2 rescore.
+        return false;
+    }
+
+    // No domain hint → do a name-similarity check.
+    const a = normalizedName.toLowerCase().replace(/\s+/g, '');
+    const b = (candidate.name || '').toLowerCase().replace(/\s+/g, '');
+    if (!b) return false;
+    // Accept if either contains the other as substring, or first word matches.
+    if (a.includes(b) || b.includes(a)) return true;
+    const firstWordA = normalizedName.toLowerCase().split(/\s+/)[0];
+    const firstWordB = (candidate.name || '').toLowerCase().split(/\s+/)[0];
+    return firstWordA === firstWordB && firstWordA.length >= 4;
+}
+
+/**
+ * Score an Apollo candidate against signal/profile context, 0-100.
+ *   Domain overlap with signal source URL: +40
+ *   Industry match with profile.industry:  +20
+ *   Region match with signal.region:       +20
+ *   Employee count fits ICP size range:    +20
+ *   Name similarity baseline:              +0..+20
+ */
+function scoreCompanyCandidate(
+    candidate: any,
+    signal: MarketSignal,
+    profile: BusinessProfile,
+    normalizedName: string,
+    domainHint: string | null
+): number {
+    let score = 0;
+
+    // Domain overlap — strongest signal
+    if (domainHint && candidate.primary_domain) {
+        const a = domainHint.toLowerCase();
+        const b = candidate.primary_domain.toLowerCase();
+        if (a === b) score += 40;
+        else if (a.endsWith('.' + b) || b.endsWith('.' + a)) score += 30;
+    }
+
+    // Industry match
+    if (profile.industry && candidate.industry) {
+        const pInd = profile.industry.toLowerCase();
+        const cInd = candidate.industry.toLowerCase();
+        if (pInd === cInd || pInd.includes(cInd) || cInd.includes(pInd)) score += 20;
+    }
+
+    // Region / geography match — rough text overlap
+    const signalRegion = (signal.region || '').toLowerCase();
+    const profileGeo = (profile.geography || []).join(' ').toLowerCase();
+    if (candidate.name && (signalRegion || profileGeo)) {
+        // Apollo doesn't return HQ region on search; fall back to checking
+        // if the profile geography appears in the candidate's name/industry.
+        const blob = `${candidate.name} ${candidate.industry || ''}`.toLowerCase();
+        if (signalRegion && signalRegion.split(/[,\s]+/).some(r => r.length > 3 && blob.includes(r))) score += 10;
+        if (profileGeo && profileGeo.split(/[,\s]+/).some(r => r.length > 3 && blob.includes(r))) score += 10;
+    }
+
+    // Employee count within ICP size range
+    const icpSize = profile.icp?.companySize;
+    const empCount = Number(candidate.estimated_num_employees) || 0;
+    if (icpSize && empCount > 0) {
+        const [lo, hi] = parseSizeRange(icpSize);
+        if (empCount >= lo && empCount <= hi) score += 20;
+    }
+
+    // Name similarity baseline
+    const a = normalizedName.toLowerCase().replace(/\s+/g, '');
+    const b = (candidate.name || '').toLowerCase().replace(/\s+/g, '');
+    if (a && b) {
+        if (a === b) score += 20;
+        else if (a.includes(b) || b.includes(a)) score += 15;
+        else {
+            const firstA = normalizedName.toLowerCase().split(/\s+/)[0];
+            const firstB = (candidate.name || '').toLowerCase().split(/\s+/)[0];
+            if (firstA && firstA === firstB) score += 10;
+        }
+    }
+
+    return Math.min(100, score);
+}
+
+function parseSizeRange(range: string): [number, number] {
+    // Accepts "1-50", "50-200", "1000+", etc.
+    const m = range.match(/(\d+)\s*[-–]\s*(\d+)/);
+    if (m) return [Number(m[1]), Number(m[2])];
+    const plus = range.match(/(\d+)\s*\+/);
+    if (plus) return [Number(plus[1]), Number.MAX_SAFE_INTEGER];
+    const n = range.match(/(\d+)/);
+    if (n) return [Number(n[1]), Number(n[1]) * 4];
+    return [0, Number.MAX_SAFE_INTEGER];
 }
 
 function mapApolloCompany(c: any): EnrichedCompany {

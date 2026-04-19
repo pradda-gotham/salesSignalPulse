@@ -463,11 +463,25 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
                 <Target className="w-4 h-4" style={{ color: vl.primary }} />
                 Account Intel
               </div>
-              {dossier?.isEnriched && (
-                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] border bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20">
-                  <ShieldCheck className="w-3 h-3" /> VERIFIED
-                </span>
-              )}
+              {dossier?.contactDiscoveryTier && (() => {
+                const tier = dossier.contactDiscoveryTier;
+                const config = tier === 'apollo_direct'
+                  ? { color: '#10B981', label: 'VERIFIED', Icon: ShieldCheck, title: dossier.contactDiscoveryNotes || 'Contacts verified via Apollo direct match' }
+                  : tier === 'apollo_fuzzy'
+                  ? { color: '#F59E0B', label: 'VERIFIED ≈', Icon: ShieldCheck, title: dossier.contactDiscoveryNotes || 'Apollo fuzzy match — verify the company is right' }
+                  : tier === 'gemini_grounded'
+                  ? { color: '#6366F1', label: 'AI-DISCOVERED', Icon: Sparkles, title: dossier.contactDiscoveryNotes || 'Contacts discovered via Google Search grounding — verify before reaching out' }
+                  : tier === 'hints_only'
+                  ? { color: '#F59E0B', label: 'RESEARCH HINTS', Icon: Info, title: dossier.contactDiscoveryNotes || 'No direct contacts found — see research hints below' }
+                  : null;
+                if (!config) return null;
+                const { color, label, Icon, title } = config;
+                return (
+                  <span title={title} className="flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] border" style={{ background: `${color}1a`, color, borderColor: `${color}33` }}>
+                    <Icon className="w-3 h-3" /> {label}
+                  </span>
+                );
+              })()}
             </div>
 
             <div className="space-y-4">
@@ -532,18 +546,33 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
             {dossier?.enrichedContacts && dossier.enrichedContacts.length > 0 ? (
               <div className="space-y-3">
                 {dossier.enrichedContacts.map((contact, idx) => (
-                  <div key={idx} className="p-3 rounded-[4px] border" style={{ 
-                    background: contact.isPrimary ? vl.primarySoft : vl.surfaceMuted, 
-                    borderColor: contact.isPrimary ? (isDarkMode ? 'rgba(99,91,255,0.2)' : 'rgba(99,91,255,0.1)') : vl.borderStrong 
+                  <div key={idx} className="p-3 rounded-[4px] border" style={{
+                    background: contact.isPrimary ? vl.primarySoft : vl.surfaceMuted,
+                    borderColor: contact.isPrimary ? (isDarkMode ? 'rgba(99,91,255,0.2)' : 'rgba(99,91,255,0.1)') : vl.borderStrong
                   }}>
                     <div className="flex justify-between items-start mb-1">
                       <div>
-                        <div className="text-[13px] font-bold" style={{ color: vl.textMain }}>{contact.name}</div>
+                        <div className="text-[13px] font-bold flex items-center gap-1.5" style={{ color: vl.textMain }}>
+                          {contact.name}
+                          {contact.needsVerification && (
+                            <span title={contact.sourceDetail ? `AI-discovered via: ${contact.sourceDetail}. Verify before contacting.` : 'AI-discovered — verify before contacting.'}>
+                              <AlertCircle className="w-3.5 h-3.5 text-[#F59E0B]" />
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[11px]" style={{ color: vl.textMuted }}>{contact.title}</div>
                       </div>
-                      {contact.isPrimary && (
-                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[4px] border" style={{ color: vl.primary, background: vl.primarySoft, borderColor: isDarkMode ? 'rgba(99,91,255,0.2)' : 'rgba(99,91,255,0.1)' }}>KEY</span>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {contact.source === 'gemini' && (
+                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded-[4px] border" style={{ color: '#6366F1', background: '#6366F11a', borderColor: '#6366F133' }}>AI</span>
+                        )}
+                        {contact.source === 'apollo_fuzzy' && (
+                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded-[4px] border" style={{ color: '#F59E0B', background: '#F59E0B1a', borderColor: '#F59E0B33' }}>FUZZY</span>
+                        )}
+                        {contact.isPrimary && (
+                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[4px] border" style={{ color: vl.primary, background: vl.primarySoft, borderColor: isDarkMode ? 'rgba(99,91,255,0.2)' : 'rgba(99,91,255,0.1)' }}>KEY</span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-1.5 mt-2.5">
@@ -556,6 +585,11 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
                         <a href={contact.linkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-[11px] hover:underline" style={{ color: vl.textBody }}>
                           <Linkedin className="w-3.5 h-3.5" /> LinkedIn Profile
                         </a>
+                      )}
+                      {contact.needsVerification && !contact.email && !contact.linkedinUrl && (
+                        <div className="text-[10px] italic" style={{ color: vl.textMuted }}>
+                          No verified contact method — search LinkedIn or company site
+                        </div>
                       )}
                     </div>
                   </div>
@@ -575,6 +609,58 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
               </div>
             )}
           </section>
+
+          {/* Research Hints — shown when cascade reached hints_only, or when
+              signal carries research hints (government tenders, project winners) */}
+          {(signal.researchHints || dossier?.contactDiscoveryTier === 'hints_only') && signal.researchHints && (
+            <section className="p-6 rounded-[6px] border space-y-4 vl-card" style={{ borderColor: vl.border }}>
+              <div className="label-caps flex items-center gap-2" style={{ color: vl.textMuted }}>
+                <Info className="w-4 h-4" style={{ color: '#F59E0B' }} />
+                Research Hints
+              </div>
+              {dossier?.contactDiscoveryTier === 'hints_only' && (
+                <div className="text-[11px] leading-relaxed p-2.5 rounded-[4px] border" style={{ background: '#F59E0B1a', borderColor: '#F59E0B33', color: vl.textBody }}>
+                  No direct contacts could be enriched. Use these hints to locate decision makers manually.
+                </div>
+              )}
+              {signal.researchHints.suggestedNextAction && (
+                <div>
+                  <div className="text-[10px] font-black uppercase mb-1 tracking-wider" style={{ color: vl.textMuted }}>Next Step</div>
+                  <p className="text-[12px] leading-relaxed" style={{ color: vl.textMain }}>{signal.researchHints.suggestedNextAction}</p>
+                </div>
+              )}
+              <div className="space-y-2">
+                {signal.researchHints.linkedinSearchUrl && (
+                  <a href={signal.researchHints.linkedinSearchUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[12px] font-semibold hover:underline" style={{ color: vl.primary }}>
+                    <Linkedin className="w-3.5 h-3.5" /> Search LinkedIn for decision makers
+                  </a>
+                )}
+                {signal.researchHints.googleContactSearch && (
+                  <a href={signal.researchHints.googleContactSearch} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[12px] font-semibold hover:underline" style={{ color: vl.primary }}>
+                    <Globe className="w-3.5 h-3.5" /> Google contact search
+                  </a>
+                )}
+                {signal.researchHints.tenderPortalUrl && (
+                  <a href={signal.researchHints.tenderPortalUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[12px] font-semibold hover:underline" style={{ color: vl.primary }}>
+                    <ExternalLink className="w-3.5 h-3.5" /> Open tender portal{signal.researchHints.tenderId ? ` (${signal.researchHints.tenderId})` : ''}
+                  </a>
+                )}
+              </div>
+              {(signal.researchHints.agency || signal.researchHints.submissionDeadline) && (
+                <div className="h-px w-full" style={{ background: vl.borderStrong }} />
+              )}
+              {signal.researchHints.agency && (
+                <div className="text-[11px]" style={{ color: vl.textBody }}>
+                  <span className="font-semibold">Agency:</span> {signal.researchHints.agency}
+                </div>
+              )}
+              {signal.researchHints.submissionDeadline && (
+                <div className="text-[11px]" style={{ color: vl.textBody }}>
+                  <span className="font-semibold">Deadline:</span> {signal.researchHints.submissionDeadline}
+                </div>
+              )}
+            </section>
+          )}
 
           {/* Battlecard */}
           <section className="p-6 rounded-[6px] border space-y-4 vl-card" style={{ borderColor: vl.border }}>

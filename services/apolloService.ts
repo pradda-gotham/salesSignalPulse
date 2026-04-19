@@ -127,6 +127,26 @@ export const apolloService = {
     },
 
     /**
+     * Tier 2: Fuzzy company search. Returns up to 5 candidates so the caller
+     * can score them against signal context (domain, industry, region, size)
+     * rather than blindly taking [0].
+     */
+    async findCompanyCandidates(companyName: string, limit: number = 5): Promise<ApolloCompany[]> {
+        try {
+            console.log('[Apollo] Fuzzy searching for candidates:', companyName);
+            const response = await makeApolloRequest<ApolloCompanySearchResponse>('/mixed_companies/search', {
+                q_organization_name: companyName,
+                page: 1,
+                per_page: limit,
+            });
+            return response.organizations || [];
+        } catch (error) {
+            console.warn('[Apollo] Fuzzy company search failed:', error);
+            return [];
+        }
+    },
+
+    /**
      * Find decision makers at a company by domain and role keywords
      */
     async findDecisionMakers(
