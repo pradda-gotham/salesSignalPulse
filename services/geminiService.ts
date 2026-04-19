@@ -409,7 +409,7 @@ ${candidates.map((s, idx) => `${idx + 1}. [id=${s.id}] "${s.headline}" — ${s.s
 For EACH signal, return:
 - id: the exact id from above
 - score: 0-100 relevance score (100 = perfect fit, 0 = totally irrelevant)
-- keep: true if score >= 50 AND no hard exclusion match, false otherwise
+- keep: true if score >= 40 AND no hard exclusion match, false otherwise (be lenient on borderline adjacent opportunities — they still spark useful conversations)
 - reasoning: 1 sentence explaining why
 
 Return a JSON array. Be strict on exclusions — if the signal is about an excluded industry/region, keep=false regardless of score.`;
@@ -608,7 +608,14 @@ Make the triggers dynamic, actionable, and strictly adhere to the length limits.
         `Find 1 recent news or emerging trend in ${regionContext} relevant to the ${profile.industry} industry that would create demand for ${productsStr}. Look for market shifts, regulatory changes, seasonal patterns, or consumer behavior changes.${exclusionNote}${buyerNote}`,
         `Find 1 recent announcement, partnership, funding round, or expansion in ${regionContext} relevant to companies or individuals who buy ${productsStr}. Target audience: ${targetGroupsStr}.${exclusionNote}`,
         `Find 1 recent news article in ${regionContext} about a problem, challenge, or unmet need that ${profile.name}'s products (${productsStr}) could solve. Look for pain points experienced by ${targetGroupsStr}.${exclusionNote}`,
-        `Find 1 recent industry report, survey result, or market research finding in ${regionContext} that signals growing demand for ${productsStr} within ${profile.industry}.${exclusionNote}`
+        `Find 1 recent industry report, survey result, or market research finding in ${regionContext} that signals growing demand for ${productsStr} within ${profile.industry}.${exclusionNote}`,
+        // Additional discovery angles for broader coverage (added for demo-grade signal volume)
+        `Find 1 recent regulatory change, compliance deadline, or policy update in ${regionContext} that forces companies in ${profile.industry} to adopt ${productsStr}.${exclusionNote}`,
+        `Find 1 recent public tender, RFP, or government procurement notice in ${regionContext} related to ${profile.industry} or ${productsStr}. Include both national and state/local agencies.${exclusionNote}`,
+        `Find 1 recent new facility opening, site expansion, factory, warehouse, hospital, or infrastructure project announcement in ${regionContext} that would need ${productsStr}.${exclusionNote}`,
+        `Find 1 recent hiring surge, executive appointment, or senior role posting at a company in ${regionContext} (targeting ${targetGroupsStr}) that signals expansion requiring ${productsStr}.${exclusionNote}`,
+        `Find 1 recent merger, acquisition, or capital raise (Series A/B/C, IPO, PE investment) in ${regionContext} involving a company that buys ${productsStr}.${exclusionNote}`,
+        `Find 1 recent technology rollout, digital transformation project, or modernization initiative in ${regionContext} within ${profile.industry} that creates demand for ${productsStr}.${exclusionNote}`
       );
 
       // 2b. Advanced profile-driven angles (if configured)
@@ -636,18 +643,19 @@ Make the triggers dynamic, actionable, and strictly adhere to the length limits.
       // Filter to web-only or sites-only based on mode
       const activePrompts = runWebMode ? promptAngles : promptAngles.filter(p => p.includes('site:'));
 
-      const TARGET_SIGNALS = 10;
-      const MIN_RELEVANT_SIGNALS = 3; // Retry if we fall below this after relevance scoring
+      const TARGET_SIGNALS = 15;
+      const MIN_RELEVANT_SIGNALS = 8; // Always run retry round if we're below this (demo-grade yield)
+      const HUNT_BATCH_SIZE = 3; // Parallelize hunt calls in batches to cut wall-clock time
       const discoveredSignals: MarketSignal[] = [];
       const seenHeadlines = new Set<string>();
       const seenSemanticFingerprints = new Set<string>();
 
       console.log(`[HUNT] Starting one-signal-per-call hunt. ${activePrompts.length} prompt angles available, targeting ${TARGET_SIGNALS} signals.`);
 
-      // Inner helper so we can run the hunt loop twice (main pass + retry-if-short)
-      const runHuntLoop = async (angles: string[], startIdx: number, maxSignals: number) => {
-        for (let i = 0; i < angles.length && discoveredSignals.length < maxSignals; i++) {
-        const angle = angles[i];
+      // Inner helper — processes a single angle. Returns when done.
+      const processAngle = async (angle: string, humanIdx: number, maxSignals: number): Promise<void> => {
+        if (discoveredSignals.length >= maxSignals) return;
+        const logPrefix = `[HUNT ${humanIdx}]`;
 
         // Build dedup clause from already-discovered headlines
         const dedupClause = seenHeadlines.size > 0
@@ -676,7 +684,7 @@ Make the triggers dynamic, actionable, and strictly adhere to the length limits.
          ${dedupClause}`;
 
         try {
-          console.log(`\n[HUNT ${startIdx + i + 1}] Searching: "${angle.substring(0, 80)}..."`);
+          console.log(`\n${logPrefix} Searching: "${angle.substring(0, 80)}..."`);
 
           const response = await withTimeout(
             ai.models.generateContent({
@@ -692,8 +700,8 @@ Make the triggers dynamic, actionable, and strictly adhere to the length limits.
 
           const rawText = (response.text || '').trim();
           if (!rawText || rawText === '{}') {
-            console.log(`[HUNT ${startIdx + i + 1}] No signal found for this angle, skipping.`);
-            continue;
+            console.log(`${logPrefix} No signal found for this angle, skipping.`);
+            return;
           }
 
           // Parse JSON from free-text response (strip markdown code fences if present)
@@ -710,20 +718,20 @@ Make the triggers dynamic, actionable, and strictly adhere to the length limits.
           try {
             signal = JSON.parse(jsonText);
           } catch (parseErr) {
-            console.warn(`[HUNT ${startIdx + i + 1}] Failed to parse JSON from response, skipping.`);
-            continue;
+            console.warn(`${logPrefix} Failed to parse JSON from response, skipping.`);
+            return;
           }
 
           // Skip empty or invalid signals
           if (!signal.headline || signal.headline.trim().length === 0) {
-            console.log(`[HUNT ${startIdx + i + 1}] No signal found for this angle, skipping.`);
-            continue;
+            console.log(`${logPrefix} No signal found for this angle, skipping.`);
+            return;
           }
 
           const normalizedHeadline = signal.headline.toLowerCase().trim();
           if (seenHeadlines.has(normalizedHeadline)) {
-            console.log(`[HUNT ${startIdx + i + 1}] Duplicate headline, skipping: "${signal.headline.substring(0, 50)}..."`);
-            continue;
+            console.log(`${logPrefix} Duplicate headline, skipping: "${signal.headline.substring(0, 50)}..."`);
+            return;
           }
           seenHeadlines.add(normalizedHeadline);
 
@@ -732,8 +740,8 @@ Make the triggers dynamic, actionable, and strictly adhere to the length limits.
           const canonicalEvent = (signal.canonicalEvent || '').toString();
           const semanticFingerprint = computeSemanticFingerprint(accountName, canonicalEvent);
           if (seenSemanticFingerprints.has(semanticFingerprint)) {
-            console.log(`[HUNT ${startIdx + i + 1}] Duplicate semantic fingerprint (same opportunity), skipping.`);
-            continue;
+            console.log(`${logPrefix} Duplicate semantic fingerprint (same opportunity), skipping.`);
+            return;
           }
           seenSemanticFingerprints.add(semanticFingerprint);
 
@@ -741,14 +749,14 @@ Make the triggers dynamic, actionable, and strictly adhere to the length limits.
           // NEVER trust model-generated URLs — they are hallucinated.
           let sourceUrl = '';
           const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-          console.log(`[HUNT ${startIdx + i + 1}] Grounding chunks: ${chunks.length}`);
+          console.log(`${logPrefix} Grounding chunks: ${chunks.length}`);
 
           if (chunks.length > 0) {
             // Find the best URL — prefer actual article URLs over redirect URLs
             for (const chunk of chunks) {
               if (chunk.web?.uri) {
                 sourceUrl = chunk.web.uri;
-                console.log(`[HUNT ${startIdx + i + 1}] Source URL (grounding): ${sourceUrl.substring(0, 100)}`);
+                console.log(`${logPrefix} Source URL (grounding): ${sourceUrl.substring(0, 100)}`);
                 break;
               }
             }
@@ -764,13 +772,13 @@ Make the triggers dynamic, actionable, and strictly adhere to the length limits.
                 sourceHost.includes(site) || site.includes(sourceHost)
               );
               if (!matchesAllowedSite && !sourceHost.includes('vertexaisearch')) {
-                console.log(`[HUNT ${startIdx + i + 1}] Domain filter rejected: ${sourceHost}`);
-                continue;
+                console.log(`${logPrefix} Domain filter rejected: ${sourceHost}`);
+                return;
               }
             } catch (e) { /* invalid URL, keep signal anyway */ }
           }
 
-          console.log(`[HUNT ${startIdx + i + 1}] ✅ "${signal.headline.substring(0, 60)}..."`);
+          console.log(`${logPrefix} ✅ "${signal.headline.substring(0, 60)}..."`);
           console.log(`           Source: ${hasSource ? sourceUrl.substring(0, 120) : '(no grounding URL)'}`);
 
           const aiScores = signal.scores || {};
@@ -819,11 +827,22 @@ Make the triggers dynamic, actionable, and strictly adhere to the length limits.
           }
 
         } catch (err) {
-          console.warn(`[HUNT ${startIdx + i + 1}] Failed:`, (err as Error).message);
+          console.warn(`${logPrefix} Failed:`, (err as Error).message);
         }
+      };
 
-        // Small delay between calls to stay within rate limits
-        await new Promise(resolve => setTimeout(resolve, 500));
+      // Batched parallel execution — runs HUNT_BATCH_SIZE angles concurrently per batch
+      const runHuntLoop = async (angles: string[], startIdx: number, maxSignals: number) => {
+        for (let i = 0; i < angles.length; i += HUNT_BATCH_SIZE) {
+          if (discoveredSignals.length >= maxSignals) break;
+          const batch = angles.slice(i, i + HUNT_BATCH_SIZE);
+          await Promise.all(
+            batch.map((angle, j) => processAngle(angle, startIdx + i + j + 1, maxSignals))
+          );
+          // Small delay between batches to stay within rate limits
+          if (i + HUNT_BATCH_SIZE < angles.length) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
         }
       };
 
@@ -852,10 +871,12 @@ Make the triggers dynamic, actionable, and strictly adhere to the length limits.
 
       console.log(`[HUNT] Relevance pass: ${relevantSignals.length} / ${discoveredSignals.length} signals kept.`);
 
-      // === RETRY-IF-SHORT ===
-      // If we fell below the minimum, run a second round with broader angles.
-      if (relevantSignals.length < MIN_RELEVANT_SIGNALS && activePrompts.length > 0) {
-        console.log(`[HUNT] Below minimum (${relevantSignals.length} < ${MIN_RELEVANT_SIGNALS}). Running retry round with broader angles...`);
+      // === RETRY ROUND ===
+      // Always run a retry round with broader angles for maximum yield (demo-grade).
+      // Skip only if we already have plenty and are way above the minimum.
+      const shouldRetry = activePrompts.length > 0 && relevantSignals.length < TARGET_SIGNALS;
+      if (shouldRetry) {
+        console.log(`[HUNT] ${relevantSignals.length} relevant so far (min ${MIN_RELEVANT_SIGNALS}, target ${TARGET_SIGNALS}). Running broader retry round...`);
 
         const retryAngles: string[] = [
           `Find 1 recent news in ${regionContext} about any company hiring decision-makers or expanding operations that could benefit from ${productsStr}. Broader net — any adjacent opportunity counts.`,
