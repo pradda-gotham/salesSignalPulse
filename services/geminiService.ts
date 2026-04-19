@@ -496,7 +496,7 @@ Make the triggers dynamic, actionable, and strictly adhere to the length limits.
 
       const response = await withTimeout(
         ai.models.generateContent({
-          model: 'gemini-1.5-pro',
+          model: 'gemini-3-flash-preview',
           contents: prompt,
           config: {
             responseMimeType: "application/json",
