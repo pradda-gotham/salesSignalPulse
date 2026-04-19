@@ -480,17 +480,23 @@ export const geminiService = {
     return withRetry(async () => {
       const ai = getAI();
       const advancedCtx = buildAdvancedContext(profile);
-      const prompt = `Given these products: ${profile.products.join(', ')} and these target groups: ${profile.targetGroups.join(', ')} for the company ${profile.name} in the ${profile.industry} industry, what real-world events or "sales triggers" create immediate demand? Generate 4 triggers.
+      const prompt = `You are generating concise sales triggers for ${profile.name} (${profile.industry}).
+Products: ${profile.products.join(', ')}
+Target buyers: ${profile.targetGroups.join(', ')}
 ${advancedCtx}
-For each trigger, provide:
-- product: The specific product or service from the list above
-- event: A concrete, searchable real-world event (e.g., "New government dietary guidelines released", "Major construction project announced", "Back-to-school season begins")
-- source: A specific, searchable source type where this event would be reported (e.g., "Health news outlets", "Government procurement portals", "Industry trade publications", "Google Trends"). Be concrete — not vague categories.
-- logic: Why this event creates buying intent for the product`;
+
+Generate 4 sales triggers that indicate buying intent for the above products.
+CRITICAL FORMATTING RULES:
+- event: 2-6 words MAX. Short, punchy, and highly specific. (E.g., "New Hospital Expansion", "Commercial Break-ins", "Safety Code Update"). NEVER write full sentences. NEVER use lengthy descriptions.
+- source: 1-3 words MAX. (E.g., "Local News", "Government portals", "Trade press").
+- logic: 1 very short sentence MAX (under 12 words) explaining why this creates demand.
+- product: Must match exactly one product from the list above.
+
+Make the triggers dynamic, actionable, and strictly adhere to the length limits.`;
 
       const response = await withTimeout(
         ai.models.generateContent({
-          model: 'gemini-3-pro-preview',
+          model: 'gemini-1.5-pro',
           contents: prompt,
           config: {
             responseMimeType: "application/json",
