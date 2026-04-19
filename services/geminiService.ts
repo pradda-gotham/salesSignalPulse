@@ -1,6 +1,7 @@
 import { Type } from "@google/genai";
 import { BusinessProfile, SalesTrigger, MarketSignal, SignalUrgency, SignalConfidence, DealDossier, EnrichedContact, EnrichedCompany, CostEstimation, CostCategory, TrackedWebsite, ProductCatalogItem, RateCardEntry, AuditablePrice, ProjectIntelligence, ScaleMetric, LineItemDerivation, EstimationAuditTrail, LeadType, SignalEntity, ResearchHints } from "../types";
 import { apolloService } from "./apolloService";
+import { runContactCascade } from "./contactCascade";
 
 // Uses the new backend proxy to hide the API key
 const callGeminiAPI = async (payload: any) => {
@@ -1396,128 +1397,35 @@ Focus:
         auditTrail,
       };
 
-      // ========== APOLLO ENRICHMENT ==========
+      // ========== CONTACT CASCADE (Tiers 1–4) ==========
+      // Replaces the old "Apollo or bust" flow. Always returns SOMETHING
+      // actionable — either verified contacts, AI-discovered candidates,
+      // or at minimum research hints from the signal itself.
 
-      // Clean company name by removing project-specific text
-      const cleanCompanyName = (name: string): string => {
-        let cleaned = name;
-
-        // Remove text in parentheses (e.g. "Company (Project Name)" -> "Company")
-        cleaned = cleaned.replace(/\s*\([^)]*\)/g, '');
-
-        // Remove common project/announcement suffixes
-        const suffixesToRemove = [
-          'Project',
-          'Announcement',
-          'Development',
-          'Initiative',
-          'Program',
-          'Stage',
-          'Phase',
-          'Staged',
-          'Strengthening',
-          'Construction',
-          'Tender',
-          'Contract'
-        ];
-
-        const suffixPattern = new RegExp(`\\b(${suffixesToRemove.join('|')})\\b`, 'gi');
-        cleaned = cleaned.replace(suffixPattern, '');
-
-        // Remove extra whitespace and trim
-        cleaned = cleaned.replace(/\s+/g, ' ').trim();
-
-        return cleaned;
-      };
-
-      const cleanedCompanyName = cleanCompanyName(baseDossier.accountName);
-      console.warn('[DOSSIER] Starting Apollo enrichment for:', baseDossier.accountName);
-      console.warn('[DOSSIER] Cleaned company name:', cleanedCompanyName);
+      console.warn('[DOSSIER] Running contact cascade for:', baseDossier.accountName);
 
       try {
-        // Step 1: Find company on Apollo using cleaned name
-        const company = await apolloService.findCompany(cleanedCompanyName);
+        const cascadeResult = await runContactCascade(signal, profile, baseDossier.accountName);
+        console.warn(`[DOSSIER] Cascade tier reached: ${cascadeResult.tier}; ${cascadeResult.contacts.length} contacts`);
+        console.warn(`[DOSSIER] Cascade notes: ${cascadeResult.notes}`);
 
-        if (company) {
-          console.warn('[DOSSIER] Company found on Apollo:', company.name);
-
-          // Step 2: Extract role keywords from the signal's decision maker
-          const decisionMakerText = signal.decisionMaker.toLowerCase();
-          const roleKeywords: string[] = [];
-
-          if (decisionMakerText.includes('ceo') || decisionMakerText.includes('chief executive')) {
-            roleKeywords.push('CEO', 'Chief Executive Officer');
-          }
-          if (decisionMakerText.includes('coo') || decisionMakerText.includes('chief operating')) {
-            roleKeywords.push('COO', 'Chief Operating Officer');
-          }
-          if (decisionMakerText.includes('director')) {
-            roleKeywords.push('Director');
-          }
-          if (decisionMakerText.includes('manager') || decisionMakerText.includes('head')) {
-            roleKeywords.push('Manager', 'Head');
-          }
-          if (decisionMakerText.includes('procurement') || decisionMakerText.includes('purchasing')) {
-            roleKeywords.push('Procurement', 'Purchasing');
-          }
-
-          // Fallback to generic decision makers
-          if (roleKeywords.length === 0) {
-            roleKeywords.push('CEO', 'Director', 'Manager', 'Head');
-          }
-
-          // Step 3: Find and enrich decision makers (search + enrich for full details)
-          const contacts = await apolloService.findAndEnrichDecisionMakers(company.primary_domain, roleKeywords, 3);
-
-          if (contacts.length > 0) {
-            console.warn('[DOSSIER] Found', contacts.length, 'verified contacts');
-
-            // Map Apollo contacts to our enriched format
-            const enrichedContacts: EnrichedContact[] = contacts.map((contact, index) => ({
-              name: contact.name || `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || 'Unknown',
-              title: contact.title || 'Unknown Title',
-              email: contact.email,
-              phone: contact.sanitized_phone,
-              linkedinUrl: contact.linkedin_url,
-              isPrimary: index === 0,
-              confidence: contact.email ? 95 : 70,
-              source: 'apollo' as const
-            }));
-
-            // Map company data
-            const enrichedCompany: EnrichedCompany = {
-              name: company.name,
-              domain: company.primary_domain,
-              linkedinUrl: company.linkedin_url,
-              employeeCount: company.estimated_num_employees,
-              revenue: company.annual_revenue,
-              industry: company.industry,
-              source: 'apollo' as const
-            };
-
-            // Return enriched dossier
-            return {
-              ...baseDossier,
-              enrichedContacts,
-              enrichedCompany,
-              isEnriched: true
-            };
-          } else {
-            console.warn('[DOSSIER] No contacts found on Apollo');
-          }
-        } else {
-          console.warn('[DOSSIER] Company not found on Apollo');
-        }
+        return {
+          ...baseDossier,
+          enrichedContacts: cascadeResult.contacts.length > 0 ? cascadeResult.contacts : undefined,
+          enrichedCompany: cascadeResult.company || undefined,
+          isEnriched: cascadeResult.contacts.length > 0,
+          contactDiscoveryTier: cascadeResult.tier,
+          contactDiscoveryNotes: cascadeResult.notes,
+        };
       } catch (error) {
-        console.error('[DOSSIER] Apollo enrichment failed:', error);
+        console.error('[DOSSIER] Contact cascade failed entirely:', error);
+        return {
+          ...baseDossier,
+          isEnriched: false,
+          contactDiscoveryTier: 'none',
+          contactDiscoveryNotes: `Cascade error: ${(error as Error).message}`,
+        };
       }
-
-      // Return base dossier if enrichment fails
-      console.warn('[DOSSIER] Returning unenriched dossier');
-      return {
-        ...baseDossier,
-        isEnriched: false
-      };
     });
   },
 

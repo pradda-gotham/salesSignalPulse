@@ -116,6 +116,7 @@ export interface SalesTrigger {
   targetProducts?: string[];
   searchMode?: 'web' | 'sites' | 'both'; // Default is 'both' if limitToSite exists, otherwise 'web'
   triggerType?: 'active' | 'ai_generated';
+  isActive?: boolean;
   status: 'Approved' | 'Rejected' | 'Pending';
 }
 
@@ -190,6 +191,16 @@ export interface MarketSignal {
   relevanceReasoning?: string;      // Why this signal was accepted/rejected by the scorer
 }
 
+export type ContactSource = 'apollo' | 'apollo_fuzzy' | 'gemini' | 'manual';
+
+export type ContactDiscoveryTier =
+  | 'apollo_direct'    // Tier 1: clean Apollo match on normalized name
+  | 'apollo_fuzzy'     // Tier 2: Apollo fuzzy match, best-scored candidate
+  | 'gemini_grounded'  // Tier 3: Gemini Google-Search-grounded contact discovery
+  | 'hints_only'       // Tier 4: no direct contacts, only research hints available
+  | 'manual'           // Tier 5: user-entered contacts
+  | 'none';            // Nothing found yet
+
 export interface EnrichedContact {
   name: string;
   title: string;
@@ -198,7 +209,10 @@ export interface EnrichedContact {
   linkedinUrl: string | null;
   isPrimary: boolean;
   confidence: number;
-  source: 'apollo' | 'gemini';
+  source: ContactSource;
+  // For Tier 3 contacts, tracks where the fact came from
+  sourceDetail?: string;          // e.g. "Acme careers page", "LinkedIn /in/jsmith"
+  needsVerification?: boolean;    // true for gemini-sourced contacts
 }
 
 export interface EnrichedCompany {
@@ -300,6 +314,9 @@ export interface DealDossier {
   enrichedContacts?: EnrichedContact[];
   enrichedCompany?: EnrichedCompany;
   isEnriched?: boolean;
+  // Contact cascade — records which tier actually produced contacts
+  contactDiscoveryTier?: ContactDiscoveryTier;
+  contactDiscoveryNotes?: string;   // Human-readable: "Apollo found company but no contacts matched procurement role; Gemini found 2 candidates"
   // Glass Box AI
   projectIntelligence?: ProjectIntelligence;
   auditTrail?: EstimationAuditTrail;
