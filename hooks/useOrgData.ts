@@ -29,6 +29,7 @@ function dbTriggerToAppTrigger(t: DbTrigger): SalesTrigger {
         source: t.source || '',
         logic: t.logic || '',
         triggerType: (t as any).trigger_type || 'active',
+        isActive: t.is_active ?? true,
         status: 'Approved',
     };
 }
@@ -219,6 +220,17 @@ export function useOrgData() {
         if (success) {
             setTriggers(prev => prev.map(t =>
                 t.id === triggerId ? { ...t, triggerType: 'active' as const } : t
+            ));
+        }
+        return success;
+    }, []);
+
+    // Toggle active state
+    const toggleTrigger = useCallback(async (triggerId: string, isActive: boolean) => {
+        const success = await dataService.toggleTriggerActiveState(triggerId, isActive);
+        if (success) {
+            setTriggers(prev => prev.map(t =>
+                t.id === triggerId ? { ...t, isActive } : t
             ));
         }
         return success;
@@ -465,6 +477,7 @@ export function useOrgData() {
         addTrigger,
         addAITriggers,
         removeTrigger,
+        toggleTrigger,
         activateTrigger,
         addTrackedWebsite,
         removeTrackedWebsite,

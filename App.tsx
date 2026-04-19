@@ -23,6 +23,43 @@ import { geminiService } from './services/geminiService';
 import { dataService } from './services/dataService';
 import { AlertTriangle, Key, ExternalLink, LogOut, Loader2 } from 'lucide-react';
 
+// ── Hardcoded preset triggers (always included in hunts) ─────────────────────
+const PRESET_TRIGGERS: SalesTrigger[] = [
+  {
+    id: 'preset-new-project',
+    product: 'All Products',
+    event: 'New Project Announcement',
+    source: 'Construction / Development News',
+    logic: 'New facility requires immediate site setup and infrastructure.',
+    triggerType: 'active',
+    isActive: true,
+    status: 'Approved',
+    scope: 'global',
+  },
+  {
+    id: 'preset-contract-awarded',
+    product: 'All Products',
+    event: 'Contract Awarded',
+    source: 'Government Tenders / Industry News',
+    logic: 'Winning bidder enters immediate procurement phase.',
+    triggerType: 'active',
+    isActive: true,
+    status: 'Approved',
+    scope: 'global',
+  },
+  {
+    id: 'preset-funding-approval',
+    product: 'All Products',
+    event: 'Funding approval for major facility upgrades',
+    source: 'Government Budgets / Health News',
+    logic: 'Approved funding unlocks procurement for building materials and fitouts.',
+    triggerType: 'active',
+    isActive: true,
+    status: 'Approved',
+    scope: 'global',
+  },
+];
+
 // Set to true to use the simplified auth test page
 const AUTH_TEST_MODE = false;
 
@@ -60,6 +97,7 @@ const AppContent: React.FC = () => {
     updateTrackedWebsiteScanTime,
     addAITriggers,
     removeTrigger,
+    toggleTrigger,
     activateTrigger,
     saveSignal,
     updateSignalStatus,
@@ -320,8 +358,21 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const handleUpdateStatus = (id: string, status: LeadStatus) => {
+  const handleUpdateStatus = async (id: string, status: LeadStatus) => {
+    // Optimistic update
     setSignals(prev => prev.map(s => s.id === id ? { ...s, status } : s));
+    
+    // Resolve DB ID - if we have a mapping from local to DB ID, use it.
+    // Otherwise assume the 'id' is already a DB UUID (common after sync)
+    const dbSignalId = signalIdMap[id] || id;
+    
+    try {
+      await updateSignalStatus(dbSignalId, status);
+      console.log(`[APP] Signal ${dbSignalId} status updated to ${status} in Supabase`);
+    } catch (err) {
+      console.error("[APP] Failed to update signal status in Supabase:", err);
+      // Optional: rollback if persistence fails
+    }
   };
 
   const handleUpdateFeedback = async (id: string, feedback: 'Positive' | 'Negative') => {
@@ -395,8 +446,10 @@ const AppContent: React.FC = () => {
   };
 
   const handleStartHunting = () => {
-    // Always use DB-backed active triggers for hunting
-    const huntTriggers = activeTriggers.filter(t => !t.triggerType || t.triggerType === 'active');
+    // Use ALL active triggers (both user-created and AI-generated) + presets for hunting
+    const dbEventNames = new Set(activeTriggers.map(t => t.event.toLowerCase().trim()));
+    const uniquePresets = PRESET_TRIGGERS.filter(p => !dbEventNames.has(p.event.toLowerCase().trim()));
+    const huntTriggers = [...uniquePresets, ...activeTriggers].filter(t => t.isActive !== false);
     if (businessProfile && huntTriggers.length > 0) {
       setIsHunting(true);
       triggerHunting(businessProfile, huntTriggers, dbTrackedWebsites, activeHuntingRegion);
@@ -713,7 +766,7 @@ const AppContent: React.FC = () => {
           }}
           signals={signals}
           onDeleteTrigger={removeTrigger}
-          onActivateTrigger={activateTrigger}
+          onToggleTrigger={toggleTrigger}
           onAddTrackedWebsite={addTrackedWebsite}
           onRemoveTrackedWebsite={removeTrackedWebsite}
           onScanWebsite={handleScanWebsite}

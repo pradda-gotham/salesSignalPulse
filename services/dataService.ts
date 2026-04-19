@@ -31,7 +31,6 @@ export async function getTriggers(orgId: string): Promise<Trigger[]> {
         .from('triggers')
         .select('*')
         .eq('org_id', orgId)
-        .eq('is_active', true)
         .order('created_at', { ascending: false });
 
     if (error) {
@@ -54,6 +53,7 @@ export async function createTrigger(
             source: trigger.source || null,
             logic: trigger.logic || null,
             trigger_type: trigger.trigger_type || 'active',
+            is_active: true // Explicitly set new triggers to active
         })
         .select()
         .single();
@@ -68,11 +68,24 @@ export async function createTrigger(
 export async function deleteTrigger(triggerId: string): Promise<boolean> {
     const { error } = await supabase
         .from('triggers')
-        .update({ is_active: false })
+        .delete()
         .eq('id', triggerId);
 
     if (error) {
         console.error('[DataService] Error deleting trigger:', error);
+        return false;
+    }
+    return true;
+}
+
+export async function toggleTriggerActiveState(triggerId: string, isActive: boolean): Promise<boolean> {
+    const { error } = await supabase
+        .from('triggers')
+        .update({ is_active: isActive })
+        .eq('id', triggerId);
+
+    if (error) {
+        console.error('[DataService] Error toggling trigger active state:', error);
         return false;
     }
     return true;
@@ -586,6 +599,7 @@ export const dataService = {
     getTriggers,
     createTrigger,
     deleteTrigger,
+    toggleTriggerActiveState,
     updateTriggerType,
     getTrackedWebsites,
     createTrackedWebsite,

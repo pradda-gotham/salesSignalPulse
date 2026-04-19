@@ -30,6 +30,7 @@ import {
   MapPin,
   DollarSign,
   Calendar,
+  CheckCircle2,
 } from 'lucide-react';
 import { BusinessProfile, MarketSignal, DealDossier, SignalUrgency } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
@@ -194,6 +195,10 @@ const InsightsView: React.FC<InsightsViewProps> = ({ profile, signals, dossierCa
     signals.filter(s => s.status === 'New').length,
     [signals]
   );
+  const claimedCount = useMemo(() =>
+    signals.filter(s => s.status !== 'New' && s.status !== 'Archived').length,
+    [signals]
+  );
 
   const industryChartData = useMemo(() => {
     const map: Record<string, { count: number; value: number }> = {};
@@ -341,10 +346,10 @@ const InsightsView: React.FC<InsightsViewProps> = ({ profile, signals, dossierCa
 
       {/* ── KPI Cards ── */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Total Leads (YTD)" value={ytdSignals.length.toString()} delta={signals.length > 0 ? `${signals.length} all-time` : undefined} sub="leads captured this year" icon={<Calendar className="w-full h-full" />} isDarkMode={isDarkMode} />
+        <KpiCard label="Claimed Deals" value={claimedCount.toString()} delta={claimedCount > 0 ? 'Active in funnel' : undefined} sub="Contacted or Meetings" icon={<CheckCircle2 className="w-full h-full" />} isDarkMode={isDarkMode} />
         <KpiCard label="Active Pipeline" value={totalPipelineValue > 0 ? formatCurrency(totalPipelineValue) : signals.length > 0 ? 'Pending' : '—'} delta={totalPipelineValue > 0 ? `${Object.keys(dossierCache).length} dossiers valued` : undefined} sub={totalPipelineValue === 0 && signals.length > 0 ? 'generate dossiers to see value' : undefined} icon={<DollarSign className="w-full h-full" />} isDarkMode={isDarkMode} />
         <KpiCard label="High-Intent Signals" value={highIntentCount.toString()} delta={highIntentCount > 0 ? 'Needs attention' : undefined} sub={`of ${signals.length} total signals`} icon={<Zap className="w-full h-full" />} isDarkMode={isDarkMode} />
-        <KpiCard label="Unclaimed Leads" value={unclaimedCount.toString()} delta={unclaimedCount > 0 ? 'Requires Action' : unclaimedCount === 0 && signals.length > 0 ? 'All engaged ✓' : undefined} deltaUp={unclaimedCount === 0 && signals.length > 0 ? true : undefined} sub="status: New" icon={<AlertCircle className="w-full h-full" />} isDarkMode={isDarkMode} />
+        <KpiCard label="Unclaimed Deals" value={unclaimedCount.toString()} delta={unclaimedCount > 0 ? 'Requires Action' : unclaimedCount === 0 && signals.length > 0 ? 'All engaged ✓' : undefined} deltaUp={unclaimedCount === 0 && signals.length > 0 ? true : undefined} sub="status: New" icon={<AlertCircle className="w-full h-full" />} isDarkMode={isDarkMode} />
       </div>
 
       {/* ── Charts Row ── */}
@@ -356,8 +361,8 @@ const InsightsView: React.FC<InsightsViewProps> = ({ profile, signals, dossierCa
                 <BarChart2 className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>Value of Opportunity by Sector</h3>
-                <p className="text-xs" style={{ color: vl.textMuted }}>Pipeline value & signal count by matched industry</p>
+                <h3 className="font-semibold text-lg" style={{ fontFamily: "'Newsreader', Georgia, serif", color: vl.textMain }}>Value Opportunity by Segment</h3>
+                <p className="text-xs" style={{ color: vl.textMuted }}>Pipeline value & signal count by matched segment</p>
               </div>
             </div>
           </div>

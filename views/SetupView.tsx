@@ -30,7 +30,7 @@ interface SetupViewProps {
   onGenerateSignals: () => void;
   isGenerating: boolean;
   onDeleteTrigger?: (triggerId: string) => Promise<boolean>;
-  onActivateTrigger?: (triggerId: string) => Promise<boolean>;
+  onToggleTrigger?: (triggerId: string, isActive: boolean) => Promise<boolean>;
   onAddTrackedWebsite?: (website: { url: string; purpose?: string; target_keywords?: string }) => Promise<TrackedWebsite | null>;
   onRemoveTrackedWebsite?: (id: string) => Promise<boolean>;
   onScanWebsite?: (site: TrackedWebsite) => Promise<void>;
@@ -40,7 +40,44 @@ interface SetupViewProps {
   isGeneratingAITriggers?: boolean;
 }
 
-type TabType = 'active' | 'ai_generated' | 'tracked_sites';
+type TabType = 'triggers' | 'tracked_sites';
+
+// ── Hardcoded preset triggers (always rendered by default) ─────────────────────
+const PRESET_TRIGGERS: SalesTrigger[] = [
+  {
+    id: 'preset-new-project',
+    product: 'All Products',
+    event: 'New Project Announcement',
+    source: 'Construction / Development News',
+    logic: 'New facility requires immediate site setup and infrastructure.',
+    triggerType: 'active',
+    isActive: true,
+    status: 'Approved',
+    scope: 'global',
+  },
+  {
+    id: 'preset-contract-awarded',
+    product: 'All Products',
+    event: 'Contract Awarded',
+    source: 'Government Tenders / Industry News',
+    logic: 'Winning bidder enters immediate procurement phase.',
+    triggerType: 'active',
+    isActive: true,
+    status: 'Approved',
+    scope: 'global',
+  },
+  {
+    id: 'preset-funding-approval',
+    product: 'All Products',
+    event: 'Funding approval for major facility upgrades',
+    source: 'Government Budgets / Health News',
+    logic: 'Approved funding unlocks procurement for building materials and fitouts.',
+    triggerType: 'active',
+    isActive: true,
+    status: 'Approved',
+    scope: 'global',
+  },
+];
 
 const SetupView: React.FC<SetupViewProps> = ({
   profile,
@@ -51,7 +88,7 @@ const SetupView: React.FC<SetupViewProps> = ({
   onGenerateSignals,
   isGenerating,
   onDeleteTrigger,
-  onActivateTrigger,
+  onToggleTrigger,
   onAddTrackedWebsite,
   onRemoveTrackedWebsite,
   onScanWebsite,
@@ -62,15 +99,16 @@ const SetupView: React.FC<SetupViewProps> = ({
 }) => {
   const { isDarkMode } = useTheme();
   const vl = getVL(isDarkMode);
-  const [activeTab, setActiveTab] = useState<TabType>('active');
+  const [activeTab, setActiveTab] = useState<TabType>('triggers');
   const [showCustomTriggerModal, setShowCustomTriggerModal] = useState(false);
   const [showTrackWebsiteModal, setShowTrackWebsiteModal] = useState(false);
   const [scanningSiteId, setScanningSiteId] = useState<string | null>(null);
 
-  // Filter triggers by tab
-  const activeTriggers = triggers.filter(t => !t.triggerType || t.triggerType === 'active');
-  const aiGeneratedTriggers = triggers.filter(t => t.triggerType === 'ai_generated');
-  const displayTriggers = activeTab === 'active' ? activeTriggers : aiGeneratedTriggers;
+  // Merge preset triggers with DB triggers (dedup by event name)
+  const dbEventNames = new Set(triggers.map(t => t.event.toLowerCase().trim()));
+  const uniquePresets = PRESET_TRIGGERS.filter(p => !dbEventNames.has(p.event.toLowerCase().trim()));
+  const displayTriggers = [...uniquePresets, ...triggers];
+  const activeTriggers = displayTriggers.filter(t => t.isActive !== false);
 
   const handleDelete = async (id: string) => {
     if (onDeleteTrigger) {
@@ -80,9 +118,9 @@ const SetupView: React.FC<SetupViewProps> = ({
     }
   };
 
-  const handleActivate = async (id: string) => {
-    if (onActivateTrigger) {
-      await onActivateTrigger(id);
+  const handleToggle = async (id: string, isActive: boolean) => {
+    if (onToggleTrigger) {
+      await onToggleTrigger(id, isActive);
     }
   };
 
@@ -132,7 +170,6 @@ const SetupView: React.FC<SetupViewProps> = ({
     const isActive = activeTab === tab;
     const colors = {
       indigo: { bg: isActive ? (isDarkMode ? 'rgba(99,91,255,0.18)' : '#EEF2FF') : vl.chipBg, text: isActive ? vl.primary : vl.textMuted },
-      purple: { bg: isActive ? (isDarkMode ? 'rgba(139,92,246,0.18)' : '#F3F4FF') : vl.chipBg, text: isActive ? '#8B5CF6' : vl.textMuted },
       emerald: { bg: isActive ? (isDarkMode ? 'rgba(16,185,129,0.15)' : '#ECFDF5') : vl.chipBg, text: isActive ? '#10B981' : vl.textMuted },
     };
     return {
@@ -147,11 +184,12 @@ const SetupView: React.FC<SetupViewProps> = ({
   };
 
   // ── Status badge ────────────────────────────────────────────────────────────
-  const StatusBadge = ({ type }: { type: 'active' | 'ai' | 'verified' }) => {
+  const StatusBadge = ({ type }: { type: 'active' | 'ai' | 'verified' | 'preset' }) => {
     const configs = {
       active: { label: 'Active', bg: isDarkMode ? 'rgba(16,185,129,0.15)' : '#ECFDF5', color: '#10B981', border: isDarkMode ? 'rgba(16,185,129,0.25)' : '#A7F3D0' },
       ai: { label: 'Leadpulse Suggested', bg: isDarkMode ? 'rgba(139,92,246,0.12)' : '#F3F4FF', color: '#8B5CF6', border: isDarkMode ? 'rgba(139,92,246,0.22)' : '#DDD6FE' },
       verified: { label: 'Verified', bg: isDarkMode ? 'rgba(16,185,129,0.12)' : '#ECFDF5', color: '#10B981', border: isDarkMode ? 'rgba(16,185,129,0.22)' : '#A7F3D0' },
+      preset: { label: 'Default', bg: isDarkMode ? 'rgba(59,130,246,0.12)' : '#EFF6FF', color: '#3B82F6', border: isDarkMode ? 'rgba(59,130,246,0.22)' : '#BFDBFE' },
     };
     const c = configs[type];
     return (
@@ -358,7 +396,7 @@ const SetupView: React.FC<SetupViewProps> = ({
               Active Configurations
             </h2>
 
-            {activeTab === 'ai_generated' && onGenerateAITriggers && (
+            {activeTab === 'triggers' && onGenerateAITriggers && (
               <button
                 onClick={onGenerateAITriggers}
                 disabled={isGeneratingAITriggers}
@@ -389,24 +427,13 @@ const SetupView: React.FC<SetupViewProps> = ({
           {/* Right: Tabs */}
           <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
             <button
-              onClick={() => setActiveTab('active')}
-              style={tabStyle('active')}
-              id="tab-active-triggers"
+              onClick={() => setActiveTab('triggers')}
+              style={tabStyle('triggers')}
+              id="tab-triggers"
             >
-              Active Triggers
-              {activeTriggers.length > 0 && (
-                <span style={badgeStyle('active', 'indigo')}>{activeTriggers.length}</span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('ai_generated')}
-              style={tabStyle('ai_generated')}
-              id="tab-ai-triggers"
-            >
-              <Sparkles style={{ width: '11px', height: '11px' }} />
-              Leadpulse Generated
-              {aiGeneratedTriggers.length > 0 && (
-                <span style={badgeStyle('ai_generated', 'purple')}>{aiGeneratedTriggers.length}</span>
+              Triggers
+              {triggers.length > 0 && (
+                <span style={badgeStyle('triggers', 'indigo')}>{triggers.length}</span>
               )}
             </button>
             <button
@@ -615,46 +642,35 @@ const SetupView: React.FC<SetupViewProps> = ({
                       alignItems: 'center',
                       gap: '10px',
                     }}>
-                      {activeTab === 'ai_generated' ? (
-                        <>
-                          <Sparkles style={{ width: '28px', height: '28px', color: vl.textMuted }} />
-                          <p style={{ fontSize: '14px', color: vl.textBody, margin: 0 }}>
-                            No Leadpulse-generated triggers yet.
-                          </p>
-                          <p style={{ fontSize: '13px', color: vl.textMuted, textAlign: 'center', maxWidth: '320px', margin: 0, lineHeight: '18px' }}>
-                            Use the <strong>Auto-Generate</strong> button to let Leadpulse propose intelligent signals based on your business profile.
-                          </p>
-                          {onGenerateAITriggers && (
-                            <button
-                              onClick={onGenerateAITriggers}
-                              disabled={isGeneratingAITriggers}
-                              style={{
-                                marginTop: '8px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                padding: '8px 16px',
-                                borderRadius: '6px',
-                                fontSize: '13px',
-                                fontWeight: 600,
-                                cursor: isGeneratingAITriggers ? 'not-allowed' : 'pointer',
-                                background: vl.primarySoft,
-                                color: vl.primary,
-                                border: `1px solid rgba(99,91,255,0.2)`,
-                              }}
-                            >
-                              {isGeneratingAITriggers ? <RefreshCw style={{ width: '13px', height: '13px' }} className="animate-spin" /> : <Sparkles style={{ width: '13px', height: '13px' }} />}
-                              {isGeneratingAITriggers ? 'Generating Triggers...' : 'Generate AI Triggers'}
-                            </button>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <Target style={{ width: '28px', height: '28px', color: vl.textMuted }} />
-                          <p style={{ fontSize: '14px', color: vl.textBody, margin: 0 }}>
-                            No active triggers configured.
-                          </p>
-                        </>
+                      <Target style={{ width: '28px', height: '28px', color: vl.textMuted }} />
+                      <p style={{ fontSize: '14px', color: vl.textBody, margin: 0 }}>
+                        No triggers configured.
+                      </p>
+                      <p style={{ fontSize: '13px', color: vl.textMuted, textAlign: 'center', maxWidth: '320px', margin: 0, lineHeight: '18px' }}>
+                        Use the <strong>Auto-Generate</strong> button above to let Leadpulse propose intelligent signals based on your business profile.
+                      </p>
+                      {onGenerateAITriggers && (
+                        <button
+                          onClick={onGenerateAITriggers}
+                          disabled={isGeneratingAITriggers}
+                          style={{
+                            marginTop: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '8px 16px',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: isGeneratingAITriggers ? 'not-allowed' : 'pointer',
+                            background: vl.primarySoft,
+                            color: vl.primary,
+                            border: `1px solid rgba(99,91,255,0.2)`,
+                          }}
+                        >
+                          {isGeneratingAITriggers ? <RefreshCw style={{ width: '13px', height: '13px' }} className="animate-spin" /> : <Sparkles style={{ width: '13px', height: '13px' }} />}
+                          {isGeneratingAITriggers ? 'Generating Triggers...' : 'Generate AI Triggers'}
+                        </button>
                       )}
                     </div>
                   </td>
@@ -679,7 +695,7 @@ const SetupView: React.FC<SetupViewProps> = ({
                       </p>
                     </td>
                     <td style={{ padding: '16px 20px', verticalAlign: 'top' }}>
-                      <StatusBadge type={t.triggerType === 'ai_generated' ? 'ai' : 'verified'} />
+                      <StatusBadge type={t.id.startsWith('preset-') ? 'preset' : t.triggerType === 'ai_generated' ? 'ai' : 'verified'} />
                     </td>
                     <td style={{ padding: '16px 20px', verticalAlign: 'top' }}>
                       {t.scope === 'global' ? (
@@ -722,77 +738,65 @@ const SetupView: React.FC<SetupViewProps> = ({
                       )}
                     </td>
                     <td style={{ padding: '16px 20px', verticalAlign: 'top', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-                        {t.triggerType === 'ai_generated' && onActivateTrigger && (
-                          <button
-                            onClick={() => handleActivate(t.id)}
+                      {t.id.startsWith('preset-') ? (
+                        <span style={{
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          color: vl.textMuted,
+                          padding: '4px 10px',
+                          borderRadius: '4px',
+                          background: vl.chipBg,
+                        }}>
+                          Verify
+                        </span>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '16px' }}>
+                          <div
+                            onClick={() => handleToggle(t.id, !t.isActive)}
                             style={{
+                              width: '32px',
+                              height: '18px',
+                              borderRadius: '9px',
+                              background: t.isActive ? vl.primary : vl.borderStrong,
+                              position: 'relative',
+                              cursor: 'pointer',
+                              transition: 'background 0.2s',
+                            }}
+                          >
+                            <div style={{
+                              position: 'absolute',
+                              top: '2px',
+                              left: t.isActive ? '16px' : '2px',
+                              width: '14px',
+                              height: '14px',
+                              borderRadius: '7px',
+                              background: '#fff',
+                              transition: 'left 0.2s',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                            }} />
+                          </div>
+                          <button
+                            onClick={() => handleDelete(t.id)}
+                            style={{
+                              width: '28px',
+                              height: '28px',
                               display: 'flex',
                               alignItems: 'center',
-                              gap: '4px',
-                              padding: '5px 10px',
+                              justifyContent: 'center',
                               borderRadius: '4px',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              background: vl.primary,
-                              color: '#fff',
                               border: 'none',
-                              transition: 'background 0.15s',
-                            }}
-                            onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = vl.primaryHover}
-                            onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = vl.primary}
-                          >
-                            <ArrowRight style={{ width: '11px', height: '11px' }} />
-                            Activate
-                          </button>
-                        )}
-                        {activeTab === 'active' && (
-                          <button
-                            style={{
-                              padding: '5px 10px',
-                              borderRadius: '4px',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              cursor: 'pointer',
                               background: 'transparent',
-                              color: vl.textBody,
-                              border: `1px solid ${vl.borderStrong}`,
-                              transition: 'all 0.15s',
+                              color: vl.textMuted,
+                              cursor: 'pointer',
+                              transition: 'color 0.15s',
                             }}
-                            onMouseEnter={e => {
-                              (e.currentTarget as HTMLButtonElement).style.borderColor = vl.primary;
-                              (e.currentTarget as HTMLButtonElement).style.color = vl.primary;
-                            }}
-                            onMouseLeave={e => {
-                              (e.currentTarget as HTMLButtonElement).style.borderColor = vl.borderStrong;
-                              (e.currentTarget as HTMLButtonElement).style.color = vl.textBody;
-                            }}
+                            onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.color = '#EF4444'}
+                            onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.color = vl.textMuted}
                           >
-                            Verify
+                            <Trash2 style={{ width: '14px', height: '14px' }} />
                           </button>
-                        )}
-                        <button
-                          onClick={() => handleDelete(t.id)}
-                          style={{
-                            width: '28px',
-                            height: '28px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderRadius: '4px',
-                            border: 'none',
-                            background: 'transparent',
-                            color: vl.textMuted,
-                            cursor: 'pointer',
-                            transition: 'color 0.15s',
-                          }}
-                          onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.color = '#EF4444'}
-                          onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.color = vl.textMuted}
-                        >
-                          <Trash2 style={{ width: '14px', height: '14px' }} />
-                        </button>
-                      </div>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -873,7 +877,7 @@ const SetupView: React.FC<SetupViewProps> = ({
           onClose={() => setShowCustomTriggerModal(false)}
           onAdd={(newTrigger) => {
             setTriggers(prev => [...prev, newTrigger]);
-            setActiveTab('active');
+            setActiveTab('triggers');
           }}
         />
       )}
