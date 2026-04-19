@@ -388,7 +388,7 @@ const SignalsView: React.FC<{
 
       {/* Metrics Grid */}
       <div 
-        className="rounded-[6px] border flex shadow-sm overflow-hidden"
+        className="rounded-[6px] border flex shadow-sm overflow-visible"
         style={{ background: vl.surface, borderColor: vl.border }}
       >
         {/* Total Leads */}

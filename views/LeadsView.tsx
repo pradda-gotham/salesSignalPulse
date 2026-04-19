@@ -472,7 +472,7 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
                   : tier === 'gemini_grounded'
                   ? { color: '#6366F1', label: 'AI-DISCOVERED', Icon: Sparkles, title: dossier.contactDiscoveryNotes || 'Contacts discovered via Google Search grounding — verify before reaching out' }
                   : tier === 'hints_only'
-                  ? { color: '#F59E0B', label: 'RESEARCH HINTS', Icon: Info, title: dossier.contactDiscoveryNotes || 'No direct contacts found — see research hints below' }
+                  ? { color: '#F59E0B', label: 'RESEARCH HINTS', Icon: Info, title: dossier.contactDiscoveryNotes || 'No direct contacts found — verify manually' }
                   : null;
                 if (!config) return null;
                 const { color, label, Icon, title } = config;
@@ -612,7 +612,8 @@ const LeadsView: React.FC<LeadsViewProps> = ({ signal, dossier, isLoading, error
 
           {/* Research Hints — shown when cascade reached hints_only, or when
               signal carries research hints (government tenders, project winners) */}
-          {(signal.researchHints || dossier?.contactDiscoveryTier === 'hints_only') && signal.researchHints && (
+          {/* Hiding Research Hints for now as requested */}
+          {false && (signal.researchHints || dossier?.contactDiscoveryTier === 'hints_only') && signal.researchHints && (
             <section className="p-6 rounded-[6px] border space-y-4 vl-card" style={{ borderColor: vl.border }}>
               <div className="label-caps flex items-center gap-2" style={{ color: vl.textMuted }}>
                 <Info className="w-4 h-4" style={{ color: '#F59E0B' }} />
