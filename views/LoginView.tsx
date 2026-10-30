@@ -8,15 +8,13 @@ interface LoginViewProps {
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
-    const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
+    const { signIn, signInWithGoogle, resetPassword } = useAuth();
     const { isDarkMode } = useTheme();
     const vl = getVL(isDarkMode);
     
-    const [isSignUp, setIsSignUp] = useState(false);
     const [isForgotPassword, setIsForgotPassword] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -28,11 +26,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
             return;
         }
 
-        if (isSignUp && password !== confirmPassword) {
-            setMessage({ type: 'error', text: 'Passwords do not match' });
-            return;
-        }
-
         if (password.length < 6) {
             setMessage({ type: 'error', text: 'Password must be at least 6 characters' });
             return;
@@ -41,23 +34,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
         setLoading(true);
         setMessage(null);
 
-        if (isSignUp) {
-            const { error } = await signUp(email, password);
-            if (error) {
-                setMessage({ type: 'error', text: error.message });
-            } else {
-                setMessage({
-                    type: 'success',
-                    text: '✨ Account created! Please check your email to verify.'
-                });
-            }
+        const { error } = await signIn(email, password);
+        if (error) {
+            setMessage({ type: 'error', text: error.message });
         } else {
-            const { error } = await signIn(email, password);
-            if (error) {
-                setMessage({ type: 'error', text: error.message });
-            } else {
-                if (onSuccess) onSuccess();
-            }
+            if (onSuccess) onSuccess();
         }
 
         setLoading(false);
@@ -149,7 +130,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                     {/* Welcome text */}
                     <div style={{ marginBottom: '32px' }}>
                         <h3 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '32px', fontWeight: '700', color: vl.textMain, marginBottom: '12px' }}>
-                            {isForgotPassword ? 'Reset Password' : (isSignUp ? 'Get Started!' : 'Welcome Back!')}
+                            {isForgotPassword ? 'Reset Password' : 'Welcome Back!'}
                         </h3>
                         {isForgotPassword && (
                             <p style={{ fontSize: '13px', color: vl.textBody, lineHeight: '1.6' }}>
@@ -185,19 +166,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                                     />
                                 </div>
 
-                                {isSignUp && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                        <label style={{ fontSize: '11px', color: vl.textMuted, fontWeight: '700' }} className="label-caps">Confirm Password</label>
-                                        <input
-                                            type="password"
-                                            value={confirmPassword}
-                                            onChange={(e) => setConfirmPassword(e.target.value)}
-                                            placeholder="••••••••"
-                                            style={{ padding: '16px 0', fontSize: '13px', borderRadius: '0', border: 'none', borderBottom: `1px solid ${vl.borderStrong}`, backgroundColor: 'transparent', color: vl.textMain, outline: 'none', transition: 'border-color 0.2s' }}
-                                            disabled={loading}
-                                        />
-                                    </div>
-                                )}
                             </>
                         )}
 
@@ -227,12 +195,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                             disabled={loading}
                         >
                             {loading ? 'Please wait...' : (
-                                isForgotPassword ? 'Send Reset Link' : (isSignUp ? 'Create Account' : 'Login Now')
+                                isForgotPassword ? 'Send Reset Link' : 'Login Now'
                             )}
                         </button>
 
                         {/* Forgot Password / Back to Login */}
-                        {!isSignUp && !isForgotPassword && (
+                        {!isForgotPassword && (
                             <div style={{ textAlign: 'center', fontSize: '13px', color: vl.textMuted, marginTop: '8px' }}>
                                 Forget password?{' '}
                                 <button
@@ -264,23 +232,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                             </div>
                         )}
 
-                        {/* Toggle Sign Up / Sign In */}
-                        {!isForgotPassword && (
-                            <div style={{ textAlign: 'center', fontSize: '13px', color: vl.textMuted, marginTop: '16px', paddingTop: '16px', borderTop: `1px solid ${vl.borderStrong}` }}>
-                                {isSignUp ? "Already have an account? " : "Don't have an account? "}
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsSignUp(!isSignUp);
-                                        setMessage(null);
-                                        setConfirmPassword('');
-                                    }}
-                                    style={{ background: 'none', border: 'none', color: vl.primary, textDecoration: 'none', cursor: 'pointer', padding: 0, fontSize: '13px', fontWeight: '700' }}
-                                >
-                                    {isSignUp ? 'Sign In' : 'Sign Up'}
-                                </button>
-                            </div>
-                        )}
                     </form>
                 </div>
             </div>

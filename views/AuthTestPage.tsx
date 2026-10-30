@@ -4,11 +4,11 @@ import { useTheme } from '../contexts/ThemeContext';
 import { getVL } from '../utils/vesper';
 
 /**
- * Simple auth test page to verify signup/login/org creation works
+ * Simple auth test page to verify login/org creation works
  * independently from the rest of the app.
  */
 export default function AuthTestPage() {
-    const { user, userProfile, organization, loading, signUp, signIn, signOut, createOrg } = useAuth();
+    const { user, userProfile, organization, loading, signIn, signOut, createOrg } = useAuth();
     const { isDarkMode } = useTheme();
     const vl = getVL(isDarkMode);
 
@@ -17,18 +17,6 @@ export default function AuthTestPage() {
     const [orgName, setOrgName] = useState('');
     const [message, setMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-
-    const handleSignUp = async () => {
-        setIsLoading(true);
-        setMessage('');
-        const { error } = await signUp(email, password);
-        if (error) {
-            setMessage(`❌ Signup Error: ${error.message}`);
-        } else {
-            setMessage('✅ Signed up successfully!');
-        }
-        setIsLoading(false);
-    };
 
     const handleSignIn = async () => {
         setIsLoading(true);
@@ -86,9 +74,9 @@ export default function AuthTestPage() {
             )}
 
             {!user ? (
-                /* Login/Signup Form */
+                /* Login Form */
                 <div style={{ ...styles.form, background: vl.surface, border: `1px solid ${vl.border}` }}>
-                    <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", marginBottom: '16px' }}>Login or Sign Up</h2>
+                    <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", marginBottom: '16px' }}>Log In</h2>
                     <input
                         type="email"
                         placeholder="Email"
@@ -106,9 +94,6 @@ export default function AuthTestPage() {
                         style={{ ...styles.input, background: vl.surfaceMuted, color: vl.textMain, border: `1px solid ${vl.borderStrong}` }}
                     />
                     <div style={styles.buttons}>
-                        <button onClick={handleSignUp} disabled={isLoading} className="btn-primary" style={{ flex: 1 }}>
-                            {isLoading ? '...' : 'Sign Up'}
-                        </button>
                         <button onClick={handleSignIn} disabled={isLoading} className="btn-primary" style={{ flex: 1 }}>
                             {isLoading ? '...' : 'Log In'}
                         </button>

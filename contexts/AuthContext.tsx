@@ -8,7 +8,6 @@ interface AuthContextType {
     userProfile: UserProfile | null;
     organization: Organization | null;
     loading: boolean;
-    signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
     signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
     signInWithGoogle: () => Promise<{ error: Error | null }>;
     resetPassword: (email: string) => Promise<{ error: Error | null }>;
@@ -103,29 +102,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         return () => subscription.unsubscribe();
     }, []);
-
-    // Sign up with email/password
-    const signUp = async (email: string, password: string) => {
-        console.log('[Auth] Signing up:', email);
-        const { error } = await supabase.auth.signUp({ email, password });
-
-        if (error) {
-            console.error('[Auth] Signup error:', error);
-            return { error };
-        }
-
-        // Create user profile
-        const { data: { user: newUser } } = await supabase.auth.getUser();
-        if (newUser) {
-            console.log('[Auth] Creating user profile...');
-            await supabase.from('users').insert({
-                id: newUser.id,
-                email: newUser.email!,
-            });
-        }
-
-        return { error: null };
-    };
 
     // Sign in with email/password
     const signIn = async (email: string, password: string) => {
@@ -225,7 +201,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             userProfile,
             organization,
             loading,
-            signUp,
             signIn,
             signInWithGoogle,
             resetPassword,
